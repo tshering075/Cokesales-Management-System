@@ -1,0 +1,10 @@
+/* Compact table on mobile */
+@media (max-width: 768px) {
+  .MuiTableCell-root {
+    padding: 4px !important;
+    font-size: 0.75rem !important;
+  }
+  .MuiTable-root {
+    min-width: 100% !important;
+  }
+}

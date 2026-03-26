@@ -1,0 +1,406 @@
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import LoginPage from "../pages/LoginPage";
+import LandingPage from "../pages/LandingPage";
+import DistributorDashboard from "../pages/DistributorDashboard";
+import AdminDashboard from "../pages/AdminDashboard";
+import { onAuthStateChange, getCurrentUser, signOutUser, getDistributorByUid, getAdminByUid } from "../services/supabaseService";
+import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
+
+const SESSION_ROLE_KEY = "session_role";
+const SESSION_DISTRIBUTOR_INFO_KEY = "session_distributor_info";
+const SESSION_AUTH_ACTIVE_KEY = "session_auth_active";
+
+function readSessionDistributorInfo() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
+    if (!raw || typeof raw !== "string") return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+// Inner component that can use useNavigate hook
+function AppRouterInner() {
+  const navigate = useNavigate();
+  const [role, setRole] = useState(() => {
+    // Session-only auth: cleared when browser/tab closes.
+    return sessionStorage.getItem(SESSION_ROLE_KEY);
+  });
+  const [distributorInfo, setDistributorInfo] = useState(() => {
+    const stored = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  // Helper function to check if user is authenticated (checks both state and localStorage)
+  // Always prioritizes localStorage as it's the source of truth on page refresh
+  const isAuthenticated = (requiredRole = null) => {
+    // Session storage is the source of truth for active login session.
+    const storedRole = sessionStorage.getItem(SESSION_ROLE_KEY);
+    // Use stored role if available, otherwise fall back to state
+    const currentRole = storedRole || role;
+    
+    // Debug logging (can be removed later)
+    if (process.env.NODE_ENV === 'development' && requiredRole) {
+      console.log(`[Auth Check] Required: ${requiredRole}, Current: ${currentRole}, Stored: ${storedRole}, State: ${role}`);
+    }
+    
+    if (!currentRole) {
+      return false;
+    }
+    
+    if (requiredRole) {
+      // For specific role check, match exactly (case-insensitive for safety)
+      const matches = currentRole.toLowerCase() === requiredRole.toLowerCase();
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Auth Check] Role match: ${matches} (${currentRole} === ${requiredRole})`);
+      }
+      return matches;
+    }
+    
+    // For general check, allow admin, viewer, or distributor
+    const roleLower = currentRole.toLowerCase();
+    return roleLower === "admin" || roleLower === "viewer" || roleLower === "distributor";
+  };
+  
+  // Get current role from state or localStorage (prioritizes localStorage)
+  const getCurrentRole = () => {
+    const stored = sessionStorage.getItem(SESSION_ROLE_KEY);
+    const current = stored || role;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Get Current Role] Stored: ${stored}, State: ${role}, Returning: ${current}`);
+    }
+    return current;
+  };
+
+  // Listen to Supabase auth state changes
+  useEffect(() => {
+    let isMounted = true;
+    
+    const unsubscribe = onAuthStateChange(async (user) => {
+      if (!isMounted) return;
+      const hasActiveSession = sessionStorage.getItem(SESSION_AUTH_ACTIVE_KEY) === "true";
+      
+      if (user) {
+        // App was reopened (sessionStorage cleared) but Supabase remembered user.
+        // Keep user on login until they explicitly log in again.
+        if (!hasActiveSession) {
+          if (isMounted) {
+            setAuthLoading(false);
+          }
+          return;
+        }
+
+        // User is signed in, check if they're admin or distributor
+        try {
+          const admin = await getAdminByUid(user.id);
+          if (admin && isMounted) {
+            // Get actual role from Supabase (admin or viewer)
+            const actualRole = admin.role || "admin"; // Default to admin for backward compatibility
+            setRole(actualRole);
+            setDistributorInfo(null);
+            sessionStorage.setItem(SESSION_ROLE_KEY, actualRole);
+            // Also store user role and permissions for permission checks
+            localStorage.setItem("userRole", actualRole);
+            if (admin.permissions) {
+              localStorage.setItem("userPermissions", JSON.stringify(admin.permissions));
+            }
+            setAuthLoading(false);
+            return;
+          }
+          
+          const distributor = await getDistributorByUid(user.id);
+          if (distributor && isMounted) {
+            setRole("distributor");
+            const info = { name: distributor.name, code: distributor.code };
+            setDistributorInfo(info);
+            sessionStorage.setItem(SESSION_ROLE_KEY, "distributor");
+            sessionStorage.setItem(SESSION_DISTRIBUTOR_INFO_KEY, JSON.stringify(info));
+            setAuthLoading(false);
+            return;
+          }
+          
+          if (isMounted) {
+            setAuthLoading(false);
+          }
+        } catch (error) {
+          console.error("Error checking user role:", error);
+          if (isMounted) {
+            setAuthLoading(false);
+          }
+        }
+      } else {
+        // Distributors can sign in with code + row credentials only (no Supabase Auth user).
+        // Do not wipe their session when Auth reports no user.
+        const keepDistributorSession =
+          sessionStorage.getItem(SESSION_AUTH_ACTIVE_KEY) === "true" &&
+          sessionStorage.getItem(SESSION_ROLE_KEY) === "distributor";
+
+        if (keepDistributorSession) {
+          if (isMounted) {
+            setAuthLoading(false);
+          }
+          return;
+        }
+
+        sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
+        sessionStorage.removeItem(SESSION_ROLE_KEY);
+        sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
+        if (isMounted) {
+          setRole(null);
+          setDistributorInfo(null);
+          setAuthLoading(false);
+        }
+      }
+    });
+    
+    // Set loading to false after initial check
+    const timeout = setTimeout(() => {
+      if (isMounted) {
+        setAuthLoading(false);
+      }
+    }, 1000);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error("Error unsubscribing from auth:", error);
+      }
+    };
+  }, []);
+
+  // Save role and distributor info to localStorage whenever they change
+  useEffect(() => {
+    if (role) {
+      sessionStorage.setItem(SESSION_ROLE_KEY, role);
+    } else {
+      sessionStorage.removeItem(SESSION_ROLE_KEY);
+      sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
+      sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
+      setDistributorInfo(null);
+    }
+  }, [role]);
+
+  const handleLogin = (newRole, distributor = null) => {
+    sessionStorage.setItem(SESSION_AUTH_ACTIVE_KEY, "true");
+    setRole(newRole);
+    if (newRole === "distributor" && distributor) {
+      const info = { name: distributor.name, code: distributor.code };
+      setDistributorInfo(info);
+      sessionStorage.setItem(SESSION_DISTRIBUTOR_INFO_KEY, JSON.stringify(info));
+    }
+  };
+
+  const handleLogout = () => {
+    // Get user info before clearing state (for logging)
+    const userEmail = localStorage.getItem('admin_email') || 'Unknown';
+    const userName = userEmail.split('@')[0];
+    const userRole = role || 'Unknown';
+    
+    // Clear state and localStorage IMMEDIATELY (don't wait for async operations)
+    setRole(null);
+    setDistributorInfo(null);
+    
+    // Clear all auth-related localStorage items
+    localStorage.removeItem("role");
+    localStorage.removeItem("distributorInfo");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userPermissions");
+    localStorage.removeItem("admin_email");
+    sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
+    sessionStorage.removeItem(SESSION_ROLE_KEY);
+    sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
+    
+    // Navigate immediately - don't wait for async operations
+    navigate("/", { replace: true });
+    
+    // Fire async operations in the background (don't await them)
+    // These will complete in the background and won't block logout
+    (async () => {
+      try {
+        // Get current user for logging (if still available)
+        const currentUser = await getCurrentUser().catch(() => null);
+        
+        // Log logout activity in background (fire and forget)
+        if (currentUser || userEmail !== 'Unknown') {
+          logActivity(
+            ACTIVITY_TYPES.LOGOUT,
+            `User logged out: ${userEmail} (${userRole})`,
+            {
+              userEmail,
+              userName,
+              role: userRole,
+            }
+          ).catch(error => {
+            // Silently ignore errors - logout already completed
+            if (error.name !== 'AbortError') {
+              console.error("Error logging logout activity (non-blocking):", error);
+            }
+          });
+        }
+        
+        // Sign out from Supabase in background (fire and forget)
+        if (currentUser) {
+          signOutUser().catch(error => {
+            // Silently ignore errors - logout already completed
+            if (error.name !== 'AbortError') {
+              console.error("Error signing out from Supabase (non-blocking):", error);
+            }
+          });
+        }
+      } catch (error) {
+        // Silently ignore all errors - logout already completed
+        if (error.name !== 'AbortError') {
+          console.error("Error in background logout operations (non-blocking):", error);
+        }
+      }
+    })();
+  };
+
+  // If we have a stored role but state hasn't loaded yet, ensure role is set
+  // This prevents authentication checks from failing during initial render
+  // MUST be called before any conditional returns (React Hooks rule)
+  const hasStoredRole = !!sessionStorage.getItem(SESSION_ROLE_KEY);
+  useEffect(() => {
+    if (hasStoredRole && !role) {
+      const storedRole = sessionStorage.getItem(SESSION_ROLE_KEY);
+      if (storedRole) {
+        setRole(storedRole);
+        // Also load distributor info if it's a distributor
+        if (storedRole === "distributor") {
+          const storedDistributorInfo = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
+          if (storedDistributorInfo) {
+            try {
+              setDistributorInfo(JSON.parse(storedDistributorInfo));
+            } catch (e) {
+              console.error("Error parsing distributor info:", e);
+            }
+          }
+        }
+      }
+    }
+  }, [hasStoredRole, role]);
+
+  // Show loading state while checking authentication
+  // But only if we don't have a role in localStorage (first time load)
+  // If we have a role, render routes immediately to preserve current page on refresh
+  // Only show loading if we're truly loading AND don't have a stored role
+  // This ensures that on refresh, if we have a role in localStorage, we render immediately
+  // and preserve the current route
+  if (authLoading && !hasStoredRole) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        background: 'linear-gradient(135deg, #fff 0%, #fef2f2 50%, #fff 100%)'
+      }}>
+        <img 
+          src="/app-logo.png"
+          alt="CokeSales Management System"
+          style={{ width: 200, height: "auto", maxWidth: "min(90vw, 260px)" }}
+        />
+        <div style={{
+          marginTop: 32,
+          width: 40,
+          height: 40,
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #E40521',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Public home — OAuth verification: app purpose + name without login */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated() ? (
+            <Navigate
+              to={getCurrentRole() === "distributor" ? "/distributor" : "/admin"}
+              replace
+            />
+          ) : (
+            <LandingPage />
+          )
+        }
+      />
+
+      {/* Login */}
+      <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+
+      {/* Distributor Dashboard - Preserve route on refresh */}
+      <Route
+        path="/distributor"
+        element={
+          !isAuthenticated() ? (
+            <Navigate to="/login" replace />
+          ) : (
+            (() => {
+              const fromSession = readSessionDistributorInfo();
+              return (
+                <DistributorDashboard
+                  distributorName={distributorInfo?.name || fromSession.name || "Distributor"}
+                  distributorCode={distributorInfo?.code || fromSession.code}
+                  onLogout={handleLogout}
+                />
+              );
+            })()
+          )
+        }
+      />
+
+      {/* Admin Dashboard - Preserve route on refresh */}
+      <Route
+        path="/admin"
+        element={
+          !isAuthenticated() ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <AdminDashboard onLogout={handleLogout} />
+          )
+        }
+      />
+
+      {/* Firebase Test Route removed */}
+
+      {/* Unknown paths */}
+      <Route
+        path="*"
+        element={
+          !isAuthenticated() ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <h2>404 - Page Not Found</h2>
+              <p>The page you&apos;re looking for doesn&apos;t exist.</p>
+            </div>
+          )
+        }
+      />
+    </Routes>
+  );
+}
+
+function AppRouter() {
+  return (
+    <BrowserRouter>
+      <AppRouterInner />
+    </BrowserRouter>
+  );
+}
+
+export default AppRouter;

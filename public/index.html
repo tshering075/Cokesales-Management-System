@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/app-logo.png" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#E40521" />
+    <meta name="description" content="CokeSales Management System — distributor sales tracking, targets, orders, and optional Gmail-based order approvals for beverage distribution teams." />
+    <!-- Search Console: URL-prefix property https://cokesalesmanagementsystem.netlify.app/ — paste the meta tag Google gives you; replace content if the token changes. -->
+    <meta name="google-site-verification" content="r2bnsKEIfGipfRmaeqsHk7Omfw4OGGU8xl60nY17UNY" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/app-logo.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>CokeSales Management System</title>
+    <style>
+      #splash-screen {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #fff 0%, #fef2f2 50%, #fff 100%);
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      #splash-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash-screen img {
+        width: 220px;
+        height: auto;
+        animation: splashPulse 1.5s ease-in-out infinite;
+      }
+      #splash-screen .splash-loader {
+        margin-top: 32px;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #E40521;
+        border-radius: 50%;
+        animation: splashSpin 0.8s linear infinite;
+      }
+      @keyframes splashPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes splashSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="splash-screen">
+      <img src="%PUBLIC_URL%/app-logo.png" alt="CokeSales Management System" width="220" />
+      <div class="splash-loader"></div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>
