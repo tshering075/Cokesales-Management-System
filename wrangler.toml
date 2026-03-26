@@ -1,0 +1,10 @@
+# Cloudflare Workers — static React app (Option B).
+# Deploy: npm run build && npx wrangler deploy
+# Or: npm run deploy:cf
+
+name = "cokesales-management-system"
+compatibility_date = "2025-04-01"
+
+[assets]
+directory = "./build"
+not_found_handling = "single-page-application"

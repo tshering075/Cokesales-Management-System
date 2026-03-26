@@ -1,1 +1,2 @@
-/*    /index.html   200
+# (No rules here — avoids Cloudflare Workers deploy error 10021.)
+# Netlify still uses netlify.toml for SPA routing.
