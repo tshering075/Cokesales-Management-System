@@ -472,7 +472,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     [distributorCode, bumpSidebarBadges]
   );
 
-  const getOrderStatus = useCallback((order) => order?.status || "pending", []);
+  const getOrderStatus = useCallback((order) => {
+    const s = order?.status;
+    if (s == null || String(s).trim() === "") return "pending";
+    return String(s).trim().toLowerCase();
+  }, []);
   const getOrderKey = useCallback((order) => {
     if (order?.orderNumber) return `ORD-${order.orderNumber}`;
     if (order?.id) return order.id;
@@ -535,14 +539,19 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   }, []);
 
   /** @param {string} title Short headline shown above the message */
-  const showToast = (message, severity = "info", duration = 4000, title = "") => {
+  const showToast = useCallback((message, severity = "info", duration = 4000, title = "") => {
     setToast({ open: true, message, severity, duration, title });
-  };
+  }, []);
+
+  useEffect(() => {
+    notificationsInitializedRef.current = false;
+    previousOrderStatusesRef.current = {};
+  }, [distributorCode]);
 
   useEffect(() => {
     if (!notificationsInitializedRef.current) {
       const initialStatuses = {};
-      orders.forEach(order => {
+      orders.forEach((order) => {
         initialStatuses[getOrderKey(order)] = getOrderStatus(order);
       });
       previousOrderStatusesRef.current = initialStatuses;
@@ -552,32 +561,60 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
 
     const previous = previousOrderStatusesRef.current || {};
     const nextStatuses = {};
-    orders.forEach(order => {
+    orders.forEach((order) => {
       const key = getOrderKey(order);
       const status = getOrderStatus(order);
       nextStatuses[key] = status;
 
       const prevStatus = previous[key];
-      if (prevStatus && prevStatus !== status) {
+      if (prevStatus !== undefined && prevStatus !== status) {
         if (status === "approved") {
-          pushNotification(
-            `Order ${key} was approved. You can review details under Orders.`,
-            "success",
-            "Order approved"
-          );
+          const msg = `Order ${key} was approved. You can review details under Orders.`;
+          pushNotification(msg, "success", "Order approved");
+          showToast(msg, "success", 6000, "Order approved");
+          (async () => {
+            if (typeof window === "undefined" || !("Notification" in window)) return;
+            try {
+              const iconUrl = getTargetReminderNotificationIconUrl();
+              if (Notification.permission === "granted") {
+                new Notification("Order approved", { body: msg, icon: iconUrl });
+              } else if (Notification.permission === "default") {
+                const p = await Notification.requestPermission();
+                if (p === "granted") {
+                  new Notification("Order approved", { body: msg, icon: iconUrl });
+                }
+              }
+            } catch (e) {
+              console.warn("Browser notification failed:", e);
+            }
+          })();
         } else if (status === "rejected") {
-          pushNotification(
-            `Order ${key} was rejected. Open Orders for details or place a new order if needed.`,
-            "error",
-            "Order rejected"
-          );
+          const msg = `Order ${key} was rejected. Open Orders for details or place a new order if needed.`;
+          pushNotification(msg, "error", "Order rejected");
+          showToast(msg, "error", 6500, "Order rejected");
+          (async () => {
+            if (typeof window === "undefined" || !("Notification" in window)) return;
+            try {
+              const iconUrl = getTargetReminderNotificationIconUrl();
+              if (Notification.permission === "granted") {
+                new Notification("Order rejected", { body: msg, icon: iconUrl });
+              } else if (Notification.permission === "default") {
+                const p = await Notification.requestPermission();
+                if (p === "granted") {
+                  new Notification("Order rejected", { body: msg, icon: iconUrl });
+                }
+              }
+            } catch (e) {
+              console.warn("Browser notification failed:", e);
+            }
+          })();
         } else {
           pushNotification(`Order ${key} is now: ${status}.`, "info", "Order status");
         }
       }
     });
     previousOrderStatusesRef.current = nextStatuses;
-  }, [orders, getOrderKey, getOrderStatus, pushNotification]);
+  }, [orders, getOrderKey, getOrderStatus, pushNotification, showToast]);
 
   useEffect(() => {
     const snapshot = {
@@ -1785,6 +1822,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           onCancelOrder={handleCancelOrder}
           cancelingOrderId={cancelingOrderId}
           getOrderStatus={getOrderStatus}
+          getOrderKey={getOrderKey}
           onEditOrder={handleEditOrderInCalculator}
           onOrderRowClick={handleViewOrderCalculatedTable}
         />

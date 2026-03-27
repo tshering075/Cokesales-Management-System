@@ -32,6 +32,7 @@ export default function OrdersDialog({
   onCancelOrder,
   cancelingOrderId,
   getOrderStatus,
+  getOrderKey,
   onEditOrder,
   onOrderRowClick,
 }) {
@@ -79,7 +80,7 @@ export default function OrdersDialog({
               <TableBody>
                 {orders.map((order, idx) => (
                   <TableRow
-                    key={idx}
+                    key={getOrderKey ? getOrderKey(order) : idx}
                     hover
                     onClick={() => onOrderRowClick && onOrderRowClick(order)}
                     sx={{
