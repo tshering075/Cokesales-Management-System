@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS orders (
   "waterPC" NUMERIC,
   "orderNumber" TEXT,
   "tableImageData" TEXT,
+  status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

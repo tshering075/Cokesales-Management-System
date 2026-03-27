@@ -1056,6 +1056,7 @@ export async function saveOrder(orderData) {
 
     const orderDoc = {
       ...orderData,
+      status: orderData.status != null && String(orderData.status).trim() !== '' ? String(orderData.status).trim() : 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1101,21 +1102,36 @@ export async function saveOrder(orderData) {
  * @param {string} distributorCode - Distributor code
  * @returns {Promise<Array>} Array of order objects
  */
+function normalizeOrderRowStatus(row) {
+  if (!row || typeof row !== 'object') return row;
+  const s = row.status;
+  const normalized =
+    s != null && String(s).trim() !== '' ? String(s).trim().toLowerCase() : 'pending';
+  return { ...row, status: normalized };
+}
+
 export async function getOrdersByDistributor(distributorCode) {
   try {
     if (!supabase) {
       throw new Error('Supabase not initialized');
     }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('distributorCode', distributorCode)
-      .order('created_at', { ascending: false });
+    const code = String(distributorCode || '').trim();
+    if (!code) return [];
 
+    const runSelect = (c) =>
+      supabase.from('orders').select('*').eq('distributorCode', c).order('created_at', { ascending: false });
+
+    let { data, error } = await runSelect(code);
     if (error) throw error;
 
-    return data || [];
+    if ((!data || data.length === 0) && code !== code.toUpperCase()) {
+      const second = await runSelect(code.toUpperCase());
+      if (second.error) throw second.error;
+      data = second.data;
+    }
+
+    return (data || []).map(normalizeOrderRowStatus);
   } catch (error) {
     console.error('Error getting orders by distributor:', error);
     return [];
@@ -1219,6 +1235,11 @@ async function updateOrdersRowMatching(matchFn, basePayload) {
     const missingColumn = missingColumnMatch?.[1];
 
     if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
+      if (missingColumn === 'status') {
+        throw new Error(
+          'The orders table has no `status` column. In Supabase: open SQL Editor and run ADD_ORDERS_STATUS_COLUMN.sql (ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'pending\';)'
+        );
+      }
       const nextPayload = { ...updatePayload };
       delete nextPayload[missingColumn];
       updatePayload = nextPayload;
@@ -1296,14 +1317,19 @@ export function subscribeToOrders(distributorCode, callback) {
     return () => {};
   }
 
+  const code = String(distributorCode || '').trim();
+  if (!code) {
+    return () => {};
+  }
+
   try {
     const subscription = supabase
-      .channel(`orders-${distributorCode}`)
+      .channel(`orders-${code}`)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'orders', filter: `distributorCode=eq.${distributorCode}` },
+        { event: '*', schema: 'public', table: 'orders', filter: `distributorCode=eq.${code}` },
         async () => {
           try {
-            const orders = await getOrdersByDistributor(distributorCode);
+            const orders = await getOrdersByDistributor(code);
             callback(orders);
           } catch (error) {
             if (error.name === 'AbortError') {

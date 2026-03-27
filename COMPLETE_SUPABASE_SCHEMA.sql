@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS orders (
   "waterPC" NUMERIC,                                -- Water PC
   "orderNumber" TEXT,                               -- 4-digit order number
   "tableImageData" TEXT,                            -- Base64 PNG image for email
+  status TEXT DEFAULT 'pending',                     -- pending | sent | approved | rejected | canceled
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

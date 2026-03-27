@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS orders (
   "waterPC" NUMERIC,                            -- ✅ Quoted for camelCase
   "orderNumber" TEXT,                           -- ✅ Quoted for camelCase
   "tableImageData" TEXT,                        -- ✅ Quoted for camelCase
+  status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

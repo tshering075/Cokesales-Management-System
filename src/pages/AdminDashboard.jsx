@@ -3017,7 +3017,7 @@ function AdminDashboard({ onLogout }) {
         resolvedOrder?.orderNumber != null &&
         String(resolvedOrder.orderNumber).trim() !== ""
           ? {
-              distributorCode: resolvedOrder.distributorCode,
+              distributorCode: String(resolvedOrder.distributorCode).trim(),
               orderNumber: resolvedOrder.orderNumber,
             }
           : null;
@@ -3118,7 +3118,7 @@ function AdminDashboard({ onLogout }) {
   }, [allOrders, orderStatuses]);
 
   // Update order status
-  const updateOrderStatus = (order, status) => {
+  const updateOrderStatus = async (order, status) => {
     const orderId = getOrderId(order);
     console.log('updateOrderStatus called:', { orderId, status, order });
     setOrderStatuses(prev => {
@@ -3150,12 +3150,11 @@ function AdminDashboard({ onLogout }) {
       console.warn("Error saving order status to localStorage:", error);
     }
 
-    // Keep Supabase in sync when available.
-    syncOrderStatusToSupabase(order, status);
+    await syncOrderStatusToSupabase(order, status);
   };
   
   // Update order status by ID (for use in callbacks)
-  const updateOrderStatusById = (orderId, status) => {
+  const updateOrderStatusById = async (orderId, status) => {
     console.log('updateOrderStatusById called:', { orderId, status });
     setOrderStatuses(prev => {
       const newStatuses = {
@@ -3186,8 +3185,7 @@ function AdminDashboard({ onLogout }) {
       console.warn("Error persisting order status to localStorage:", error);
     }
 
-    // Keep Supabase in sync when available.
-    syncOrderStatusToSupabase(orderId, status);
+    await syncOrderStatusToSupabase(orderId, status);
   };
 
   // Delete order from all sources (state, localStorage, Supabase)
@@ -3378,7 +3376,7 @@ function AdminDashboard({ onLogout }) {
                 console.log('Current orderStatuses:', orderStatuses);
                 
                 // Update status using the orderId directly
-                updateOrderStatusById(orderId, 'approved');
+                await updateOrderStatusById(orderId, 'approved');
                 console.log('Order status updated to approved');
                 
                 await logActivity(
@@ -3395,27 +3393,19 @@ function AdminDashboard({ onLogout }) {
                 
                 // Status updated automatically - no need for user interaction
                 console.log('✅ Order approved automatically from email reply');
-                
-                // Add approvedAt timestamp to order (keep for 24 hours)
-                const approvedOrder = {
-                  ...currentOrder,
-                  approvedAt: Date.now()
-                };
-                
-                // Update order in state with approvedAt timestamp
-                setAllOrders(prevOrders => 
-                  prevOrders.map(o => 
-                    getOrderId(o) === orderId ? approvedOrder : o
+
+                setAllOrders((prevOrders) =>
+                  prevOrders.map((o) =>
+                    getOrderId(o) === orderId ? { ...o, approvedAt: Date.now() } : o
                   )
                 );
-                
-                // Update in localStorage with approvedAt
+
                 try {
                   const stored = localStorage.getItem("coke_orders");
                   if (stored) {
                     const orders = JSON.parse(stored);
-                    const updatedOrders = orders.map(o => 
-                      getOrderId(o) === orderId ? approvedOrder : o
+                    const updatedOrders = orders.map((o) =>
+                      getOrderId(o) === orderId ? { ...o, approvedAt: Date.now() } : o
                     );
                     localStorage.setItem("coke_orders", JSON.stringify(updatedOrders));
                     console.log('✅ Order updated in localStorage with approvedAt timestamp');
@@ -3444,7 +3434,7 @@ function AdminDashboard({ onLogout }) {
                 console.log('Current order found:', currentOrder ? 'Yes' : 'No');
                 
                 // Update status using the orderId directly
-                updateOrderStatusById(orderId, 'rejected');
+                await updateOrderStatusById(orderId, 'rejected');
                 console.log('Order status updated to rejected');
                 
                 await logActivity(
@@ -3510,7 +3500,7 @@ function AdminDashboard({ onLogout }) {
         );
         
         showEmailToast("Email sent successfully.", "success", 3800);
-        updateOrderStatus(order, 'sent');
+        await updateOrderStatus(order, 'sent');
         setEmailDialogOpen(false);
         setEmailOrder(null);
       } catch (emailError) {
@@ -3524,7 +3514,7 @@ function AdminDashboard({ onLogout }) {
           body: `${message}\n\nOrder Details:\nDistributor: ${order.distributorName || order.distributorCode}\nDate: ${new Date(order.timestamp || Date.now()).toLocaleDateString()}\nTotal UC: ${(order.totalUC || 0).toFixed(2)}\n\nPlease review the attached order details.`
         });
         window.location.href = mailtoLink;
-        updateOrderStatus(order, 'sent');
+        await updateOrderStatus(order, 'sent');
         showEmailToast("Opening email client. Please attach the order image manually.", "info", 5000);
         setEmailDialogOpen(false);
         setEmailOrder(null);
@@ -3543,30 +3533,22 @@ function AdminDashboard({ onLogout }) {
   const handleApproveOrder = async (order) => {
     if (window.confirm('Are you sure you want to approve this order?')) {
       const orderId = getOrderId(order);
-      
-      // Update status to approved
-      updateOrderStatus(order, 'approved');
-      
-      // Add approvedAt timestamp (keep for 24 hours)
-      const approvedOrder = {
-        ...order,
-        approvedAt: Date.now()
-      };
-      
-      // Update order in state with approvedAt timestamp
-      setAllOrders(prevOrders => 
-        prevOrders.map(o => 
-          getOrderId(o) === orderId ? approvedOrder : o
+
+      await updateOrderStatus(order, 'approved');
+
+      // Merge approvedAt onto the row that already has status: approved from updateOrderStatus
+      setAllOrders(prevOrders =>
+        prevOrders.map((o) =>
+          getOrderId(o) === orderId ? { ...o, approvedAt: Date.now() } : o
         )
       );
-      
-      // Update in localStorage with approvedAt
+
       try {
         const stored = localStorage.getItem("coke_orders");
         if (stored) {
           const orders = JSON.parse(stored);
-          const updatedOrders = orders.map(o => 
-            getOrderId(o) === orderId ? approvedOrder : o
+          const updatedOrders = orders.map((o) =>
+            getOrderId(o) === orderId ? { ...o, approvedAt: Date.now() } : o
           );
           localStorage.setItem("coke_orders", JSON.stringify(updatedOrders));
           console.log('✅ Order updated in localStorage with approvedAt timestamp');
@@ -3574,15 +3556,15 @@ function AdminDashboard({ onLogout }) {
       } catch (error) {
         console.warn('Error updating order in localStorage:', error);
       }
-      
+
       alert('Order approved! It will be automatically removed after 24 hours.');
     }
   };
 
   // Handle order rejection
-  const handleRejectOrder = (order) => {
+  const handleRejectOrder = async (order) => {
     if (window.confirm('Are you sure you want to reject this order?')) {
-      updateOrderStatus(order, 'rejected');
+      await updateOrderStatus(order, 'rejected');
       alert('Order rejected.');
     }
   };
