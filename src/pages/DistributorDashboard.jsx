@@ -98,6 +98,16 @@ function formatDate(dateString) {
   return `${day}${suffix} ${month} ${year}`;
 }
 
+function formatDistributorOrderRow(order) {
+  return {
+    ...order,
+    timestamp:
+      order.createdAt?.toDate
+        ? order.createdAt.toDate().toLocaleString()
+        : order.timestamp || new Date().toLocaleString(),
+  };
+}
+
 function DistributorDashboard({ distributorName = "Distributor", distributorCode, onLogout }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -469,6 +479,49 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     return `${order?.timestamp || ""}_${order?.distributorCode || distributorCode || ""}`;
   }, [distributorCode]);
 
+  const refreshDistributorOrders = useCallback(async () => {
+    try {
+      if (isSupabaseConfigured && distributorCode) {
+        const remoteOrders = await getOrdersByDistributor(distributorCode);
+        if (remoteOrders.length > 0) {
+          setOrders(remoteOrders.map(formatDistributorOrderRow));
+          return;
+        }
+        const stored = localStorage.getItem("coke_orders");
+        if (stored) {
+          const allOrders = JSON.parse(stored);
+          const myOrders = allOrders.filter(
+            (o) => o.distributorCode === distributorCode || o.distributorName === distributorName
+          );
+          setOrders(myOrders);
+        }
+        return;
+      }
+      const stored = localStorage.getItem("coke_orders");
+      if (stored) {
+        const allOrders = JSON.parse(stored);
+        const myOrders = allOrders.filter(
+          (o) => o.distributorCode === distributorCode || o.distributorName === distributorName
+        );
+        setOrders(myOrders);
+      }
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      try {
+        const stored = localStorage.getItem("coke_orders");
+        if (stored) {
+          const allOrders = JSON.parse(stored);
+          const myOrders = allOrders.filter(
+            (o) => o.distributorCode === distributorCode || o.distributorName === distributorName
+          );
+          setOrders(myOrders);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+  }, [isSupabaseConfigured, distributorCode, distributorName]);
+
   const pushNotification = useCallback((message, type = "info", headline = "") => {
     const entry = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -610,76 +663,39 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     })();
   }, [distributorCode, distributor, targetData, achievedData, targetPeriodRev, pushNotification]);
 
-  // Load orders from Firestore or localStorage
+  // Load orders from Supabase or localStorage
   useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        if (isSupabaseConfigured && distributorCode) {
-          const firebaseOrders = await getOrdersByDistributor(distributorCode);
-          if (firebaseOrders.length > 0) {
-            const formattedOrders = firebaseOrders.map(order => ({
-              ...order,
-              timestamp: order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : order.timestamp || new Date().toLocaleString()
-            }));
-            setOrders(formattedOrders);
-          } else {
-            // Fallback to localStorage
-            const stored = localStorage.getItem("coke_orders");
-            if (stored) {
-              const allOrders = JSON.parse(stored);
-              const myOrders = allOrders.filter(o => 
-                (o.distributorCode === distributorCode) || 
-                (o.distributorName === distributorName)
-              );
-              setOrders(myOrders);
-            }
-          }
-        } else {
-          // Use localStorage
-          const stored = localStorage.getItem("coke_orders");
-          if (stored) {
-            const allOrders = JSON.parse(stored);
-            const myOrders = allOrders.filter(o => 
-              (o.distributorCode === distributorCode) || 
-              (o.distributorName === distributorName)
-            );
-            setOrders(myOrders);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading orders:", error);
-        // Fallback to localStorage
-        try {
-          const stored = localStorage.getItem("coke_orders");
-          if (stored) {
-            const allOrders = JSON.parse(stored);
-            const myOrders = allOrders.filter(o => 
-              (o.distributorCode === distributorCode) || 
-              (o.distributorName === distributorName)
-            );
-            setOrders(myOrders);
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
+    refreshDistributorOrders();
+  }, [refreshDistributorOrders]);
+
+  // Poll Supabase so approve/reject shows even if Realtime is off or flaky (admin dashboard uses the same interval)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !distributorCode) return;
+    const id = setInterval(() => {
+      refreshDistributorOrders();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [isSupabaseConfigured, distributorCode, refreshDistributorOrders]);
+
+  // Other tabs / admin session on same browser: localStorage-only deployments
+  useEffect(() => {
+    if (isSupabaseConfigured) return;
+    const onStorage = (e) => {
+      if (e.key !== "coke_orders") return;
+      refreshDistributorOrders();
     };
-    loadOrders();
-  }, [distributorCode, distributorName, isSupabaseConfigured]);
-  
-  // Subscribe to real-time order updates
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [isSupabaseConfigured, refreshDistributorOrders]);
+
+  // Subscribe to real-time order updates (do not depend on `orders` — that re-subscribed on every status change and broke sync)
   useEffect(() => {
-    if (isSupabaseConfigured && distributorCode) {
-      const unsubscribe = subscribeToOrders(distributorCode, (firebaseOrders) => {
-        const formattedOrders = firebaseOrders.map(order => ({
-          ...order,
-          timestamp: order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : order.timestamp || new Date().toLocaleString()
-        }));
-        setOrders(formattedOrders);
-      });
-      return () => unsubscribe();
-    }
-  }, [distributorCode, isSupabaseConfigured, orders]);
+    if (!isSupabaseConfigured || !distributorCode) return;
+    const unsubscribe = subscribeToOrders(distributorCode, (firebaseOrders) => {
+      setOrders(firebaseOrders.map(formatDistributorOrderRow));
+    });
+    return () => unsubscribe();
+  }, [distributorCode, isSupabaseConfigured]);
 
   // Load stock lifting records from sales_data
   useEffect(() => {
