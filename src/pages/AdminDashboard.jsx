@@ -50,6 +50,8 @@ import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
 import AppSnackbar from "../components/AppSnackbar";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
+import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
+import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import CokeCalculator from "../cokecalculator";
@@ -851,8 +853,8 @@ function AdminDashboard({ onLogout }) {
   const ADMIN_VIEW_STORAGE_KEY = "admin_current_view";
   const [allSalesData, setAllSalesData] = useState([]); // All sales data from Supabase
   const [deletingAll, setDeletingAll] = useState(false); // Track delete-all-data operation
-  const notificationsInitializedRef = useRef(false);
-  const previousOrderCountRef = useRef(0);
+  const newOrderIdsNotifyInitRef = useRef(false);
+  const previousOrderIdsRef = useRef(new Set());
   const approvalSnapshotRef = useRef({});
   const approvalNotifyInitRef = useRef(false);
   const [schemes, setSchemes] = useState([]); // All schemes and discounts
@@ -3057,22 +3059,73 @@ function AdminDashboard({ onLogout }) {
     setEmailToast({ open: true, message, severity, duration, title });
   };
 
+  // New orders from distributors: SMS-style sound + toast + OS notification (detect by id, not only count)
   useEffect(() => {
-    const currentCount = allOrders.length;
+    if (!Array.isArray(allOrders)) return;
 
-    if (!notificationsInitializedRef.current) {
-      previousOrderCountRef.current = currentCount;
-      notificationsInitializedRef.current = true;
+    const idsNow = new Set(allOrders.map((o) => getOrderId(o)));
+
+    if (!newOrderIdsNotifyInitRef.current) {
+      previousOrderIdsRef.current = idsNow;
+      newOrderIdsNotifyInitRef.current = true;
       return;
     }
 
-    if (currentCount > previousOrderCountRef.current) {
-      const added = currentCount - previousOrderCountRef.current;
-      pushNotification(`${added} new order${added > 1 ? "s" : ""} received.`, "info");
+    const prev = previousOrderIdsRef.current;
+    const newlyAdded = allOrders.filter((o) => !prev.has(getOrderId(o)));
+
+    if (newlyAdded.length > 0) {
+      playNewOrderIncomingAlert();
+
+      const lines = newlyAdded.slice(0, 3).map((o) => {
+        const name = o.distributorName || o.distributorCode || "Distributor";
+        const num = o.orderNumber != null ? `#${o.orderNumber}` : getOrderId(o);
+        return `${name} — Order ${num}`;
+      });
+      const summary =
+        newlyAdded.length === 1
+          ? `New order: ${lines[0]}`
+          : `${newlyAdded.length} new orders received`;
+
+      pushNotification(
+        newlyAdded.length === 1 ? summary : `${summary}. ${lines.join(" · ")}`,
+        "info"
+      );
+      showEmailToast(
+        newlyAdded.length === 1
+          ? lines[0]
+          : `${newlyAdded.length} new orders — open Orders to review.`,
+        "info",
+        7000,
+        "New order"
+      );
+
+      (async () => {
+        if (typeof window === "undefined" || !("Notification" in window)) return;
+        try {
+          const iconUrl = getTargetReminderNotificationIconUrl();
+          const title = newlyAdded.length === 1 ? "New order" : `${newlyAdded.length} new orders`;
+          const body =
+            newlyAdded.length === 1
+              ? lines[0]
+              : `${lines.slice(0, 2).join(" · ")}${newlyAdded.length > 2 ? "…" : ""}`;
+          if (Notification.permission === "granted") {
+            new Notification(title, { body, icon: iconUrl, tag: "coke-new-order" });
+          } else if (Notification.permission === "default") {
+            const p = await Notification.requestPermission();
+            if (p === "granted") {
+              new Notification(title, { body, icon: iconUrl, tag: "coke-new-order" });
+            }
+          }
+        } catch (e) {
+          console.warn("New order browser notification failed:", e);
+        }
+      })();
     }
 
-    previousOrderCountRef.current = currentCount;
-  }, [allOrders.length]);
+    previousOrderIdsRef.current = idsNow;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allOrders]);
 
   // Order status changes from Supabase refresh or local actions: notify + chime when an order becomes approved
   useEffect(() => {
