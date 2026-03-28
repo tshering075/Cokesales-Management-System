@@ -22,3 +22,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Accidental nested clone (was a broken submodule without .gitmodules URL — breaks CI submodule update)
+/Cokesales-Management-System/
