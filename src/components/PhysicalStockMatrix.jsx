@@ -10,6 +10,9 @@ import {
   Paper,
   Alert,
   Box,
+  Stack,
+  Chip,
+  Divider,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -27,16 +30,18 @@ const LotFields = memo(function LotFields({
   dateCellMin,
   batchCellMin,
   inputSx,
+  bandBg,
 }) {
+  const band = bandBg ? { bgcolor: bandBg } : {};
   if (readOnly) {
     return (
       <>
-        <TableCell align="right" sx={{ ...cellSx, fontVariantNumeric: "tabular-nums", minWidth: qtyCellMin }}>
+        <TableCell align="right" sx={{ ...cellSx, ...band, fontVariantNumeric: "tabular-nums", minWidth: qtyCellMin }}>
           {lot.qty ?? 0}
         </TableCell>
-        <TableCell sx={{ ...cellSx, minWidth: dateCellMin }}>{lot.mfgDate || "—"}</TableCell>
-        <TableCell sx={{ ...cellSx, minWidth: batchCellMin }}>{lot.batchNo || "—"}</TableCell>
-        <TableCell sx={{ ...cellSx, minWidth: dateCellMin }}>{lot.bbdDate || "—"}</TableCell>
+        <TableCell sx={{ ...cellSx, ...band, minWidth: dateCellMin }}>{lot.mfgDate || "—"}</TableCell>
+        <TableCell sx={{ ...cellSx, ...band, minWidth: batchCellMin }}>{lot.batchNo || "—"}</TableCell>
+        <TableCell sx={{ ...cellSx, ...band, minWidth: dateCellMin }}>{lot.bbdDate || "—"}</TableCell>
       </>
     );
   }
@@ -54,7 +59,7 @@ const LotFields = memo(function LotFields({
 
   return (
     <>
-      <TableCell sx={{ ...cellSx, minWidth: qtyCellMin, verticalAlign: "middle" }}>
+      <TableCell sx={{ ...cellSx, ...band, minWidth: qtyCellMin, verticalAlign: "middle" }}>
         <Box
           component="input"
           type="number"
@@ -68,7 +73,7 @@ const LotFields = memo(function LotFields({
           sx={{ ...inputFull, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
         />
       </TableCell>
-      <TableCell sx={{ ...cellSx, minWidth: dateCellMin, verticalAlign: "middle" }}>
+      <TableCell sx={{ ...cellSx, ...band, minWidth: dateCellMin, verticalAlign: "middle" }}>
         <Box
           component="input"
           type="date"
@@ -77,7 +82,7 @@ const LotFields = memo(function LotFields({
           sx={inputFull}
         />
       </TableCell>
-      <TableCell sx={{ ...cellSx, minWidth: batchCellMin, verticalAlign: "middle" }}>
+      <TableCell sx={{ ...cellSx, ...band, minWidth: batchCellMin, verticalAlign: "middle" }}>
         <Box
           component="input"
           type="text"
@@ -88,7 +93,7 @@ const LotFields = memo(function LotFields({
           sx={{ ...inputFull, minWidth: 0 }}
         />
       </TableCell>
-      <TableCell sx={{ ...cellSx, minWidth: dateCellMin, verticalAlign: "middle" }}>
+      <TableCell sx={{ ...cellSx, ...band, minWidth: dateCellMin, verticalAlign: "middle" }}>
         <Box
           component="input"
           type="date"
@@ -110,6 +115,191 @@ const LotFields = memo(function LotFields({
 const STICKY_CAT_PX = 118;
 const STICKY_SKU_PX = 100;
 
+const LOT_CARD_META = [
+  { title: "Lot 1", hint: "Oldest — use first (FIFO)" },
+  { title: "Lot 2", hint: "Next batch" },
+  { title: "Lot 3", hint: "Newest batch" },
+];
+
+/** Readable card stack for phones / narrow tablets (replaces wide matrix). */
+function PhysicalStockCardLayout({ rows, readOnly, onLotChange, inputSx, boldDataValues }) {
+  const fieldLabelSx = { fontSize: "0.7rem", fontWeight: 700, color: "text.secondary", mb: 0.35, display: "block" };
+  const inputFull = useMemo(
+    () => ({
+      ...inputSx,
+      width: "100%",
+      minWidth: 0,
+      maxWidth: "100%",
+      boxSizing: "border-box",
+    }),
+    [inputSx]
+  );
+
+  return (
+    <Stack spacing={2} sx={{ pb: 1 }}>
+      {rows.map((row, rowIndex) => (
+        <Paper
+          key={`${row.category}-${row.sku}`}
+          variant="outlined"
+          elevation={0}
+          sx={{
+            borderRadius: 2.5,
+            overflow: "hidden",
+            borderColor: "divider",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              py: 1.25,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              bgcolor: "warning.light",
+              backgroundImage: "linear-gradient(135deg, rgba(255, 213, 79, 0.35) 0%, rgba(255, 241, 118, 0.5) 100%)",
+              borderBottom: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
+              <Chip label={row.category} size="small" sx={{ fontWeight: 800, bgcolor: "rgba(229, 57, 53, 0.12)", color: "error.dark" }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "0.02em" }}>
+                {row.sku}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+              }}
+            >
+              <Typography component="span" variant="caption" sx={{ opacity: 0.95, fontWeight: 600 }}>
+                Total qty{" "}
+              </Typography>
+              <Typography component="span" variant="h6" sx={{ fontWeight: 900, ml: 0.5, fontVariantNumeric: "tabular-nums" }}>
+                {rowTotal(row)}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Stack spacing={0} divider={<Divider flexItem sx={{ borderColor: "divider" }} />}>
+            {[0, 1, 2].map((lotIndex) => {
+              const lot = row.lots[lotIndex] || { qty: 0, mfgDate: "", batchNo: "", bbdDate: "" };
+              const meta = LOT_CARD_META[lotIndex];
+              const mfg = toDateInput(lot.mfgDate);
+              const bbd = toDateInput(lot.bbdDate);
+              const qtyVal = lot.qty === 0 || lot.qty === "" ? "" : lot.qty;
+
+              return (
+                <Box
+                  key={lotIndex}
+                  sx={{
+                    px: 2,
+                    py: 1.75,
+                    bgcolor: lotIndex === 0 ? "rgba(0, 131, 143, 0.06)" : lotIndex === 1 ? "rgba(0, 131, 143, 0.035)" : "rgba(0, 131, 143, 0.09)",
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.dark", mb: 0.25 }}>
+                    {meta.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                    {meta.hint}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 1.5,
+                    }}
+                  >
+                    <Box>
+                      <Typography component="label" sx={fieldLabelSx}>
+                        Quantity (cases)
+                      </Typography>
+                      {readOnly ? (
+                        <Typography sx={{ fontWeight: boldDataValues ? 800 : 700, fontVariantNumeric: "tabular-nums" }}>{lot.qty ?? 0}</Typography>
+                      ) : (
+                        <Box
+                          component="input"
+                          type="number"
+                          min={0}
+                          step={1}
+                          inputMode="numeric"
+                          value={qtyVal}
+                          onChange={(e) =>
+                            onLotChange(rowIndex, lotIndex, "qty", e.target.value === "" ? 0 : Number(e.target.value))
+                          }
+                          sx={{ ...inputFull, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
+                        />
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography component="label" sx={fieldLabelSx}>
+                        MFG date
+                      </Typography>
+                      {readOnly ? (
+                        <Typography sx={{ fontWeight: boldDataValues ? 700 : 600 }}>{lot.mfgDate || "—"}</Typography>
+                      ) : (
+                        <Box
+                          component="input"
+                          type="date"
+                          value={mfg}
+                          onChange={(e) => onLotChange(rowIndex, lotIndex, "mfgDate", e.target.value)}
+                          sx={inputFull}
+                        />
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography component="label" sx={fieldLabelSx}>
+                        Batch no.
+                      </Typography>
+                      {readOnly ? (
+                        <Typography sx={{ fontWeight: boldDataValues ? 700 : 600 }}>{lot.batchNo || "—"}</Typography>
+                      ) : (
+                        <Box
+                          component="input"
+                          type="text"
+                          value={lot.batchNo || ""}
+                          onChange={(e) => onLotChange(rowIndex, lotIndex, "batchNo", e.target.value)}
+                          placeholder="—"
+                          autoComplete="off"
+                          sx={inputFull}
+                        />
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography component="label" sx={fieldLabelSx}>
+                        Best before (BBD)
+                      </Typography>
+                      {readOnly ? (
+                        <Typography sx={{ fontWeight: boldDataValues ? 700 : 600 }}>{lot.bbdDate || "—"}</Typography>
+                      ) : (
+                        <Box
+                          component="input"
+                          type="date"
+                          value={bbd}
+                          onChange={(e) => onLotChange(rowIndex, lotIndex, "bbdDate", e.target.value)}
+                          sx={inputFull}
+                        />
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Paper>
+      ))}
+    </Stack>
+  );
+}
+
 export default function PhysicalStockMatrix({
   rows,
   readOnly,
@@ -122,6 +312,8 @@ export default function PhysicalStockMatrix({
   const isFs = variant === "fullscreen";
   /* Below ~1200px the table usually overflows horizontally — freeze leading columns. */
   const freezeLeadingCols = useMediaQuery(theme.breakpoints.down("lg"));
+  /** Card layout avoids horizontal scroll on phones / small tablets. */
+  const useCardLayout = useMediaQuery(theme.breakpoints.down("md"));
 
   const cellSx = useMemo(
     () => ({
@@ -206,6 +398,22 @@ export default function PhysicalStockMatrix({
     [rows, onRowsChange]
   );
 
+  const lotHeadBg = useMemo(
+    () =>
+      isFs
+        ? ["#0d7377", "#006064", "#004d52"]
+        : ["#26c6da", "#00acc1", "#0097a7"],
+    [isFs]
+  );
+
+  const lotBodyBand = useMemo(
+    () =>
+      isFs
+        ? ["rgba(0, 96, 100, 0.09)", "rgba(0, 96, 100, 0.045)", "rgba(0, 96, 100, 0.12)"]
+        : ["rgba(0, 188, 212, 0.1)", "rgba(0, 188, 212, 0.055)", "rgba(0, 188, 212, 0.13)"],
+    [isFs]
+  );
+
   const headTeal = isFs ? "#006064" : "#00bcd4";
   const catBodyBg = isFs ? "#fff8e1" : "#fff9c4";
 
@@ -243,6 +451,30 @@ export default function PhysicalStockMatrix({
       }
     : {};
 
+  if (useCardLayout) {
+    return (
+      <Paper
+        variant="outlined"
+        sx={{
+          maxHeight: tableMaxHeight,
+          overflow: "auto",
+          borderRadius: isFs ? 2 : 2,
+          p: { xs: 1.25, sm: 1.75 },
+          boxShadow: isFs ? "0 2px 12px rgba(0,0,0,0.06)" : "0 1px 6px rgba(0,0,0,0.05)",
+          borderColor: "divider",
+        }}
+      >
+        <PhysicalStockCardLayout
+          rows={rows}
+          readOnly={readOnly}
+          onLotChange={onLotChange}
+          inputSx={inputSx}
+          boldDataValues={boldDataValues}
+        />
+      </Paper>
+    );
+  }
+
   return (
     <TableContainer
       component={Paper}
@@ -273,28 +505,48 @@ export default function PhysicalStockMatrix({
             <TableCell sx={{ ...headSx, ...stickyHeadSkuSx }} rowSpan={2}>
               SKU
             </TableCell>
-            <TableCell sx={headSx} colSpan={4} align="center">
+            <TableCell sx={{ ...headSx, bgcolor: lotHeadBg[0] }} colSpan={4} align="center">
               Lot 1 — oldest (FIFO first)
             </TableCell>
-            <TableCell sx={headSx} colSpan={4} align="center">
+            <TableCell sx={{ ...headSx, bgcolor: lotHeadBg[1] }} colSpan={4} align="center">
               Lot 2
             </TableCell>
-            <TableCell sx={headSx} colSpan={4} align="center">
+            <TableCell sx={{ ...headSx, bgcolor: lotHeadBg[2] }} colSpan={4} align="center">
               Lot 3 — newest
             </TableCell>
-            <TableCell sx={headSx} rowSpan={2} align="center">
+            <TableCell
+              rowSpan={2}
+              align="center"
+              sx={{
+                ...headSx,
+                borderLeft: "3px solid",
+                borderLeftColor: "rgba(255,255,255,0.85)",
+                minWidth: 72,
+              }}
+            >
               Total
             </TableCell>
           </TableRow>
           <TableRow>
-            {[1, 2, 3].map((lotNum) => (
-              <React.Fragment key={lotNum}>
-                <TableCell sx={{ ...headSx, fontSize: isFs ? "0.68rem" : "0.65rem" }}>Qty</TableCell>
-                <TableCell sx={{ ...headSx, fontSize: isFs ? "0.68rem" : "0.65rem" }}>MFG</TableCell>
-                <TableCell sx={{ ...headSx, fontSize: isFs ? "0.68rem" : "0.65rem" }}>B.No</TableCell>
-                <TableCell sx={{ ...headSx, fontSize: isFs ? "0.68rem" : "0.65rem" }}>BBD</TableCell>
-              </React.Fragment>
-            ))}
+            {[1, 2, 3].map((lotNum) => {
+              const bg = lotHeadBg[lotNum - 1];
+              return (
+                <React.Fragment key={lotNum}>
+                  <TableCell sx={{ ...headSx, bgcolor: bg, fontSize: isFs ? "0.68rem" : "0.65rem" }} title="Quantity (cases)">
+                    Qty
+                  </TableCell>
+                  <TableCell sx={{ ...headSx, bgcolor: bg, fontSize: isFs ? "0.68rem" : "0.65rem" }} title="Manufacturing date">
+                    MFG
+                  </TableCell>
+                  <TableCell sx={{ ...headSx, bgcolor: bg, fontSize: isFs ? "0.68rem" : "0.65rem" }} title="Batch number">
+                    B.No
+                  </TableCell>
+                  <TableCell sx={{ ...headSx, bgcolor: bg, fontSize: isFs ? "0.68rem" : "0.65rem" }} title="Best before date">
+                    BBD
+                  </TableCell>
+                </React.Fragment>
+              );
+            })}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -376,6 +628,7 @@ export default function PhysicalStockMatrix({
                     dateCellMin={dateCellMin}
                     batchCellMin={batchCellMin}
                     inputSx={inputSx}
+                    bandBg={lotBodyBand[lotIndex]}
                   />
                 ))}
                 <TableCell
@@ -385,6 +638,8 @@ export default function PhysicalStockMatrix({
                     fontWeight: 800,
                     bgcolor: "#e3f2fd",
                     fontVariantNumeric: "tabular-nums",
+                    borderLeft: "3px solid",
+                    borderLeftColor: "primary.main",
                   }}
                 >
                   {rowTotal(row)}
