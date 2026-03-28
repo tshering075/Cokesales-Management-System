@@ -11,36 +11,87 @@ const SESSION_ROLE_KEY = "session_role";
 const SESSION_DISTRIBUTOR_INFO_KEY = "session_distributor_info";
 const SESSION_AUTH_ACTIVE_KEY = "session_auth_active";
 
+/** Distributor code+password sessions survive closing the browser; cleared on logout. Admins still use sessionStorage only. */
+const DISTRIBUTOR_LS_ACTIVE = "coke_dist_session_active";
+const DISTRIBUTOR_LS_ROLE = "coke_dist_session_role";
+const DISTRIBUTOR_LS_INFO = "coke_dist_session_info";
+
+function readPersistedDistributorInfo() {
+  try {
+    const raw = localStorage.getItem(DISTRIBUTOR_LS_INFO);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearDistributorLocalPersistence() {
+  localStorage.removeItem(DISTRIBUTOR_LS_ACTIVE);
+  localStorage.removeItem(DISTRIBUTOR_LS_ROLE);
+  localStorage.removeItem(DISTRIBUTOR_LS_INFO);
+}
+
+function persistDistributorSession(info) {
+  localStorage.setItem(DISTRIBUTOR_LS_ACTIVE, "true");
+  localStorage.setItem(DISTRIBUTOR_LS_ROLE, "distributor");
+  localStorage.setItem(DISTRIBUTOR_LS_INFO, JSON.stringify(info));
+}
+
 function readSessionDistributorInfo() {
   try {
     const raw = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
-    if (!raw || typeof raw !== "string") return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    if (raw && typeof raw === "string") {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    }
   } catch {
-    return {};
+    /* fall through */
   }
+  const p = readPersistedDistributorInfo();
+  return p || {};
 }
 
 // Inner component that can use useNavigate hook
 function AppRouterInner() {
   const navigate = useNavigate();
   const [role, setRole] = useState(() => {
-    // Session-only auth: cleared when browser/tab closes.
-    return sessionStorage.getItem(SESSION_ROLE_KEY);
+    const ss = sessionStorage.getItem(SESSION_ROLE_KEY);
+    if (ss) return ss;
+    if (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true") {
+      return localStorage.getItem(DISTRIBUTOR_LS_ROLE);
+    }
+    return null;
   });
   const [distributorInfo, setDistributorInfo] = useState(() => {
-    const stored = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {
+      /* fall through */
+    }
+    return readPersistedDistributorInfo();
   });
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Restore distributor sessionStorage from localStorage after a full browser restart
+  useEffect(() => {
+    if (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) !== "true") return;
+    const info = readPersistedDistributorInfo();
+    sessionStorage.setItem(SESSION_AUTH_ACTIVE_KEY, "true");
+    sessionStorage.setItem(SESSION_ROLE_KEY, "distributor");
+    if (info) {
+      sessionStorage.setItem(SESSION_DISTRIBUTOR_INFO_KEY, JSON.stringify(info));
+    }
+  }, []);
   
   // Helper function to check if user is authenticated (checks both state and localStorage)
   // Always prioritizes localStorage as it's the source of truth on page refresh
   const isAuthenticated = (requiredRole = null) => {
-    // Session storage is the source of truth for active login session.
-    const storedRole = sessionStorage.getItem(SESSION_ROLE_KEY);
-    // Use stored role if available, otherwise fall back to state
+    const storedRole =
+      sessionStorage.getItem(SESSION_ROLE_KEY) ||
+      (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true" ? localStorage.getItem(DISTRIBUTOR_LS_ROLE) : null);
     const currentRole = storedRole || role;
     
     // Debug logging (can be removed later)
@@ -68,7 +119,9 @@ function AppRouterInner() {
   
   // Get current role from state or localStorage (prioritizes localStorage)
   const getCurrentRole = () => {
-    const stored = sessionStorage.getItem(SESSION_ROLE_KEY);
+    const stored =
+      sessionStorage.getItem(SESSION_ROLE_KEY) ||
+      (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true" ? localStorage.getItem(DISTRIBUTOR_LS_ROLE) : null);
     const current = stored || role;
     if (process.env.NODE_ENV === 'development') {
       console.log(`[Get Current Role] Stored: ${stored}, State: ${role}, Returning: ${current}`);
@@ -100,6 +153,7 @@ function AppRouterInner() {
           if (admin && isMounted) {
             // Get actual role from Supabase (admin or viewer)
             const actualRole = admin.role || "admin"; // Default to admin for backward compatibility
+            clearDistributorLocalPersistence();
             setRole(actualRole);
             setDistributorInfo(null);
             sessionStorage.setItem(SESSION_ROLE_KEY, actualRole);
@@ -119,6 +173,7 @@ function AppRouterInner() {
             setDistributorInfo(info);
             sessionStorage.setItem(SESSION_ROLE_KEY, "distributor");
             sessionStorage.setItem(SESSION_DISTRIBUTOR_INFO_KEY, JSON.stringify(info));
+            persistDistributorSession(info);
             setAuthLoading(false);
             return;
           }
@@ -136,8 +191,9 @@ function AppRouterInner() {
         // Distributors can sign in with code + row credentials only (no Supabase Auth user).
         // Do not wipe their session when Auth reports no user.
         const keepDistributorSession =
-          sessionStorage.getItem(SESSION_AUTH_ACTIVE_KEY) === "true" &&
-          sessionStorage.getItem(SESSION_ROLE_KEY) === "distributor";
+          (sessionStorage.getItem(SESSION_AUTH_ACTIVE_KEY) === "true" &&
+            sessionStorage.getItem(SESSION_ROLE_KEY) === "distributor") ||
+          localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true";
 
         if (keepDistributorSession) {
           if (isMounted) {
@@ -149,6 +205,7 @@ function AppRouterInner() {
         sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
         sessionStorage.removeItem(SESSION_ROLE_KEY);
         sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
+        clearDistributorLocalPersistence();
         if (isMounted) {
           setRole(null);
           setDistributorInfo(null);
@@ -183,18 +240,22 @@ function AppRouterInner() {
       sessionStorage.removeItem(SESSION_ROLE_KEY);
       sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
       sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
+      clearDistributorLocalPersistence();
       setDistributorInfo(null);
     }
   }, [role]);
 
   const handleLogin = (newRole, distributor = null) => {
     sessionStorage.setItem(SESSION_AUTH_ACTIVE_KEY, "true");
-    setRole(newRole);
     if (newRole === "distributor" && distributor) {
       const info = { name: distributor.name, code: distributor.code };
       setDistributorInfo(info);
       sessionStorage.setItem(SESSION_DISTRIBUTOR_INFO_KEY, JSON.stringify(info));
+      persistDistributorSession(info);
+    } else {
+      clearDistributorLocalPersistence();
     }
+    setRole(newRole);
   };
 
   const handleLogout = () => {
@@ -216,7 +277,8 @@ function AppRouterInner() {
     sessionStorage.removeItem(SESSION_AUTH_ACTIVE_KEY);
     sessionStorage.removeItem(SESSION_ROLE_KEY);
     sessionStorage.removeItem(SESSION_DISTRIBUTOR_INFO_KEY);
-    
+    clearDistributorLocalPersistence();
+
     // Navigate immediately - don't wait for async operations
     navigate("/", { replace: true });
     
@@ -266,18 +328,24 @@ function AppRouterInner() {
   // If we have a stored role but state hasn't loaded yet, ensure role is set
   // This prevents authentication checks from failing during initial render
   // MUST be called before any conditional returns (React Hooks rule)
-  const hasStoredRole = !!sessionStorage.getItem(SESSION_ROLE_KEY);
+  const hasStoredRole = !!(
+    sessionStorage.getItem(SESSION_ROLE_KEY) ||
+    (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true" && localStorage.getItem(DISTRIBUTOR_LS_ROLE))
+  );
   useEffect(() => {
     if (hasStoredRole && !role) {
-      const storedRole = sessionStorage.getItem(SESSION_ROLE_KEY);
+      const storedRole =
+        sessionStorage.getItem(SESSION_ROLE_KEY) ||
+        (localStorage.getItem(DISTRIBUTOR_LS_ACTIVE) === "true" ? localStorage.getItem(DISTRIBUTOR_LS_ROLE) : null);
       if (storedRole) {
         setRole(storedRole);
-        // Also load distributor info if it's a distributor
         if (storedRole === "distributor") {
-          const storedDistributorInfo = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
-          if (storedDistributorInfo) {
+          const fromSession = sessionStorage.getItem(SESSION_DISTRIBUTOR_INFO_KEY);
+          const fromLocal = localStorage.getItem(DISTRIBUTOR_LS_INFO);
+          const raw = fromSession || fromLocal;
+          if (raw) {
             try {
-              setDistributorInfo(JSON.parse(storedDistributorInfo));
+              setDistributorInfo(JSON.parse(raw));
             } catch (e) {
               console.error("Error parsing distributor info:", e);
             }

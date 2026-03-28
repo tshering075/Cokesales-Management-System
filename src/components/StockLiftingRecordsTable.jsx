@@ -39,11 +39,19 @@ export function formatStockLiftDate(record) {
 /**
  * Stock lifting rows from sales_data / orders fallback — CSD & Water PC + UC.
  */
+function sumRecords(records, field) {
+  return records.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
+}
+
 export default function StockLiftingRecordsTable({
   records = [],
   stickyHeader = false,
   maxHeight,
   emptyMessage = "No stock lifting records found for this period.",
+  /** Sum row at bottom (hidden when no data rows). */
+  showTotalsRow = true,
+  /** "grouped" = two-row CSD / Water band; "flat" = one row with explicit CSD/W column titles (better in dialogs). */
+  headerLayout = "grouped",
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -95,6 +103,16 @@ export default function StockLiftingRecordsTable({
     letterSpacing: "0.01em",
   };
 
+  const totalCsdPC = sumRecords(records, "csdPC");
+  const totalCsdUC = sumRecords(records, "csdUC");
+  const totalWaterPC = sumRecords(records, "waterPC");
+  const totalWaterUC = sumRecords(records, "waterUC");
+
+  const flatHeadSx = {
+    ...headSx,
+    whiteSpace: "nowrap",
+  };
+
   return (
     <TableContainer
       component={Paper}
@@ -128,45 +146,77 @@ export default function StockLiftingRecordsTable({
           <col style={{ width: isMobile ? "16.5%" : "17.5%" }} />
         </colgroup>
         <TableHead>
-          <TableRow sx={{ bgcolor: headBg }}>
-            <TableCell rowSpan={2} sx={{ ...headSx, verticalAlign: "middle", minWidth: 120 }}>
-              Lift date
-            </TableCell>
-            <TableCell colSpan={2} sx={{ ...headSx, verticalAlign: "middle" }}>
-              CSD
-              <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 500, mt: 0.25 }}>
-                Physical cases & unit cases
-              </Typography>
-            </TableCell>
-            <TableCell colSpan={2} sx={{ ...headSx, verticalAlign: "middle" }}>
-              Water (Kinley)
-              <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 500, mt: 0.25 }}>
-                Physical cases & unit cases
-              </Typography>
-            </TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell sx={subHeadSx}>
-              <Box component="span" sx={numericCellInnerSx}>
-                PC
-              </Box>
-            </TableCell>
-            <TableCell sx={subHeadSx}>
-              <Box component="span" sx={numericCellInnerSx}>
-                UC
-              </Box>
-            </TableCell>
-            <TableCell sx={subHeadSx}>
-              <Box component="span" sx={numericCellInnerSx}>
-                PC
-              </Box>
-            </TableCell>
-            <TableCell sx={subHeadSx}>
-              <Box component="span" sx={numericCellInnerSx}>
-                UC
-              </Box>
-            </TableCell>
-          </TableRow>
+          {headerLayout === "flat" ? (
+            <TableRow sx={{ bgcolor: headBg }}>
+              <TableCell sx={{ ...flatHeadSx, verticalAlign: "middle", minWidth: 120 }}>Lift date</TableCell>
+              <TableCell sx={flatHeadSx}>
+                <Box component="span" sx={{ display: "block", fontWeight: 800 }}>CSD</Box>
+                <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 600 }}>
+                  PC
+                </Typography>
+              </TableCell>
+              <TableCell sx={flatHeadSx}>
+                <Box component="span" sx={{ display: "block", fontWeight: 800 }}>CSD</Box>
+                <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 600 }}>
+                  UC
+                </Typography>
+              </TableCell>
+              <TableCell sx={flatHeadSx}>
+                <Box component="span" sx={{ display: "block", fontWeight: 800 }}>Water</Box>
+                <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 600 }}>
+                  PC
+                </Typography>
+              </TableCell>
+              <TableCell sx={flatHeadSx}>
+                <Box component="span" sx={{ display: "block", fontWeight: 800 }}>Water</Box>
+                <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 600 }}>
+                  UC
+                </Typography>
+              </TableCell>
+            </TableRow>
+          ) : (
+            <>
+              <TableRow sx={{ bgcolor: headBg }}>
+                <TableCell rowSpan={2} sx={{ ...headSx, verticalAlign: "middle", minWidth: 120 }}>
+                  Lift date
+                </TableCell>
+                <TableCell colSpan={2} sx={{ ...headSx, verticalAlign: "middle" }}>
+                  CSD
+                  <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 500, mt: 0.25 }}>
+                    Physical cases & unit cases
+                  </Typography>
+                </TableCell>
+                <TableCell colSpan={2} sx={{ ...headSx, verticalAlign: "middle" }}>
+                  Water (Kinley)
+                  <Typography component="span" variant="caption" sx={{ display: "block", opacity: 0.92, fontWeight: 500, mt: 0.25 }}>
+                    Physical cases & unit cases
+                  </Typography>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={subHeadSx}>
+                  <Box component="span" sx={numericCellInnerSx}>
+                    PC
+                  </Box>
+                </TableCell>
+                <TableCell sx={subHeadSx}>
+                  <Box component="span" sx={numericCellInnerSx}>
+                    UC
+                  </Box>
+                </TableCell>
+                <TableCell sx={subHeadSx}>
+                  <Box component="span" sx={numericCellInnerSx}>
+                    PC
+                  </Box>
+                </TableCell>
+                <TableCell sx={subHeadSx}>
+                  <Box component="span" sx={numericCellInnerSx}>
+                    UC
+                  </Box>
+                </TableCell>
+              </TableRow>
+            </>
+          )}
         </TableHead>
         <TableBody>
           {records.length === 0 ? (
@@ -215,6 +265,38 @@ export default function StockLiftingRecordsTable({
                 </TableCell>
               </TableRow>
             ))
+          )}
+          {showTotalsRow && records.length > 0 && (
+            <TableRow
+              sx={{
+                bgcolor: "rgba(229, 57, 53, 0.12)",
+                borderTop: "2px solid",
+                borderColor: "error.main",
+                "& .MuiTableCell-root": { fontWeight: 800 },
+              }}
+            >
+              <TableCell sx={{ ...cellSx, fontWeight: 800 }}>Total</TableCell>
+              <TableCell sx={cellSx}>
+                <Box component="span" sx={numericCellInnerSx}>
+                  {Math.round(totalCsdPC).toLocaleString()}
+                </Box>
+              </TableCell>
+              <TableCell sx={cellSx}>
+                <Box component="span" sx={numericCellInnerSx}>
+                  {Math.round(totalCsdUC).toLocaleString()}
+                </Box>
+              </TableCell>
+              <TableCell sx={cellSx}>
+                <Box component="span" sx={numericCellInnerSx}>
+                  {Math.round(totalWaterPC).toLocaleString()}
+                </Box>
+              </TableCell>
+              <TableCell sx={cellSx}>
+                <Box component="span" sx={numericCellInnerSx}>
+                  {Math.round(totalWaterUC).toLocaleString()}
+                </Box>
+              </TableCell>
+            </TableRow>
           )}
         </TableBody>
       </Table>

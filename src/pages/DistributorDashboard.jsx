@@ -47,6 +47,7 @@ import {
   buildTargetBalanceReminderMessage,
   getTargetReminderNotificationIconUrl,
 } from "../utils/targetReminder";
+import { playOrderSubmittedNotifyChime } from "../utils/newOrderAlertSound";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 import { 
   getDistributorByCode, 
@@ -1094,8 +1095,27 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       setOrders((prev) => [order, ...prev]);
       
       const orderPlacedMessage = `Order #${finalOrderNumber} is submitted. CSD UC: ${csdUC.toFixed(2)}, Water UC: ${waterUC.toFixed(2)}. You’ll get a notification when it’s approved or rejected.`;
+      playOrderSubmittedNotifyChime();
       pushNotification(orderPlacedMessage, "success", "Order placed");
       showToast(orderPlacedMessage, "success", 5200, "Order placed");
+      (async () => {
+        if (typeof window === "undefined" || !("Notification" in window)) return;
+        try {
+          const iconUrl = getTargetReminderNotificationIconUrl();
+          const title = "Order placed";
+          const body = `Order #${finalOrderNumber} submitted — pending admin review.`;
+          if (Notification.permission === "granted") {
+            new Notification(title, { body, icon: iconUrl, tag: `coke-order-placed-${finalOrderNumber}` });
+          } else if (Notification.permission === "default") {
+            const p = await Notification.requestPermission();
+            if (p === "granted") {
+              new Notification(title, { body, icon: iconUrl, tag: `coke-order-placed-${finalOrderNumber}` });
+            }
+          }
+        } catch (e) {
+          console.warn("Order placed notification failed:", e);
+        }
+      })();
     } catch (error) {
       console.error("Error placing order:", error);
       const errBody =
@@ -1658,7 +1678,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           Each row is a lift toward your target: <strong>CSD</strong> and <strong>Water (Kinley)</strong> in physical cases (PC) and unit cases (UC).
         </Typography>
         <Box sx={{ mb: 3 }}>
-          <StockLiftingRecordsTable records={stockLiftingRecords} />
+          <StockLiftingRecordsTable records={stockLiftingRecords} showTotalsRow />
         </Box>
 
       </Box>
@@ -1906,6 +1926,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             <StockLiftingRecordsTable
               records={stockLiftingRecords}
               stickyHeader
+              headerLayout="flat"
+              showTotalsRow
               maxHeight={{ xs: "calc(100vh - 220px)", sm: "60vh" }}
               emptyMessage="When the admin uploads sales for your distributor code, lifts will appear here."
             />
