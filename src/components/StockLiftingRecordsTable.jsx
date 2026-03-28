@@ -64,6 +64,7 @@ export default function StockLiftingRecordsTable({
   const headSx = {
     fontWeight: 700,
     color: "#fff",
+    bgcolor: headBg,
     textAlign: "center",
     py: 1.25,
     px: 1,
@@ -147,7 +148,7 @@ export default function StockLiftingRecordsTable({
         </colgroup>
         <TableHead>
           {headerLayout === "flat" ? (
-            <TableRow sx={{ bgcolor: headBg }}>
+            <TableRow>
               <TableCell sx={{ ...flatHeadSx, verticalAlign: "middle", minWidth: 120 }}>Lift date</TableCell>
               <TableCell sx={flatHeadSx}>
                 <Box component="span" sx={{ display: "block", fontWeight: 800 }}>CSD</Box>
@@ -176,7 +177,7 @@ export default function StockLiftingRecordsTable({
             </TableRow>
           ) : (
             <>
-              <TableRow sx={{ bgcolor: headBg }}>
+              <TableRow>
                 <TableCell rowSpan={2} sx={{ ...headSx, verticalAlign: "middle", minWidth: 120 }}>
                   Lift date
                 </TableCell>
