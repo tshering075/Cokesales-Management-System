@@ -23,11 +23,24 @@ import {
   Tab,
   Chip,
   CircularProgress,
+  Container,
+  Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import DownloadIcon from "@mui/icons-material/Download";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DeleteIcon from "@mui/icons-material/Delete";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
+import TableRowsOutlinedIcon from "@mui/icons-material/TableRowsOutlined";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import TableChartIcon from "@mui/icons-material/TableChart";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -43,7 +56,7 @@ import AppSnackbar from "./AppSnackbar";
  * 1. Upload sales data (Excel format, headers at row 4)
  * 2. Date range filtering
  * 3. Distributor Performance Report (CSD/Water PC/UC per distributor)
- * 4. CSD SKU-wise Report (highest selling products for production forecasting)
+ * 4. CSD & Water SKU-wise reports (highest selling SKUs for forecasting)
  * 
  * Props:
  * - open, onClose
@@ -116,6 +129,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   // PDF export state
   const [exportingPDF, setExportingPDF] = useState(false);
   const tableRef = useRef(null);
+  const theme = useTheme();
   
   // Save localSalesData to localStorage whenever it changes
   React.useEffect(() => {
@@ -454,49 +468,53 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
     });
   }, [filteredSalesData]);
   
-  // 2. CSD SKU-WISE REPORT
-  // Shows highest selling CSD products for production forecasting
-  const skuReport = useMemo(() => {
-    const skuMap = new Map(); // SKU -> { sku, totalPC, totalUC, category }
-    
-    filteredSalesData.forEach(record => {
-      if (record.products && Array.isArray(record.products)) {
-        record.products.forEach(product => {
+  // 2. CSD & WATER SKU-WISE REPORTS (same aggregation, different product category)
+  const { skuReport, waterSkuReport } = useMemo(() => {
+    const aggregateByCategory = (categoryLower) => {
+      const skuMap = new Map();
+
+      filteredSalesData.forEach((record) => {
+        if (!record.products || !Array.isArray(record.products)) return;
+        record.products.forEach((product) => {
           if (!product || !product.sku) return;
-          
-          const category = product.category || "Unknown";
-          if (category !== "CSD") return; // Only CSD products
-          
+
+          const cat = (product.category || "").toString().trim().toLowerCase();
+          if (cat !== categoryLower) return;
+
           const sku = product.sku.toString().trim();
           const pc = Number(product.quantity) || 0;
           if (pc === 0) return;
-          
+
           const uc = convertPCtoUC(pc, sku);
-          
+
           if (!skuMap.has(sku)) {
             skuMap.set(sku, {
-              sku: sku,
-              category: category,
+              sku,
+              category: product.category || categoryLower,
               totalPC: 0,
               totalUC: 0,
             });
           }
-          
+
           const skuData = skuMap.get(sku);
           skuData.totalPC += pc;
           skuData.totalUC += uc;
         });
-      }
-    });
-    
-    // Convert to array, sort by totalPC (highest first), and round values
-    return Array.from(skuMap.values())
-      .map(item => ({
-        ...item,
-        totalPC: Math.round(item.totalPC),
-        totalUC: Math.round(item.totalUC * 100) / 100, // 2 decimal places
-      }))
-      .sort((a, b) => b.totalPC - a.totalPC); // Sort by PC descending
+      });
+
+      return Array.from(skuMap.values())
+        .map((item) => ({
+          ...item,
+          totalPC: Math.round(item.totalPC),
+          totalUC: Math.round(item.totalUC * 100) / 100,
+        }))
+        .sort((a, b) => b.totalPC - a.totalPC);
+    };
+
+    return {
+      skuReport: aggregateByCategory("csd"),
+      waterSkuReport: aggregateByCategory("water"),
+    };
   }, [filteredSalesData]);
   
   // Handle sales data upload
@@ -857,20 +875,23 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         XLSX.utils.book_append_sheet(wb, ws, "Distributor Performance");
       } else {
-        const wsData = [
+        const dateRow = [startDate && endDate ? `Date Range: ${startDate} to ${endDate}` : "All Data"];
+        const csdSheet = [
           ["CSD SKU Sales Report"],
-          [startDate && endDate ? `Date Range: ${startDate} to ${endDate}` : "All Data"],
+          dateRow,
           [],
           ["SKU", "Total PC", "Total UC"],
-          ...skuReport.map(row => [
-            row.sku,
-            row.totalPC,
-            row.totalUC.toFixed(2),
-          ]),
+          ...skuReport.map((row) => [row.sku, row.totalPC, row.totalUC.toFixed(2)]),
         ];
-        
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        XLSX.utils.book_append_sheet(wb, ws, "CSD SKU Sales");
+        const waterSheet = [
+          ["Water SKU Sales Report"],
+          dateRow,
+          [],
+          ["SKU", "Total PC", "Total UC"],
+          ...waterSkuReport.map((row) => [row.sku, row.totalPC, row.totalUC.toFixed(2)]),
+        ];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(csdSheet), "CSD SKU Sales");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(waterSheet), "Water SKU Sales");
       }
       
       XLSX.writeFile(wb, `Sales_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
@@ -887,45 +908,55 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
     
     setExportingPDF(true);
     try {
-      // Find the TableContainer inside the Box ref
       const boxElement = tableRef.current;
-      const tableContainer = boxElement.querySelector('.MuiTableContainer-root') || boxElement;
-      
-      // Temporarily remove height constraints
-      const originalStyles = {
-        maxHeight: tableContainer.style.maxHeight,
-        overflow: tableContainer.style.overflow,
-        height: tableContainer.style.height,
-      };
-      tableContainer.style.maxHeight = "none";
-      tableContainer.style.overflow = "visible";
-      tableContainer.style.height = "auto";
-      
-      // Scroll to top
-      tableContainer.scrollTop = 0;
-      
-      // Wait for styles to apply
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Capture with full scrollable dimensions
-      const canvas = await html2canvas(tableContainer, {
+      /** SKU tab has two scroll areas — capture the whole panel; performance uses the inner table. */
+      const captureRoot =
+        reportType === "sku"
+          ? boxElement
+          : boxElement.querySelector(".MuiTableContainer-root") || boxElement;
+
+      const restoreStyles = [];
+      const nodesToUnconstrain =
+        reportType === "sku"
+          ? Array.from(boxElement.querySelectorAll(".MuiTableContainer-root"))
+          : [captureRoot];
+
+      nodesToUnconstrain.forEach((el) => {
+        if (!el) return;
+        restoreStyles.push({
+          el,
+          maxHeight: el.style.maxHeight,
+          overflow: el.style.overflow,
+          height: el.style.height,
+        });
+        el.style.maxHeight = "none";
+        el.style.overflow = "visible";
+        el.style.height = "auto";
+      });
+
+      captureRoot.scrollTop = 0;
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const canvas = await html2canvas(captureRoot, {
         scale: 2,
         useCORS: true,
         logging: false,
-        width: tableContainer.scrollWidth,
-        height: tableContainer.scrollHeight,
-        windowWidth: tableContainer.scrollWidth,
-        windowHeight: tableContainer.scrollHeight,
+        width: captureRoot.scrollWidth,
+        height: captureRoot.scrollHeight,
+        windowWidth: captureRoot.scrollWidth,
+        windowHeight: captureRoot.scrollHeight,
         scrollX: 0,
         scrollY: 0,
         allowTaint: true,
         removeContainer: false,
       });
-      
-      // Restore original styles
-      tableContainer.style.maxHeight = originalStyles.maxHeight;
-      tableContainer.style.overflow = originalStyles.overflow;
-      tableContainer.style.height = originalStyles.height;
+
+      restoreStyles.forEach(({ el, maxHeight, overflow, height }) => {
+        el.style.maxHeight = maxHeight;
+        el.style.overflow = overflow;
+        el.style.height = height;
+      });
 
       const imgData = canvas.toDataURL("image/png", 1.0);
       
@@ -951,7 +982,10 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       
       // Add title
       pdf.setFontSize(16);
-      const reportTitle = reportType === "performance" ? "Distributor Performance Report" : "CSD SKU Sales Report";
+      const reportTitle =
+        reportType === "performance"
+          ? "Distributor Performance Report"
+          : "CSD & Water SKU Sales Report";
       pdf.text(reportTitle, pdfWidth / 2, 12, { align: "center" });
       
       // Add date and filter info
@@ -1014,7 +1048,9 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
         }
       }
       
-      const filename = `Sales_Report_${reportType === "performance" ? "Performance" : "SKU"}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const filename = `Sales_Report_${
+        reportType === "performance" ? "Performance" : "SKU_CSD_Water"
+      }_${new Date().toISOString().split("T")[0]}.pdf`;
       pdf.save(filename);
       showSnackbar("Report exported to PDF successfully!", "success");
     } catch (error) {
@@ -1037,359 +1073,754 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       { csdPC: 0, csdUC: 0, waterPC: 0, waterUC: 0 }
     );
   }, [performanceReport]);
-  
+
+  const reportHasRows =
+    reportType === "performance"
+      ? performanceReport.length > 0
+      : skuReport.length > 0 || waterSkuReport.length > 0;
+
+  const tableMaxH = { xs: "min(48vh, 360px)", sm: "min(56vh, 520px)" };
+  const skuTableMaxH = { xs: "min(34vh, 300px)", sm: "min(38vh, 340px)" };
+  const headSx = { fontWeight: 700, backgroundColor: "#c62828", color: "#fff", py: 1.25 };
+  const subHeadCsd = { fontWeight: 700, backgroundColor: alpha(theme.palette.warning.main, 0.12) };
+  const subHeadWater = { fontWeight: 700, backgroundColor: alpha(theme.palette.info.main, 0.12) };
+
   return (
-    <Dialog open={open} onClose={onClose} fullScreen>
-      <AppBar position="static" sx={{ backgroundColor: "#d61916" }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Sales Reports
-          </Typography>
-          <IconButton color="inherit" onClick={onClose}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullScreen
+      PaperProps={{
+        sx: {
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "grey.50",
+        },
+      }}
+    >
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          background: `linear-gradient(115deg, #b71c1c 0%, #d32f2f 45%, #c62828 100%)`,
+          borderBottom: "1px solid",
+          borderColor: alpha("#fff", 0.15),
+        }}
+      >
+        <Toolbar sx={{ py: 1, gap: 2, minHeight: { xs: 56, sm: 64 } }}>
+          <AssessmentOutlinedIcon sx={{ opacity: 0.95, fontSize: { xs: 26, sm: 30 } }} />
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+              Reports & analytics
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ opacity: 0.92, display: { xs: "none", sm: "block" }, mt: 0.25 }}
+            >
+              Excel row 4 headers · filter by dates and region · export Excel or PDF
+            </Typography>
+          </Box>
+          <IconButton color="inherit" onClick={onClose} aria-label="Close reports" size="large">
             <CloseIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
-      
-      <Box sx={{ p: 3 }}>
-        {/* Upload Section */}
-        <Box sx={{ mb: 3, display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-          <Button
-            variant="contained"
-            startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <UploadFileIcon />}
-            onClick={triggerFileUpload}
-            disabled={uploading || !canWrite}
-            sx={{ backgroundColor: "#d61916", "&:hover": { backgroundColor: "#b01512" } }}
-            title={!canWrite ? "You don't have permission to upload data. Only admins can upload data." : ""}
+
+      <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, pb: 10 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                flex: 1,
+                p: 2,
+                borderRadius: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                bgcolor: "background.paper",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: alpha(theme.palette.success.main, 0.12),
+                  color: "success.dark",
+                }}
+              >
+                <PeopleOutlineIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  Distributors (for matching)
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                  {distributors?.length ?? 0}
+                </Typography>
+              </Box>
+            </Paper>
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                flex: 1,
+                p: 2,
+                borderRadius: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                bgcolor: "background.paper",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: alpha(theme.palette.info.main, 0.12),
+                  color: "info.dark",
+                }}
+              >
+                <TableRowsOutlinedIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  Records in use
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                  {localSalesData?.length ?? 0}
+                </Typography>
+              </Box>
+            </Paper>
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                flex: 1,
+                p: 2,
+                borderRadius: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                bgcolor: "background.paper",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: alpha(theme.palette.warning.main, 0.15),
+                  color: "warning.dark",
+                }}
+              >
+                <FilterListIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  After filters
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                  {filteredSalesData.length}
+                </Typography>
+              </Box>
+            </Paper>
+          </Stack>
+
+          <Paper
+            elevation={0}
+            variant="outlined"
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              mb: 3,
+              borderRadius: 2,
+              borderStyle: "dashed",
+              borderColor: alpha(theme.palette.error.main, 0.35),
+              bgcolor: alpha(theme.palette.error.main, 0.02),
+            }}
           >
-            {uploading ? `Uploading... (${uploadProgress.processed}/${uploadProgress.total})` : "Upload Sales Data"}
-          </Button>
-          
-          <input
-            ref={hiddenFileRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={onFileChange}
-            style={{ display: "none" }}
-          />
-          
-          {uploadProgress.total > 0 && (
-            <Typography variant="body2" color="text.secondary">
-              {uploadProgress.saved} of {uploadProgress.total} records processed
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>
+              Report data source
             </Typography>
-          )}
-          
-          {/* Distributor Status Indicator */}
-          <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
-            <Chip
-              label={`${distributors?.length || 0} Distributor${distributors?.length !== 1 ? 's' : ''} Available`}
-              color={distributors && distributors.length > 0 ? "success" : "warning"}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={`${localSalesData?.length || 0} Sales Record${(localSalesData?.length || 0) !== 1 ? 's' : ''} Loaded`}
-              color={localSalesData && localSalesData.length > 0 ? "info" : "default"}
-              size="small"
-              variant="outlined"
-            />
-          </Box>
-        </Box>
-        
-        {/* Uploaded Files Management Section - Show list of uploaded files */}
-        {uploadedFiles && uploadedFiles.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                Uploaded Sales Data Files ({uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''})
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
+              Upload an Excel workbook (.xlsx / .xls) with the same layout as main dashboard imports. Data here is
+              stored for reports on this device and replaces the previous upload.
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <UploadFileIcon />}
+                onClick={triggerFileUpload}
+                disabled={uploading || !canWrite}
+                sx={{
+                  backgroundColor: "#c62828",
+                  "&:hover": { backgroundColor: "#b71c1c" },
+                  fontWeight: 700,
+                  py: 1.25,
+                }}
+                title={!canWrite ? "You don't have permission to upload data." : ""}
+              >
+                {uploading
+                  ? `Uploading… (${uploadProgress.processed}/${uploadProgress.total})`
+                  : "Upload sales Excel"}
+              </Button>
+              <input
+                ref={hiddenFileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={onFileChange}
+                style={{ display: "none" }}
+              />
+              {uploadProgress.total > 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Processed {uploadProgress.saved} of {uploadProgress.total} rows
+                </Typography>
+              ) : null}
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ ml: { sm: "auto" } }}>
+                <Chip
+                  label={`${distributors?.length || 0} distributor${distributors?.length !== 1 ? "s" : ""}`}
+                  color={distributors && distributors.length > 0 ? "success" : "warning"}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${localSalesData?.length || 0} row${(localSalesData?.length || 0) !== 1 ? "s" : ""} loaded`}
+                  color={localSalesData && localSalesData.length > 0 ? "primary" : "default"}
+                  size="small"
+                  variant="outlined"
+                />
+              </Stack>
+            </Stack>
+
+            {uploadedFiles && uploadedFiles.length > 0 ? (
+              <Accordion
+                defaultExpanded
+                disableGutters
+                elevation={0}
+                sx={{ mt: 2, borderRadius: "8px !important", border: "1px solid", borderColor: "divider", "&:before": { display: "none" } }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography fontWeight={700}>
+                    Uploaded files ({uploadedFiles.length})
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Delete all ${uploadedFiles.length} file(s) and clear report data?`
+                          )
+                        ) {
+                          setUploadedFiles([]);
+                          setLocalSalesData([]);
+                          showSnackbar("All uploaded files removed", "info");
+                        }
+                      }}
+                    >
+                      Clear all
+                    </Button>
+                  </Stack>
+                  <TableContainer
+                    component={Paper}
+                    variant="outlined"
+                    sx={{ maxHeight: 280, borderRadius: 1 }}
+                  >
+                    <Table stickyHeader size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ ...headSx, width: 48 }}>#</TableCell>
+                          <TableCell sx={headSx}>File</TableCell>
+                          <TableCell sx={headSx}>Uploaded</TableCell>
+                          <TableCell align="center" sx={headSx}>
+                            Rows
+                          </TableCell>
+                          <TableCell align="center" sx={{ ...headSx, width: 72, fontSize: "0.7rem" }}>
+                            Del
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {uploadedFiles.map((file, index) => (
+                          <TableRow key={file.fileName} hover>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>{file.fileName}</TableCell>
+                            <TableCell sx={{ color: "text.secondary", fontSize: "0.8125rem" }}>
+                              {file.uploadDate instanceof Date
+                                ? file.uploadDate.toLocaleString()
+                                : new Date(file.uploadDate).toLocaleString()}
+                            </TableCell>
+                            <TableCell align="center">{file.recordCount}</TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                aria-label={`Remove ${file.fileName}`}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Remove "${file.fileName}" (${file.recordCount} rows)?`
+                                    )
+                                  ) {
+                                    setUploadedFiles((prev) => prev.filter((f) => f.fileName !== file.fileName));
+                                    setLocalSalesData((prev) =>
+                                      prev.filter((record) => record.uploadedFileName !== file.fileName)
+                                    );
+                                    showSnackbar(`Removed ${file.fileName}`, "info");
+                                  }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </AccordionDetails>
+              </Accordion>
+            ) : null}
+          </Paper>
+
+          <Paper elevation={0} variant="outlined" sx={{ p: 0, mb: 2, borderRadius: 2, overflow: "hidden" }}>
+            <Tabs
+              value={reportType}
+              onChange={(e, val) => setReportType(val)}
+              variant="fullWidth"
+              sx={{
+                bgcolor: alpha(theme.palette.grey[500], 0.08),
+                minHeight: 52,
+                "& .MuiTab-root": {
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "0.9375rem",
+                  minHeight: 52,
+                },
+                "& .Mui-selected": { color: "error.dark" },
+                "& .MuiTabs-indicator": { height: 3, borderRadius: "3px 3px 0 0", bgcolor: "#c62828" },
+              }}
+            >
+              <Tab label="Distributor performance" value="performance" />
+              <Tab label="CSD & Water SKU sales" value="sku" />
+            </Tabs>
+          </Paper>
+
+          <Paper elevation={0} variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, mb: 2, borderRadius: 2 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <FilterListIcon color="action" fontSize="small" />
+              <Typography variant="subtitle1" fontWeight={800}>
+                Filters
               </Typography>
+            </Stack>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", md: "flex-start" }}
+              flexWrap="wrap"
+              useFlexGap
+            >
+              <TextField
+                label="Start date"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  validateDateRange(e.target.value, endDate);
+                }}
+                InputLabelProps={{ shrink: true }}
+                error={!!dateError}
+                size="small"
+                sx={{ minWidth: { md: 160 } }}
+              />
+              <TextField
+                label="End date"
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  validateDateRange(startDate, e.target.value);
+                }}
+                InputLabelProps={{ shrink: true }}
+                error={!!dateError}
+                helperText={
+                  dateError ||
+                  (startDate && endDate ? `${filteredSalesData.length} records in range` : undefined)
+                }
+                size="small"
+                sx={{ minWidth: { md: 160 } }}
+              />
+              {reportType === "performance" ? (
+                <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 200 } }}>
+                  <InputLabel id="region-filter-label">Region</InputLabel>
+                  <Select
+                    labelId="region-filter-label"
+                    id="region-filter"
+                    value={selectedRegion}
+                    onChange={(e) => setSelectedRegion(e.target.value)}
+                    label="Region"
+                  >
+                    <MenuItem value="All">All regions</MenuItem>
+                    <MenuItem value="Southern">Southern</MenuItem>
+                    <MenuItem value="Western">Western</MenuItem>
+                    <MenuItem value="Eastern">Eastern</MenuItem>
+                  </Select>
+                </FormControl>
+              ) : null}
+              {(startDate ||
+                endDate ||
+                (reportType === "performance" && selectedRegion && selectedRegion !== "All")) && (
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                    setSelectedRegion("All");
+                  }}
+                  sx={{ alignSelf: { md: "center" }, fontWeight: 700 }}
+                >
+                  Reset filters
+                </Button>
+              )}
+            </Stack>
+            {reportType === "performance" && selectedRegion && selectedRegion !== "All" ? (
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
+                <Typography variant="body2" color="text.secondary">
+                  Region
+                </Typography>
+                <Chip
+                  label={selectedRegion}
+                  onDelete={() => setSelectedRegion("All")}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              </Stack>
+            ) : null}
+          </Paper>
+
+          <Paper elevation={0} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mb: 0 }}>
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+              }}
+            >
+              <TableChartIcon fontSize="small" color="action" />
+              <Typography variant="subtitle1" fontWeight={800}>
+                {reportType === "performance" ? "Distributor performance" : "CSD & Water SKU ranking"}
+              </Typography>
+              {reportType === "performance" && reportHasRows ? (
+                <Chip label={`${performanceReport.length} rows`} size="small" sx={{ ml: "auto" }} />
+              ) : null}
+              {reportType === "sku" && (skuReport.length > 0 || waterSkuReport.length > 0) ? (
+                <Stack direction="row" spacing={0.75} sx={{ ml: "auto" }} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" label={`CSD: ${skuReport.length} SKU`} />
+                  <Chip
+                    size="small"
+                    label={`Water: ${waterSkuReport.length} SKU`}
+                    color="info"
+                    variant="outlined"
+                  />
+                </Stack>
+              ) : null}
+            </Box>
+
+            <Box ref={tableRef} sx={{ bgcolor: "background.paper" }}>
+              {reportType === "performance" ? (
+                <TableContainer sx={{ maxHeight: tableMaxH }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ ...headSx, width: 56 }}>Rank</TableCell>
+                        <TableCell sx={headSx}>Distributor</TableCell>
+                        <TableCell align="center" sx={subHeadCsd}>
+                          CSD PC
+                        </TableCell>
+                        <TableCell align="center" sx={subHeadCsd}>
+                          CSD UC
+                        </TableCell>
+                        <TableCell align="center" sx={subHeadWater}>
+                          Water PC
+                        </TableCell>
+                        <TableCell align="center" sx={subHeadWater}>
+                          Water UC
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {performanceReport.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} align="center" sx={{ py: 6, border: "none" }}>
+                            <AssessmentOutlinedIcon
+                              sx={{ fontSize: 48, color: "action.disabled", mb: 1.5 }}
+                            />
+                            <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                              {localSalesData.length === 0
+                                ? "No data yet"
+                                : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
+                                  ? "Nothing matches these filters"
+                                  : "No rows to show"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: "auto" }}>
+                              {localSalesData.length === 0
+                                ? "Upload a sales Excel file above to build distributor performance."
+                                : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
+                                  ? "Try widening the date range or setting region to All."
+                                  : "Adjust filters or upload a file with matched distributors."}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        <>
+                          {performanceReport.map((row) => (
+                            <TableRow
+                              key={row.name}
+                              hover
+                              sx={{
+                                "&:nth-of-type(even)": { bgcolor: alpha(theme.palette.grey[500], 0.04) },
+                              }}
+                            >
+                              <TableCell sx={{ fontWeight: 800, color: row.rank <= 3 ? "#c62828" : "inherit" }}>
+                                {row.rank}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 600 }}>{row.name}</TableCell>
+                              <TableCell align="center">{row.csdPC.toLocaleString()}</TableCell>
+                              <TableCell align="center">{row.csdUC.toFixed(2)}</TableCell>
+                              <TableCell align="center">{row.waterPC.toLocaleString()}</TableCell>
+                              <TableCell align="center">{row.waterUC.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow
+                            sx={{
+                              bgcolor: alpha(theme.palette.grey[700], 0.06),
+                              "& .MuiTableCell-root": { fontWeight: 800 },
+                            }}
+                          >
+                            <TableCell />
+                            <TableCell>Total</TableCell>
+                            <TableCell align="center">{performanceTotals.csdPC.toLocaleString()}</TableCell>
+                            <TableCell align="center">{performanceTotals.csdUC.toFixed(2)}</TableCell>
+                            <TableCell align="center">{performanceTotals.waterPC.toLocaleString()}</TableCell>
+                            <TableCell align="center">{performanceTotals.waterUC.toFixed(2)}</TableCell>
+                          </TableRow>
+                        </>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Stack spacing={2.5} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={800}
+                      sx={{ mb: 1, px: 0.5, color: "error.dark" }}
+                    >
+                      CSD — SKU sales
+                    </Typography>
+                    <TableContainer
+                      component={Paper}
+                      variant="outlined"
+                      sx={{ maxHeight: skuTableMaxH, borderRadius: 1 }}
+                    >
+                      <Table stickyHeader size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ ...headSx, width: 56 }}>#</TableCell>
+                            <TableCell sx={headSx}>SKU</TableCell>
+                            <TableCell align="center" sx={subHeadCsd}>
+                              Total PC
+                            </TableCell>
+                            <TableCell align="center" sx={subHeadCsd}>
+                              Total UC
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {skuReport.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} align="center" sx={{ py: 4, border: "none" }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  {localSalesData.length === 0
+                                    ? "Upload sales data with CSD product lines."
+                                    : startDate && endDate
+                                      ? "No CSD SKUs in this date range."
+                                      : "No CSD SKUs in the filtered data."}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            skuReport.map((row, index) => (
+                              <TableRow
+                                key={`csd-${row.sku}`}
+                                hover
+                                sx={{
+                                  "&:nth-of-type(even)": {
+                                    bgcolor: alpha(theme.palette.grey[500], 0.04),
+                                  },
+                                }}
+                              >
+                                <TableCell sx={{ fontWeight: 700 }}>{index + 1}</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{row.sku}</TableCell>
+                                <TableCell align="center">{row.totalPC.toLocaleString()}</TableCell>
+                                <TableCell align="center">{row.totalUC.toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={800}
+                      sx={{ mb: 1, px: 0.5, color: "info.dark" }}
+                    >
+                      Water (Kinley) — SKU sales
+                    </Typography>
+                    <TableContainer
+                      component={Paper}
+                      variant="outlined"
+                      sx={{ maxHeight: skuTableMaxH, borderRadius: 1 }}
+                    >
+                      <Table stickyHeader size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ ...headSx, width: 56 }}>#</TableCell>
+                            <TableCell sx={headSx}>SKU</TableCell>
+                            <TableCell align="center" sx={subHeadWater}>
+                              Total PC
+                            </TableCell>
+                            <TableCell align="center" sx={subHeadWater}>
+                              Total UC
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {waterSkuReport.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} align="center" sx={{ py: 4, border: "none" }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  {localSalesData.length === 0
+                                    ? "Upload sales data with Water / Kinley product lines."
+                                    : startDate && endDate
+                                      ? "No water SKUs in this date range."
+                                      : "No water SKUs in the filtered data."}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            waterSkuReport.map((row, index) => (
+                              <TableRow
+                                key={`water-${row.sku}`}
+                                hover
+                                sx={{
+                                  "&:nth-of-type(even)": {
+                                    bgcolor: alpha(theme.palette.grey[500], 0.04),
+                                  },
+                                }}
+                              >
+                                <TableCell sx={{ fontWeight: 700 }}>{index + 1}</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{row.sku}</TableCell>
+                                <TableCell align="center">{row.totalPC.toLocaleString()}</TableCell>
+                                <TableCell align="center">{row.totalUC.toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                </Stack>
+              )}
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
+
+      <Paper
+        elevation={8}
+        square
+        sx={{
+          position: "sticky",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 2,
+          px: { xs: 2, sm: 3 },
+          py: 1.75,
+          borderTop: "1px solid",
+          borderColor: "divider",
+          borderRadius: 0,
+        }}
+      >
+        <Container maxWidth="xl" sx={{ px: { xs: 0, sm: 2 } }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+              {reportType === "sku"
+                ? "Excel: two sheets (CSD + Water). PDF captures both tables below. Filters apply to both."
+                : "Exports reflect the active tab and filters."}
+            </Typography>
+            <Stack direction="row" spacing={1.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
               <Button
                 variant="outlined"
-                color="error"
-                size="small"
-                startIcon={<DeleteIcon />}
-                onClick={() => {
-                  if (window.confirm(`Are you sure you want to delete all ${uploadedFiles.length} uploaded file(s)? This will remove all sales data.`)) {
-                    setUploadedFiles([]);
-                    setLocalSalesData([]);
-                    showSnackbar(`All uploaded files deleted`, "info");
-                  }
-                }}
+                size="large"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadExcel}
+                disabled={!reportHasRows}
+                sx={{ fontWeight: 700 }}
               >
-                Delete All Files
+                Excel
               </Button>
-            </Box>
-            <TableContainer component={Paper} sx={{ maxHeight: 300, mb: 2 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff", width: 60 }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>File Name</TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>Upload Date</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>Records</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff", width: 100 }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {uploadedFiles.map((file, index) => (
-                    <TableRow key={file.fileName} hover>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: "medium" }}>{file.fileName}</TableCell>
-                      <TableCell>
-                        {file.uploadDate instanceof Date
-                          ? file.uploadDate.toLocaleString()
-                          : new Date(file.uploadDate).toLocaleString()}
-                      </TableCell>
-                      <TableCell align="center">{file.recordCount}</TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            if (window.confirm(`Delete file "${file.fileName}"? This will remove ${file.recordCount} sales record(s).`)) {
-                              // Remove file from uploaded files list
-                              setUploadedFiles(prev => prev.filter(f => f.fileName !== file.fileName));
-                              // Remove all records from this file
-                              setLocalSalesData(prev => prev.filter(record => record.uploadedFileName !== file.fileName));
-                              showSnackbar(`File "${file.fileName}" deleted`, "info");
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        )}
-        
-        {/* Filter Section - Date and Distributor */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ mb: 2, display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                validateDateRange(e.target.value, endDate);
-              }}
-              InputLabelProps={{ shrink: true }}
-              error={!!dateError}
-              size="small"
-            />
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                validateDateRange(startDate, e.target.value);
-              }}
-              InputLabelProps={{ shrink: true }}
-              error={!!dateError}
-              helperText={dateError || (startDate && endDate ? `${filteredSalesData.length} records found` : "")}
-              size="small"
-            />
-            
-            {/* Region Filter - Only shown for "Distributor Performance" report */}
-            {reportType === "performance" && (
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel id="region-filter-label">Filter by Region</InputLabel>
-                <Select
-                  labelId="region-filter-label"
-                  id="region-filter"
-                  value={selectedRegion}
-                  onChange={(e) => setSelectedRegion(e.target.value)}
-                  label="Filter by Region"
-                >
-                  <MenuItem value="All">All Regions</MenuItem>
-                  <MenuItem value="Southern">Southern</MenuItem>
-                  <MenuItem value="Western">Western</MenuItem>
-                  <MenuItem value="Eastern">Eastern</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-            
-            {(startDate || endDate || (reportType === "performance" && selectedRegion && selectedRegion !== "All")) && (
-              <Button 
-                variant="outlined" 
-                onClick={() => { 
-                  setStartDate(""); 
-                  setEndDate(""); 
-                  setSelectedRegion("All");
-                }}
-                size="small"
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={
+                  exportingPDF ? <CircularProgress size={22} color="inherit" /> : <PictureAsPdfIcon />
+                }
+                onClick={handleDownloadPDF}
+                disabled={exportingPDF || !reportHasRows}
+                sx={{ bgcolor: "#c62828", "&:hover": { bgcolor: "#b71c1c" }, fontWeight: 700 }}
               >
-                Clear All Filters
+                {exportingPDF ? "Building PDF…" : "PDF"}
               </Button>
-            )}
-          </Box>
-          
-          {/* Active Filters Display - Only shown for "Distributor Performance" report */}
-          {reportType === "performance" && selectedRegion && selectedRegion !== "All" && (
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-              <Typography variant="body2" color="text.secondary">
-                Filtering by region:
-              </Typography>
-              <Chip
-                label={selectedRegion}
-                onDelete={() => setSelectedRegion("All")}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            </Box>
-          )}
-        </Box>
-        
-        {/* Report Type Tabs */}
-        <Tabs 
-          value={reportType} 
-          onChange={(e, val) => setReportType(val)} 
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ 
-            mb: 2, 
-            borderBottom: 1, 
-            borderColor: "divider",
-            minHeight: { xs: 40, sm: 48 },
-            "& .MuiTab-root": {
-              minHeight: { xs: 40, sm: 48 },
-              fontSize: { xs: "0.75rem", sm: "0.875rem" },
-              px: { xs: 1.5, sm: 3 },
-              py: { xs: 0.5, sm: 1 },
-              textTransform: "none",
-              fontWeight: { xs: 600, sm: 500 }
-            },
-            "& .MuiTabs-scrollButtons": {
-              width: { xs: 32, sm: 40 }
-            }
-          }}
-        >
-          <Tab label="Distributor Performance" value="performance" />
-          <Tab label="CSD SKU Sales" value="sku" />
-        </Tabs>
-        
-        {/* Report Content */}
-        <Box ref={tableRef}>
-          {reportType === "performance" ? (
-            <TableContainer component={Paper} sx={{ maxHeight: "calc(100vh - 450px)" }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff", width: 60 }}>Rank</TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>Distributor</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#fff3e0" }}>CSD PC</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#fff3e0" }}>CSD UC</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#e3f2fd" }}>Water PC</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#e3f2fd" }}>Water UC</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {performanceReport.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
-                        <Typography variant="body1" color="text.secondary">
-                          {localSalesData.length === 0
-                            ? "No sales data available. Please upload sales data first."
-                            : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
-                            ? "No records found for the selected filters. Try adjusting the date range or region selection."
-                            : "No sales data available."}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <>
-                      {performanceReport.map((row) => (
-                        <TableRow key={row.name}>
-                          <TableCell sx={{ fontWeight: "bold", color: row.rank <= 3 ? "#e53935" : "inherit" }}>
-                            {row.rank}
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "medium" }}>{row.name}</TableCell>
-                          <TableCell align="center">{row.csdPC.toLocaleString()}</TableCell>
-                          <TableCell align="center">{row.csdUC.toFixed(2)}</TableCell>
-                          <TableCell align="center">{row.waterPC.toLocaleString()}</TableCell>
-                          <TableCell align="center">{row.waterUC.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow sx={{ backgroundColor: "#f5f5f5", fontWeight: "bold" }}>
-                        <TableCell sx={{ fontWeight: "bold" }}></TableCell>
-                        <TableCell sx={{ fontWeight: "bold" }}>Total</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: "bold" }}>{performanceTotals.csdPC.toLocaleString()}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: "bold" }}>{performanceTotals.csdUC.toFixed(2)}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: "bold" }}>{performanceTotals.waterPC.toLocaleString()}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: "bold" }}>{performanceTotals.waterUC.toFixed(2)}</TableCell>
-                      </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <TableContainer component={Paper} sx={{ maxHeight: "calc(100vh - 450px)" }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>Rank</TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#e53935", color: "#fff" }}>SKU</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#fff3e0" }}>Total PC</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", backgroundColor: "#fff3e0" }}>Total UC</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {skuReport.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 5 }}>
-                        <Typography variant="body1" color="text.secondary">
-                          {localSalesData.length === 0
-                            ? "No sales data available. Please upload sales data first."
-                            : startDate && endDate
-                            ? "No CSD products found for the selected date range."
-                            : "No CSD products found in sales data."}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    skuReport.map((row, index) => (
-                      <TableRow key={row.sku}>
-                        <TableCell sx={{ fontWeight: "medium" }}>{index + 1}</TableCell>
-                        <TableCell sx={{ fontWeight: "medium" }}>{row.sku}</TableCell>
-                        <TableCell align="center">{row.totalPC.toLocaleString()}</TableCell>
-                        <TableCell align="center">{row.totalUC.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-        
-        {/* Download Buttons */}
-        <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadExcel}
-            disabled={performanceReport.length === 0 && skuReport.length === 0}
-          >
-            Download Excel
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={exportingPDF ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-            onClick={handleDownloadPDF}
-            disabled={exportingPDF || (performanceReport.length === 0 && skuReport.length === 0)}
-            sx={{ backgroundColor: "#d61916", "&:hover": { backgroundColor: "#b01512" } }}
-          >
-            {exportingPDF ? "Generating PDF..." : "Download PDF"}
-          </Button>
-        </Box>
-      </Box>
+            </Stack>
+          </Stack>
+        </Container>
+      </Paper>
       
       {/* Snackbar for notifications */}
       <AppSnackbar
