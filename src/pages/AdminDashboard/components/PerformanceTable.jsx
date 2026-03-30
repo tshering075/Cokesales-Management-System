@@ -25,6 +25,14 @@ const PT = {
   totalRow: "#f5f5f5",
 };
 
+/** Bold numerals for target / achieved / balance columns */
+const figureSx = {
+  textAlign: "center",
+  fontWeight: 700,
+  fontSize: { xs: "0.7rem", sm: "0.875rem" },
+  py: { xs: 1, sm: 1.5 },
+};
+
 function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) {
   const normalizeRegionKey = (region) => {
     const map = { South: "Southern", West: "Western", East: "Eastern" };
@@ -521,26 +529,16 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
                 )}
               </TableCell>
               {/* Target - CSD */}
-              <TableCell sx={{ textAlign: "center", fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
-                {Math.round(distributor.target?.CSD_PC || 0)}
-              </TableCell>
-              <TableCell sx={{ textAlign: "center", fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
-                {Math.round(distributor.target?.CSD_UC || 0)}
-              </TableCell>
+              <TableCell sx={figureSx}>{Math.round(distributor.target?.CSD_PC || 0)}</TableCell>
+              <TableCell sx={figureSx}>{Math.round(distributor.target?.CSD_UC || 0)}</TableCell>
               {/* Target - Water */}
-              <TableCell sx={{ textAlign: "center", fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
-                {Math.round(distributor.target?.Water_PC || 0)}
-              </TableCell>
-              <TableCell sx={{ textAlign: "center", fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
-                {Math.round(distributor.target?.Water_UC || 0)}
-              </TableCell>
+              <TableCell sx={figureSx}>{Math.round(distributor.target?.Water_PC || 0)}</TableCell>
+              <TableCell sx={figureSx}>{Math.round(distributor.target?.Water_UC || 0)}</TableCell>
               {/* Achieved - CSD */}
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.achieved?.CSD_PC || 0) > 0 ? "#2e7d32" : "grey.800",
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                   borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
                 }}
               >
@@ -548,11 +546,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               </TableCell>
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.achieved?.CSD_UC || 0) > 0 ? "#2e7d32" : "grey.800",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                 }}
               >
                 {Math.round(distributor.achieved?.CSD_UC || 0)}
@@ -560,10 +555,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               {/* Achieved - Water */}
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.achieved?.Water_PC || 0) > 0 ? "#2e7d32" : "grey.800",
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                   borderRight: "none",
                 }}
               >
@@ -571,11 +564,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               </TableCell>
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.achieved?.Water_UC || 0) > 0 ? "#2e7d32" : "grey.800",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                   borderLeft: "none",
                   borderRight: "2px solid rgba(0, 0, 0, 0.2)",
                 }}
@@ -585,22 +575,16 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               {/* Balance - CSD */}
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.balance?.CSD_PC || 0) >= 0 ? "grey.800" : "#d32f2f",
-                  fontWeight: (distributor.balance?.CSD_PC || 0) < 0 ? 600 : "normal",
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                 }}
               >
                 {Math.round(distributor.balance?.CSD_PC || 0)}
               </TableCell>
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.balance?.CSD_UC || 0) >= 0 ? "grey.800" : "#d32f2f",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                 }}
               >
                 {Math.round(distributor.balance?.CSD_UC || 0)}
@@ -608,22 +592,16 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               {/* Balance - Water */}
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.balance?.Water_PC || 0) >= 0 ? "grey.800" : "#d32f2f",
-                  fontWeight: (distributor.balance?.Water_PC || 0) < 0 ? 600 : "normal",
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                 }}
               >
                 {Math.round(distributor.balance?.Water_PC || 0)}
               </TableCell>
               <TableCell
                 sx={{
-                  textAlign: "center",
+                  ...figureSx,
                   color: (distributor.balance?.Water_UC || 0) >= 0 ? "grey.800" : "#d32f2f",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
                 }}
               >
                 {Math.round(distributor.balance?.Water_UC || 0)}
