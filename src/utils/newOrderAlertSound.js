@@ -72,3 +72,27 @@ export function playOrderSubmittedNotifyChime() {
     console.warn("playOrderSubmittedNotifyChime:", e);
   }
 }
+
+/** Quiet tone when sales / stock lifting data is refreshed for the distributor (non-intrusive). */
+export function playSalesDataRefreshChime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(660, now);
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.055, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.24);
+    ctx.resume?.().catch(() => {});
+  } catch (e) {
+    console.warn("playSalesDataRefreshChime:", e);
+  }
+}

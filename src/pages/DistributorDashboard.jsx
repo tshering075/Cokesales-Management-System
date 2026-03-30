@@ -41,13 +41,14 @@ import StockLiftingRecordsTable from "../components/StockLiftingRecordsTable";
 import OrderCalculatedTableDialog from "../components/OrderCalculatedTableDialog";
 import DistributorPhysicalStockDialog from "../components/DistributorPhysicalStockDialog";
 import AppSnackbar from "../components/AppSnackbar";
+import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
 import {
   tryClaimTwiceWeeklyTargetReminder,
   buildTargetBalanceReminderMessage,
   getTargetReminderNotificationIconUrl,
 } from "../utils/targetReminder";
-import { playOrderSubmittedNotifyChime } from "../utils/newOrderAlertSound";
+import { playOrderSubmittedNotifyChime, playSalesDataRefreshChime } from "../utils/newOrderAlertSound";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 import { 
   getDistributorByCode, 
@@ -109,6 +110,16 @@ function formatDistributorOrderRow(order) {
   };
 }
 
+function fingerprintStockLiftingRecords(records) {
+  if (!Array.isArray(records) || records.length === 0) return "0";
+  return records
+    .map((r) =>
+      `${r.id ?? "noid"}:${Number(r.csdPC) || 0}:${Number(r.csdUC) || 0}:${Number(r.waterPC) || 0}:${Number(r.waterUC) || 0}:${r.date ?? ""}`
+    )
+    .sort()
+    .join("|");
+}
+
 function DistributorDashboard({ distributorName = "Distributor", distributorCode, onLogout }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -150,6 +161,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const previousOrderStatusesRef = useRef({});
   const previousTargetAchievedRef = useRef(null);
   const [targetPeriodRev, setTargetPeriodRev] = useState(0);
+  const stockLiftingFingerprintRef = useRef(null);
+  const [salesRefreshNoticeOpen, setSalesRefreshNoticeOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -415,6 +428,31 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     [distributor?.achieved]
   );
 
+  /** Dashboard / progress: match stock lifting totals from sales_data when loaded; else stored achieved (e.g. orders-only). */
+  const progressAchievedData = useMemo(() => {
+    const stored = achievedData;
+    if (!isSupabaseConfigured || !Array.isArray(stockLiftingRecords) || stockLiftingRecords.length === 0) {
+      return stored;
+    }
+    const fromSalesDb = stockLiftingRecords.some(
+      (r) => r?.id != null && String(r.id).trim() !== ""
+    );
+    if (!fromSalesDb) {
+      return stored;
+    }
+    let CSD_PC = 0;
+    let CSD_UC = 0;
+    let Water_PC = 0;
+    let Water_UC = 0;
+    for (const r of stockLiftingRecords) {
+      CSD_PC += Number(r.csdPC) || 0;
+      CSD_UC += Number(r.csdUC) || 0;
+      Water_PC += Number(r.waterPC) || 0;
+      Water_UC += Number(r.waterUC) || 0;
+    }
+    return { CSD_PC, CSD_UC, Water_PC, Water_UC };
+  }, [isSupabaseConfigured, stockLiftingRecords, achievedData]);
+
   const pendingOrdersCount = useMemo(
     () =>
       orders.filter((o) => {
@@ -435,14 +473,14 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       return { dashboard: false, physicalStock: false, pendingOrders: 0 };
     }
     return {
-      dashboard: shouldShowDashboardBadge(distributorCode, targetData, achievedData),
+      dashboard: shouldShowDashboardBadge(distributorCode, targetData, progressAchievedData),
       physicalStock: shouldShowPhysicalStockBadge(distributorCode, physicalStockPayload),
       pendingOrders: pendingOrdersCount,
     };
   }, [
     distributorCode,
     targetData,
-    achievedData,
+    progressAchievedData,
     physicalStockPayload,
     pendingOrdersCount,
     sidebarBadgeTick,
@@ -450,8 +488,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
 
   useEffect(() => {
     if (!distributorCode) return;
-    ensureDashboardBaselineIfMissing(distributorCode, targetData, achievedData);
-  }, [distributorCode, targetData, achievedData]);
+    ensureDashboardBaselineIfMissing(distributorCode, targetData, progressAchievedData);
+  }, [distributorCode, targetData, progressAchievedData]);
 
   const bumpSidebarBadges = useCallback(() => {
     setSidebarBadgeTick((n) => n + 1);
@@ -657,15 +695,15 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         category: "CSD",
         targetPC: targetData.CSD_PC || 0,
         targetUC: targetData.CSD_UC || 0,
-        achievedPC: achievedData.CSD_PC || 0,
-        achievedUC: achievedData.CSD_UC || 0,
+        achievedPC: progressAchievedData.CSD_PC || 0,
+        achievedUC: progressAchievedData.CSD_UC || 0,
       },
       {
         category: "Kinley Water",
         targetPC: targetData.Water_PC || 0,
         targetUC: targetData.Water_UC || 0,
-        achievedPC: achievedData.Water_PC || 0,
-        achievedUC: achievedData.Water_UC || 0,
+        achievedPC: progressAchievedData.Water_PC || 0,
+        achievedUC: progressAchievedData.Water_UC || 0,
       },
     ];
 
@@ -699,7 +737,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         console.warn("Browser notification failed:", e);
       }
     })();
-  }, [distributorCode, distributor, targetData, achievedData, targetPeriodRev, pushNotification]);
+  }, [distributorCode, distributor, targetData, progressAchievedData, targetPeriodRev, pushNotification]);
 
   // Load orders from Supabase or localStorage
   useEffect(() => {
@@ -735,6 +773,10 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     return () => unsubscribe();
   }, [distributorCode, isSupabaseConfigured]);
 
+  useEffect(() => {
+    stockLiftingFingerprintRef.current = null;
+  }, [distributorCode]);
+
   // Load stock lifting records from sales_data
   useEffect(() => {
     const loadStockLiftingRecords = async () => {
@@ -742,6 +784,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         if (isSupabaseConfigured && distributorCode) {
           const records = await getStockLiftingRecords(distributorCode);
           setStockLiftingRecords(records);
+          stockLiftingFingerprintRef.current = fingerprintStockLiftingRecords(records);
         } else {
           // Fallback: use orders as stock lifting records if no sales data
           setStockLiftingRecords(orders.map(order => ({
@@ -778,7 +821,18 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       const unsubscribe = subscribeToSalesData(async () => {
         try {
           const records = await getStockLiftingRecords(distributorCode);
+          const nextFp = fingerprintStockLiftingRecords(records);
+          const prevFp = stockLiftingFingerprintRef.current;
           setStockLiftingRecords(records);
+          if (prevFp !== null && prevFp !== nextFp) {
+            setSalesRefreshNoticeOpen(true);
+            try {
+              playSalesDataRefreshChime();
+            } catch {
+              /* ignore */
+            }
+          }
+          stockLiftingFingerprintRef.current = nextFp;
         } catch (error) {
           console.error("Error refreshing stock lifting records:", error);
         }
@@ -825,15 +879,15 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       category: "CSD", 
       targetPC: targetData.CSD_PC || 0, 
       targetUC: targetData.CSD_UC || 0, 
-      achievedPC: achievedData.CSD_PC || 0, 
-      achievedUC: achievedData.CSD_UC || 0 
+      achievedPC: progressAchievedData.CSD_PC || 0, 
+      achievedUC: progressAchievedData.CSD_UC || 0 
     },
     { 
       category: "Kinley Water", 
       targetPC: targetData.Water_PC || 0, 
       targetUC: targetData.Water_UC || 0, 
-      achievedPC: achievedData.Water_PC || 0, 
-      achievedUC: achievedData.Water_UC || 0 
+      achievedPC: progressAchievedData.Water_PC || 0, 
+      achievedUC: progressAchievedData.Water_UC || 0 
     },
   ];
   
@@ -1301,7 +1355,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             <ListItemButton
               onClick={() => {
                 if (distributorCode) {
-                  markDashboardTargetSeen(distributorCode, targetData, achievedData);
+                  markDashboardTargetSeen(distributorCode, targetData, progressAchievedData);
                   bumpSidebarBadges();
                 }
                 setDistributorCurrentView("dashboard");
@@ -1536,13 +1590,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {(targetData.CSD_PC || 0) - (achievedData.CSD_PC || 0)}
+                    {(targetData.CSD_PC || 0) - (progressAchievedData.CSD_PC || 0)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {Math.round((targetData.CSD_UC || 0) - (achievedData.CSD_UC || 0)).toLocaleString()}
+                    {Math.round((targetData.CSD_UC || 0) - (progressAchievedData.CSD_UC || 0)).toLocaleString()}
                   </Typography>
                 </Box>
               </Box>
@@ -1554,13 +1608,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {(targetData.Water_PC || 0) - (achievedData.Water_PC || 0)}
+                    {(targetData.Water_PC || 0) - (progressAchievedData.Water_PC || 0)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {Math.round((targetData.Water_UC || 0) - (achievedData.Water_UC || 0)).toLocaleString()}
+                    {Math.round((targetData.Water_UC || 0) - (progressAchievedData.Water_UC || 0)).toLocaleString()}
                   </Typography>
                 </Box>
               </Box>
@@ -1768,6 +1822,12 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SalesDataRefreshNoticeDialog
+        open={salesRefreshNoticeOpen}
+        onClose={() => setSalesRefreshNoticeOpen(false)}
+        liftingLineCount={stockLiftingRecords.length}
+      />
 
       <AppSnackbar
         open={toast.open}

@@ -100,6 +100,11 @@ import {
 import { getCurrentUserRole, getUserPermissions } from "../utils/permissions";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import { readProductRatesFromLocalStorage, writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
+import {
+  ensureAdminPhysicalStockBaseline,
+  countDistributorsWithNewPhysicalStock,
+  markAdminPhysicalStockNotificationsSeen,
+} from "../utils/adminPhysicalStockSignals";
 
 const ADMIN_REGION_STORAGE_KEY = "coke_admin_dashboard_region";
 const ADMIN_REGION_OPTIONS = ["All", "Southern", "Western", "Eastern", "PLING", "THIM"];
@@ -181,7 +186,8 @@ function AdminDashboard({ onLogout }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  
+  const [adminPhysicalStockBadgeTick, setAdminPhysicalStockBadgeTick] = useState(0);
+
   const SALES_PERF_UPDATED_KEY = "coke_sales_performance_last_updated";
 
   const applySalesPerformanceUpdatedAt = async (when, { persistCloud } = { persistCloud: false }) => {
@@ -3005,6 +3011,21 @@ function AdminDashboard({ onLogout }) {
     }).length;
   }, [allOrders, orderStatuses]);
 
+  useEffect(() => {
+    if (!Array.isArray(distributors) || distributors.length === 0) return;
+    ensureAdminPhysicalStockBaseline(distributors);
+  }, [distributors]);
+
+  const pendingPhysicalStockUpdatesCount = useMemo(() => {
+    void adminPhysicalStockBadgeTick;
+    return countDistributorsWithNewPhysicalStock(distributors);
+  }, [distributors, adminPhysicalStockBadgeTick]);
+
+  const handlePhysicalStockAdminDialogOpened = useCallback(() => {
+    markAdminPhysicalStockNotificationsSeen(distributors);
+    setAdminPhysicalStockBadgeTick((t) => t + 1);
+  }, [distributors]);
+
   const syncOrderStatusToSupabase = async (orderLikeOrKey, status) => {
     try {
       if (!isSupabaseConfigured) return;
@@ -3760,7 +3781,16 @@ function AdminDashboard({ onLogout }) {
                     setSidebarOpen(isMobile);
                   },
                 },
-                { text: "Physical Stock", icon: <WarehouseIcon />, action: () => { setPhysicalStockAdminOpen(true); setAdminCurrentView("physical_stock"); setSidebarOpen(isMobile); } },
+                {
+                  text: "Physical Stock",
+                  icon: <WarehouseIcon />,
+                  badgeCount: pendingPhysicalStockUpdatesCount,
+                  action: () => {
+                    setPhysicalStockAdminOpen(true);
+                    setAdminCurrentView("physical_stock");
+                    setSidebarOpen(isMobile);
+                  },
+                },
                 { text: "Distributors", icon: <PeopleIcon />, action: () => { setDistributorsOpen(true); setAdminCurrentView("distributors"); setSidebarOpen(isMobile); } },
                 { text: "Reports", icon: <BarChartIcon />, action: () => { setReportsOpen(true); setAdminCurrentView("reports"); setSidebarOpen(isMobile); } },
                 { text: "Activity", icon: <HistoryIcon />, action: () => { setActivityOpen(true); setAdminCurrentView("activity"); setSidebarOpen(isMobile); } },
@@ -3810,7 +3840,13 @@ function AdminDashboard({ onLogout }) {
                 </Box>
                 <ListItemText
                   primary={item.text}
-                  secondary={item.text === "Orders" && item.badgeCount > 0 ? "Needs review" : undefined}
+                  secondary={
+                    item.text === "Orders" && item.badgeCount > 0
+                      ? "Needs review"
+                      : item.text === "Physical Stock" && item.badgeCount > 0
+                        ? "Distributor update(s)"
+                        : undefined
+                  }
                   sx={{
                     fontWeight: "500",
                     color: "#000",
@@ -4126,6 +4162,7 @@ function AdminDashboard({ onLogout }) {
             setAdminCurrentView("dashboard");
           }}
           distributors={distributors}
+          onOpened={handlePhysicalStockAdminDialogOpened}
         />
 
         <OrderPreviewDialog

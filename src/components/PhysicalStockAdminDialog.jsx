@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   Button,
@@ -40,7 +40,7 @@ function formatWhen(iso) {
   }
 }
 
-export default function PhysicalStockAdminDialog({ open, onClose, distributors }) {
+export default function PhysicalStockAdminDialog({ open, onClose, distributors, onOpened }) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
 
@@ -69,6 +69,14 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors }
   const handleAccordion = (code) => (_, isExp) => {
     setExpanded(isExp ? code : false);
   };
+
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      onOpened?.();
+    }
+    prevOpenRef.current = open;
+  }, [open, onOpened]);
 
   return (
     <Dialog
