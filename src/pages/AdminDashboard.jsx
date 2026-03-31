@@ -53,7 +53,6 @@ import { playOrderApprovedChime } from "../utils/orderApprovedSound";
 import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
-import ThemeModeToggle from "../components/ThemeModeToggle";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import CokeCalculator from "../cokecalculator";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
@@ -3706,7 +3705,6 @@ function AdminDashboard({ onLogout }) {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500, fontSize: { xs: "0.875rem", sm: "1.125rem", md: "1.25rem" } }}>
             Admin Dashboard
           </Typography>
-          <ThemeModeToggle />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"
@@ -3894,7 +3892,7 @@ function AdminDashboard({ onLogout }) {
         component="main" 
           sx={{
           flexGrow: 1, 
-          bgcolor: "background.default", 
+          bgcolor: "#f5f5f5", 
           p: { xs: 1, sm: 2, md: 3 },
           overflowX: "hidden",
           overflowY: "auto",

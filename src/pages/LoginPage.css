@@ -12,24 +12,6 @@
   overflow: hidden;
 }
 
-/* Dark MUI theme: deeper gradient + glass card */
-.login-container.theme-dark {
-  background: linear-gradient(135deg, #8b1c1c 0%, #3d2914 45%, #1a1209 100%);
-}
-
-.login-container.theme-dark .login-box {
-  background: rgba(30, 30, 32, 0.92);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.login-container.theme-dark .coke-fill {
-  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.04), transparent 30%),
-    radial-gradient(circle at 80% 40%, rgba(255, 255, 255, 0.02), transparent 25%),
-    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.03), transparent 30%),
-    linear-gradient(to top, #1a0505, #2d0a0a, #3e0d0d);
-}
-
 /* Bottles row */
 .coke-bottles {
   position: absolute;

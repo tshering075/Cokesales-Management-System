@@ -1,14 +1,21 @@
-// Optional — main bundle uses index.js + AppThemeProvider.
-import { AppThemeProvider } from "./theme/AppThemeProvider";
-import App from "./App";
-import "@fontsource/roboto";
+// src/Root.js
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import App from './App';
+import '@fontsource/roboto'; // make sure Roboto font is imported
 
-/** @deprecated Prefer index.js entry. */
+const theme = createTheme({
+  typography: {
+    fontFamily: 'Roboto',
+  },
+});
+
 function Root() {
   return (
-    <AppThemeProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <App />
-    </AppThemeProvider>
+    </ThemeProvider>
   );
 }
 

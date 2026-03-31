@@ -41,7 +41,6 @@ import StockLiftingRecordsTable from "../components/StockLiftingRecordsTable";
 import OrderCalculatedTableDialog from "../components/OrderCalculatedTableDialog";
 import DistributorPhysicalStockDialog from "../components/DistributorPhysicalStockDialog";
 import AppSnackbar from "../components/AppSnackbar";
-import ThemeModeToggle from "../components/ThemeModeToggle";
 import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
 import {
@@ -1313,7 +1312,6 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           <Typography variant="body2" sx={{ mr: { xs: 1, sm: 2 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, display: { xs: "none", sm: "block" } }}>
             {today.toLocaleDateString()}
           </Typography>
-          <ThemeModeToggle />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"
@@ -1547,7 +1545,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: "background.default", p: { xs: 2, sm: 3 }, overflow: "auto" }}>
+      <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f5f5f5", p: { xs: 2, sm: 3 }, overflow: "auto" }}>
         <Toolbar />
 
         {/* Improved Info Cards - Mobile First */}

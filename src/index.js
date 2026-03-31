@@ -1,11 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@fontsource/roboto";
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import '@fontsource/roboto';
 import App from "./App";
 import "./index.css";
 import { initializeAdminCredentials } from "./utils/distributorAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { AppThemeProvider } from "./theme/AppThemeProvider";
+
+const theme = createTheme({
+  typography: {
+    fontFamily: 'Roboto',
+  },
+});
 
 // Initialize admin credentials on app start
 try {
@@ -85,11 +92,12 @@ function dismissSplash() {
 
 root.render(
   <React.StrictMode>
-    <AppThemeProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <ErrorBoundary>
         <AppComponent />
       </ErrorBoundary>
-    </AppThemeProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
 
