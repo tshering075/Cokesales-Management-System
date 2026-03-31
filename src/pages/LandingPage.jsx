@@ -21,6 +21,7 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HubIcon from "@mui/icons-material/Hub";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LoginIcon from "@mui/icons-material/Login";
+import ThemeModeToggle from "../components/ThemeModeToggle";
 
 const publicUrl = process.env.PUBLIC_URL || "";
 
@@ -58,6 +59,7 @@ const FEATURES = [
 export default function LandingPage() {
   const theme = useTheme();
   const brand = theme.palette.error.main;
+  const isDark = theme.palette.mode === "dark";
 
   return (
     <Box
@@ -65,8 +67,10 @@ export default function LandingPage() {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        bgcolor: alpha(theme.palette.warning.light, 0.12),
-        backgroundImage: `radial-gradient(ellipse 120% 80% at 50% -20%, ${alpha(brand, 0.08)} 0%, transparent 55%), linear-gradient(180deg, ${alpha("#fff", 0.95)} 0%, ${alpha(theme.palette.grey[50], 1)} 40%, ${alpha(theme.palette.error.light, 0.06)} 100%)`,
+        bgcolor: isDark ? alpha(theme.palette.grey[900], 0.98) : alpha(theme.palette.warning.light, 0.12),
+        backgroundImage: isDark
+          ? `radial-gradient(ellipse 120% 80% at 50% -20%, ${alpha(brand, 0.14)} 0%, transparent 55%), linear-gradient(180deg, ${theme.palette.grey[900]} 0%, ${alpha(theme.palette.grey[800], 0.96)} 40%, ${alpha(brand, 0.08)} 100%)`
+          : `radial-gradient(ellipse 120% 80% at 50% -20%, ${alpha(brand, 0.08)} 0%, transparent 55%), linear-gradient(180deg, ${alpha("#fff", 0.95)} 0%, ${alpha(theme.palette.grey[50], 1)} 40%, ${alpha(theme.palette.error.light, 0.06)} 100%)`,
       }}
     >
       <Box
@@ -107,24 +111,27 @@ export default function LandingPage() {
                 </Typography>
               </Box>
             </Stack>
-            <Button
-              component={RouterLink}
-              to="/login"
-              variant="contained"
-              size="medium"
-              startIcon={<LoginIcon />}
-              sx={{
-                flexShrink: 0,
-                fontWeight: 700,
-                textTransform: "none",
-                px: { xs: 2, sm: 2.5 },
-                bgcolor: brand,
-                boxShadow: `0 4px 14px ${alpha(brand, 0.35)}`,
-                "&:hover": { bgcolor: theme.palette.error.dark, boxShadow: `0 6px 18px ${alpha(brand, 0.4)}` },
-              }}
-            >
-              Sign in
-            </Button>
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+              <ThemeModeToggle />
+              <Button
+                component={RouterLink}
+                to="/login"
+                variant="contained"
+                size="medium"
+                startIcon={<LoginIcon />}
+                sx={{
+                  flexShrink: 0,
+                  fontWeight: 700,
+                  textTransform: "none",
+                  px: { xs: 2, sm: 2.5 },
+                  bgcolor: brand,
+                  boxShadow: `0 4px 14px ${alpha(brand, 0.35)}`,
+                  "&:hover": { bgcolor: theme.palette.error.dark, boxShadow: `0 6px 18px ${alpha(brand, 0.4)}` },
+                }}
+              >
+                Sign in
+              </Button>
+            </Stack>
           </Toolbar>
         </Container>
       </Box>
@@ -143,8 +150,12 @@ export default function LandingPage() {
                 textAlign: "center",
                 border: "1px solid",
                 borderColor: alpha(brand, 0.2),
-                boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.06)}, 0 0 0 1px ${alpha(brand, 0.06)} inset`,
-                background: `linear-gradient(165deg, ${alpha("#fff", 1)} 0%, ${alpha(theme.palette.grey[50], 0.9)} 100%)`,
+                boxShadow: isDark
+                  ? `0 8px 32px ${alpha(theme.palette.common.black, 0.45)}, 0 0 0 1px ${alpha(brand, 0.12)} inset`
+                  : `0 8px 32px ${alpha(theme.palette.common.black, 0.06)}, 0 0 0 1px ${alpha(brand, 0.06)} inset`,
+                background: isDark
+                  ? `linear-gradient(165deg, ${alpha(theme.palette.grey[800], 0.95)} 0%, ${alpha(theme.palette.grey[900], 0.92)} 100%)`
+                  : `linear-gradient(165deg, ${alpha("#fff", 1)} 0%, ${alpha(theme.palette.grey[50], 0.9)} 100%)`,
               }}
             >
               <Box
@@ -223,7 +234,7 @@ export default function LandingPage() {
                         transition: "box-shadow 0.2s, border-color 0.2s, transform 0.2s",
                         "&:hover": {
                           borderColor: alpha(brand, 0.35),
-                          boxShadow: `0 12px 28px ${alpha(theme.palette.common.black, 0.06)}`,
+                          boxShadow: `0 12px 28px ${alpha(theme.palette.common.black, isDark ? 0.35 : 0.06)}`,
                           transform: "translateY(-2px)",
                         },
                       }}

@@ -10,6 +10,7 @@ import {
   IconButton,
   Fade,
   Zoom,
+  useTheme,
 } from "@mui/material";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -21,6 +22,8 @@ import { validateDistributorLogin, validateAdminLogin } from "../utils/distribut
 import { signInDistributor, signInAdmin, supabase } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import AppSnackbar from "../components/AppSnackbar";
+import ThemeModeToggle from "../components/ThemeModeToggle";
+import { useColorMode } from "../theme/AppThemeProvider";
 
 function LoginPage({ onLogin }) {
   const [userId, setUserId] = useState("");
@@ -34,6 +37,27 @@ function LoginPage({ onLogin }) {
   const [fieldErrors, setFieldErrors] = useState({ userId: "", password: "" });
 
   const navigate = useNavigate();
+  const theme = useTheme();
+  const { mode: colorMode } = useColorMode();
+  const isDark = theme.palette.mode === "dark";
+
+  const inputSurfaceSx = isDark
+    ? {
+        backgroundColor: theme.palette.action.hover,
+        "&:hover": { backgroundColor: theme.palette.action.selected },
+        "&.Mui-focused": {
+          backgroundColor: theme.palette.background.paper,
+          boxShadow: `0 0 0 3px ${theme.palette.primary.dark}40`,
+        },
+      }
+    : {
+        backgroundColor: "#f8f9fa",
+        "&:hover": { backgroundColor: "#f0f0f0" },
+        "&.Mui-focused": {
+          backgroundColor: "#fff",
+          boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
+        },
+      };
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -197,7 +221,23 @@ function LoginPage({ onLogin }) {
   };
 
   return (
-    <Box className="login-container">
+    <Box className={`login-container${colorMode === "dark" ? " theme-dark" : ""}`} sx={{ position: "relative" }}>
+      <Box
+        sx={{
+          position: "absolute",
+          top: { xs: 12, sm: 16 },
+          right: { xs: 12, sm: 16 },
+          zIndex: 30,
+        }}
+      >
+        <ThemeModeToggle
+          sx={{
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.22)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.38)" },
+          }}
+        />
+      </Box>
       {/* Coke fill with bubbles */}
       <div className="coke-fill">
         {Array.from({ length: 25 }).map((_, i) => {
@@ -223,7 +263,20 @@ function LoginPage({ onLogin }) {
 
       {/* Login box */}
       <Fade in timeout={800}>
-        <Paper elevation={10} className="login-box">
+        <Paper
+          elevation={10}
+          className="login-box"
+          sx={
+            isDark
+              ? {
+                  bgcolor: "rgba(30, 30, 32, 0.92)",
+                  backgroundImage: "none",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  boxShadow: "0 12px 40px rgba(0, 0, 0, 0.55)",
+                }
+              : undefined
+          }
+        >
           <Box sx={{ textAlign: "center", mb: 4 }}>
             <Zoom in timeout={1000}>
               <Typography
@@ -243,7 +296,7 @@ function LoginPage({ onLogin }) {
             <Typography
               variant="body2"
               sx={{
-                color: "#666",
+                color: "text.secondary",
                 fontWeight: 400,
               }}
             >
@@ -277,16 +330,9 @@ function LoginPage({ onLogin }) {
                 ),
                 sx: {
                   borderRadius: "12px",
-                  backgroundColor: "#f8f9fa",
                   transition: "all 0.3s ease",
-                  "&:hover": {
-                    backgroundColor: "#f0f0f0",
-                  },
-                  "&.Mui-focused": {
-                    backgroundColor: "#fff",
-                    boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
-                  },
-                }
+                  ...inputSurfaceSx,
+                },
               }}
               InputLabelProps={{
                 sx: {
@@ -331,16 +377,9 @@ function LoginPage({ onLogin }) {
                 ),
                 sx: {
                   borderRadius: "12px",
-                  backgroundColor: "#f8f9fa",
                   transition: "all 0.3s ease",
-                  "&:hover": {
-                    backgroundColor: "#f0f0f0",
-                  },
-                  "&.Mui-focused": {
-                    backgroundColor: "#fff",
-                    boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
-                  },
-                }
+                  ...inputSurfaceSx,
+                },
               }}
               InputLabelProps={{
                 sx: {
@@ -393,11 +432,12 @@ function LoginPage({ onLogin }) {
             sx={{
               mt: 3,
               pt: 2,
-              borderTop: "1px solid rgba(0,0,0,0.08)",
+              borderTop: 1,
+              borderColor: "divider",
               textAlign: "center",
             }}
           >
-            <Typography variant="caption" sx={{ color: "#888" }}>
+            <Typography variant="caption" color="text.secondary">
               <Box
                 component={RouterLink}
                 to="/"
