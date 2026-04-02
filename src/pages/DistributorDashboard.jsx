@@ -41,6 +41,7 @@ import StockLiftingRecordsTable from "../components/StockLiftingRecordsTable";
 import OrderCalculatedTableDialog from "../components/OrderCalculatedTableDialog";
 import DistributorPhysicalStockDialog from "../components/DistributorPhysicalStockDialog";
 import AppSnackbar from "../components/AppSnackbar";
+import ThemePresetPicker from "../components/ThemePresetPicker";
 import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
 import {
@@ -122,6 +123,7 @@ function fingerprintStockLiftingRecords(records) {
 
 function DistributorDashboard({ distributorName = "Distributor", distributorCode, onLogout }) {
   const theme = useTheme();
+  const secondaryContrast = theme.palette.getContrastText(theme.palette.secondary.main);
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -1301,7 +1303,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   return (
     <Box sx={{ display: "flex", height: "100vh" }}>
       {/* Top AppBar */}
-      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "#e53935" }}>
+      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "primary.main" }}>
         <Toolbar>
           <IconButton color="inherit" onClick={toggleSidebar} aria-label="toggle menu">
             <MenuIcon />
@@ -1312,6 +1314,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           <Typography variant="body2" sx={{ mr: { xs: 1, sm: 2 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, display: { xs: "none", sm: "block" } }}>
             {today.toLocaleDateString()}
           </Typography>
+          <ThemePresetPicker />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"
@@ -1343,7 +1346,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           [`& .MuiDrawer-paper`]: {
             width: { xs: 180, sm: 200 },
             boxSizing: "border-box",
-            bgcolor: "#fbc02d",
+            bgcolor: "secondary.main",
             display: "flex",
             flexDirection: "column",
           },
@@ -1375,13 +1378,14 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                     minWidth: 10,
                     height: 10,
                     borderRadius: "50%",
-                    border: "2px solid #fbc02d",
+                    border: "2px solid",
+                    borderColor: "secondary.dark",
                   },
                 }}
               >
                 <DashboardIcon sx={{ fontSize: 20 }} />
               </Badge>
-              <ListItemText primary="Dashboard" sx={{ fontWeight: "bold", color: "#000" }} />
+              <ListItemText primary="Dashboard" sx={{ fontWeight: "bold", color: secondaryContrast }} />
             </ListItemButton>
           </ListItem>
 
@@ -1405,7 +1409,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                     right: 4,
                     top: 4,
                     fontWeight: 800,
-                    border: "2px solid #fbc02d",
+                    border: "2px solid",
+                    borderColor: "secondary.dark",
                   },
                 }}
               >
@@ -1416,8 +1421,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 secondary={sidebarBadges.pendingOrders ? "Awaiting review" : null}
                 sx={{
                   fontWeight: "bold",
-                  color: "#000",
-                  "& .MuiListItemText-secondary": { fontSize: "0.68rem", fontWeight: 600, color: "#c62828" },
+                  color: secondaryContrast,
+                  "& .MuiListItemText-secondary": { fontSize: "0.68rem", fontWeight: 600, color: "error.dark" },
                 }}
               />
             </ListItemButton>
@@ -1437,7 +1442,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   color: "#b71c1c",
                 }}
               />
-              <ListItemText primary="Product Rate List" sx={{ fontWeight: "bold", color: "#000" }} />
+              <ListItemText primary="Product Rate List" sx={{ fontWeight: "bold", color: secondaryContrast }} />
             </ListItemButton>
           </ListItem>
 
@@ -1445,7 +1450,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           <ListItem disablePadding>
             <ListItemButton onClick={() => { setOpenStockLiftingDialog(true); setDistributorCurrentView("stock_lifting"); setSidebarOpen(false); }}>
               <InventoryIcon sx={{ mr: 2, fontSize: 20 }} />
-              <ListItemText primary="Stock Lifting Record" sx={{ fontWeight: "bold", color: "#000" }} />
+              <ListItemText primary="Stock Lifting Record" sx={{ fontWeight: "bold", color: secondaryContrast }} />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
@@ -1469,7 +1474,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                     minWidth: 10,
                     height: 10,
                     borderRadius: "50%",
-                    border: "2px solid #fbc02d",
+                    border: "2px solid",
+                    borderColor: "secondary.dark",
                     bgcolor: "#6a1b9a",
                   },
                 }}
@@ -1481,7 +1487,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 secondary={sidebarBadges.physicalStock ? "New update" : null}
                 sx={{
                   fontWeight: "bold",
-                  color: "#000",
+                  color: secondaryContrast,
                   "& .MuiListItemText-secondary": { fontSize: "0.68rem", fontWeight: 600, color: "#6a1b9a" },
                 }}
               />
@@ -1497,13 +1503,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setSidebarOpen(false);
               }}
               sx={{
-                bgcolor: "#e53935",
-                color: "#fff",
+                bgcolor: "primary.main",
+                color: theme.palette.primary.contrastText,
                 borderRadius: 2,
                 mx: 1,
                 mb: 1,
                 "&:hover": {
-                  bgcolor: "#c62828",
+                  bgcolor: "primary.dark",
                 }
               }}
             >
@@ -1511,7 +1517,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 primary="Place Order" 
                 sx={{ 
                   fontWeight: "bold", 
-                  color: "#fff",
+                  color: "inherit",
                   textAlign: "center",
                   "& .MuiListItemText-primary": {
                     fontSize: { xs: "0.95rem", sm: "1rem" }
@@ -1545,7 +1551,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f5f5f5", p: { xs: 2, sm: 3 }, overflow: "auto" }}>
+      <Box component="main" sx={{ flexGrow: 1, bgcolor: "background.default", p: { xs: 2, sm: 3 }, overflow: "auto" }}>
         <Toolbar />
 
         {/* Improved Info Cards - Mobile First */}
@@ -1675,49 +1681,264 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           </Card>
         </Box>
 
-        {/* Enhanced Progress Visualization */}
-        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, fontSize: { xs: "1.1rem", sm: "1.25rem" } }}>
-          Target Progress Tracker
-        </Typography>
-        
-        {/* Table for All Screen Sizes */}
-        <TableContainer 
-          component={Paper} 
-          sx={{ 
-            borderRadius: 2, 
-            boxShadow: 2, 
-            width: "100%", 
-            overflowX: { xs: "hidden", sm: "auto" }, 
-            mb: 3
+        {/* Target progress — same grid: Category | Target PC/UC | Achieved PC/UC | Balance PC/UC */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography
+            id="distributor-target-progress-heading"
+            variant="h6"
+            fontWeight="bold"
+            sx={{ fontSize: { xs: "1.1rem", sm: "1.25rem" }, mb: 0.5 }}
+          >
+            Target Progress Tracker
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720, lineHeight: 1.55 }}>
+            <strong>PC</strong> = physical cases, <strong>UC</strong> = unit cases. Compare Target to Achieved; Balance is what remains toward your goal.
+          </Typography>
+        </Box>
+
+        <TableContainer
+          component={Paper}
+          elevation={theme.palette.mode === "dark" ? 4 : 2}
+          sx={{
+            borderRadius: 2,
+            width: "100%",
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
+            mb: 3,
+            border: 1,
+            borderColor: "divider",
           }}
         >
-          <Table size="medium" sx={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <Table
+            size="medium"
+            aria-labelledby="distributor-target-progress-heading"
+            sx={{
+              width: "100%",
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+              minWidth: { xs: 300, sm: 520 },
+            }}
+          >
+            <caption style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", border: 0 }}>
+              Target, achieved, and balance by category in PC and UC
+            </caption>
             <TableHead>
-              <TableRow sx={{ backgroundColor: "#e53935" }}>
-                <TableCell rowSpan={2} align="center" sx={{ fontWeight: "bold", color: "#fff", p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, width: { xs: "18%", sm: "auto" } }}>Category</TableCell>
-                <TableCell colSpan={2} align="center" sx={{ fontWeight: "bold", color: "#fff", p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, width: { xs: "27%", sm: "auto" } }}>Target</TableCell>
-                <TableCell colSpan={2} align="center" sx={{ fontWeight: "bold", color: "#fff", p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, width: { xs: "27%", sm: "auto" } }}>Achieved</TableCell>
-                <TableCell colSpan={2} align="center" sx={{ fontWeight: "bold", color: "#fff", p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, width: { xs: "28%", sm: "auto" } }}>Balance</TableCell>
+              <TableRow>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{
+                    fontWeight: 700,
+                    color: theme.palette.primary.contrastText,
+                    bgcolor: "primary.main",
+                    p: { xs: 0.85, sm: 1.25 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    width: { xs: "18%", sm: "auto" },
+                    verticalAlign: "middle",
+                    borderBottom: 0,
+                  }}
+                >
+                  Category
+                </TableCell>
+                <TableCell
+                  colSpan={2}
+                  align="center"
+                  sx={{
+                    fontWeight: 700,
+                    color: theme.palette.primary.contrastText,
+                    bgcolor: "primary.main",
+                    p: { xs: 0.85, sm: 1.25 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    width: { xs: "27%", sm: "auto" },
+                    borderBottom: 0,
+                  }}
+                >
+                  Target
+                </TableCell>
+                <TableCell
+                  colSpan={2}
+                  align="center"
+                  sx={{
+                    fontWeight: 700,
+                    color: theme.palette.primary.contrastText,
+                    bgcolor: "primary.main",
+                    p: { xs: 0.85, sm: 1.25 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    width: { xs: "27%", sm: "auto" },
+                    borderBottom: 0,
+                  }}
+                >
+                  Achieved
+                </TableCell>
+                <TableCell
+                  colSpan={2}
+                  align="center"
+                  sx={{
+                    fontWeight: 700,
+                    color: theme.palette.primary.contrastText,
+                    bgcolor: "primary.main",
+                    p: { xs: 0.85, sm: 1.25 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    width: { xs: "28%", sm: "auto" },
+                    borderBottom: 0,
+                  }}
+                >
+                  Balance
+                </TableCell>
               </TableRow>
-              <TableRow sx={{ backgroundColor: "#fbc02d" }}>
-                {Array(3).fill().map((_, i) => (
-                  <React.Fragment key={i}>
-                    <TableCell align="center" sx={{ fontWeight: "bold", p: { xs: 0.6, sm: 1.25 }, fontSize: { xs: "0.7rem", sm: "0.8rem" }, lineHeight: { xs: 1.3, sm: 1.5 } }}>PC</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", p: { xs: 0.6, sm: 1.25 }, fontSize: { xs: "0.7rem", sm: "0.8rem" }, lineHeight: { xs: 1.3, sm: 1.5 } }}>UC</TableCell>
-                  </React.Fragment>
-                ))}
+              <TableRow sx={{ bgcolor: "secondary.main" }}>
+                {Array(3)
+                  .fill()
+                  .map((_, i) => (
+                    <React.Fragment key={i}>
+                      <TableCell
+                        align="center"
+                        sx={{
+                          fontWeight: 700,
+                          color: theme.palette.getContrastText(theme.palette.secondary.main),
+                          p: { xs: 0.65, sm: 1.15 },
+                          fontSize: { xs: "0.7rem", sm: "0.8rem" },
+                          lineHeight: { xs: 1.35, sm: 1.5 },
+                          borderTop: 1,
+                          borderColor: alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.08),
+                        }}
+                      >
+                        PC
+                      </TableCell>
+                      <TableCell
+                        align="center"
+                        sx={{
+                          fontWeight: 700,
+                          color: theme.palette.getContrastText(theme.palette.secondary.main),
+                          p: { xs: 0.65, sm: 1.15 },
+                          fontSize: { xs: "0.7rem", sm: "0.8rem" },
+                          lineHeight: { xs: 1.35, sm: 1.5 },
+                          borderTop: 1,
+                          borderColor: alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.08),
+                        }}
+                      >
+                        UC
+                      </TableCell>
+                    </React.Fragment>
+                  ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {progressData.map((row, idx) => (
-                <TableRow key={idx} sx={{ "&:nth-of-type(odd)": { backgroundColor: "#fff3e0" }, "&:nth-of-type(even)": { backgroundColor: "#ffe0b2" } }}>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{row.category}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{row.targetPC.toLocaleString()}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{Math.round(row.targetUC).toLocaleString()}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{row.achievedPC.toLocaleString()}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{Math.round(row.achievedUC).toLocaleString()}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{(row.targetPC - row.achievedPC).toLocaleString()}</TableCell>
-                  <TableCell align="center" sx={{ p: { xs: 0.75, sm: 1.25 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, lineHeight: { xs: 1.4, sm: 1.6 } }}>{Math.round(row.targetUC - row.achievedUC).toLocaleString()}</TableCell>
+                <TableRow
+                  key={idx}
+                  hover
+                  sx={{
+                    transition: "background-color 0.15s ease",
+                    "&:nth-of-type(odd)": {
+                      bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.05),
+                    },
+                    "&:nth-of-type(even)": {
+                      bgcolor: alpha(theme.palette.secondary.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                    },
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.1),
+                    },
+                  }}
+                >
+                  <TableCell
+                    align="center"
+                    scope="row"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {row.category}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {row.targetPC.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {Math.round(row.targetUC).toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {row.achievedPC.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {Math.round(row.achievedUC).toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {(row.targetPC - row.achievedPC).toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      p: { xs: 0.85, sm: 1.25 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontWeight: 700,
+                      lineHeight: { xs: 1.45, sm: 1.6 },
+                      fontVariantNumeric: "tabular-nums",
+                      borderTop: 1,
+                      borderColor: "divider",
+                    }}
+                  >
+                    {Math.round(row.targetUC - row.achievedUC).toLocaleString()}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

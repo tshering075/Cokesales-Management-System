@@ -18,6 +18,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";                    
@@ -49,6 +50,7 @@ import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
 import AppSnackbar from "../components/AppSnackbar";
+import ThemePresetPicker from "../components/ThemePresetPicker";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
 import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
@@ -121,6 +123,7 @@ function readStoredAdminRegion() {
 
 function AdminDashboard({ onLogout }) {
   const theme = useTheme();
+  const secondaryContrast = theme.palette.getContrastText(theme.palette.secondary.main);
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile); // Open by default on desktop
   const [selectedRegion, setSelectedRegion] = useState(readStoredAdminRegion);
@@ -3697,7 +3700,7 @@ function AdminDashboard({ onLogout }) {
 
   return (
     <Box sx={{ display: "flex", height: "100vh" }}>
-      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "#d61916ff" }}>
+      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "primary.main" }}>
         <Toolbar sx={{ minHeight: { xs: 48, sm: 64 }, px: { xs: 1, sm: 2 } }}>
           <IconButton color="inherit" onClick={toggleSidebar} aria-label="toggle menu" sx={{ p: { xs: 0.75, sm: 1 } }}>
             <MenuIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
@@ -3705,6 +3708,7 @@ function AdminDashboard({ onLogout }) {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500, fontSize: { xs: "0.875rem", sm: "1.125rem", md: "1.25rem" } }}>
             Admin Dashboard
           </Typography>
+          <ThemePresetPicker />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"
@@ -3735,7 +3739,7 @@ function AdminDashboard({ onLogout }) {
           [`& .MuiDrawer-paper`]: {
             width: { xs: 200, sm: 220 },
             boxSizing: "border-box",
-            bgcolor: "#fbc02d",
+            bgcolor: "secondary.main",
             borderRight: isMobile ? "none" : "1px solid rgba(0,0,0,0.12)",
             px: { xs: 0.5, sm: 1 },
             display: "flex",
@@ -3744,7 +3748,7 @@ function AdminDashboard({ onLogout }) {
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1 }}>
-          <IconButton onClick={toggleSidebar} sx={{ color: "#000" }}>
+          <IconButton onClick={toggleSidebar} sx={{ color: theme.palette.getContrastText(theme.palette.secondary.main) }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -3817,7 +3821,7 @@ function AdminDashboard({ onLogout }) {
                   },
                 }}
               >
-                <Box sx={{ mr: 1.25, display: "flex", alignItems: "center", color: "#000" }}>
+                <Box sx={{ mr: 1.25, display: "flex", alignItems: "center", color: secondaryContrast }}>
                   <Badge
                     overlap="circular"
                     color="error"
@@ -3829,7 +3833,8 @@ function AdminDashboard({ onLogout }) {
                         fontSize: "0.65rem",
                         minWidth: 18,
                         height: 18,
-                        border: "2px solid #fbc02d",
+                        border: "2px solid",
+                        borderColor: "secondary.dark",
                         right: 4,
                         top: 4,
                       },
@@ -3849,14 +3854,14 @@ function AdminDashboard({ onLogout }) {
                   }
                   sx={{
                     fontWeight: "500",
-                    color: "#000",
+                    color: secondaryContrast,
                     "& .MuiListItemText-primary": {
                       fontSize: { xs: "0.85rem", sm: "0.9rem" },
                     },
                     "& .MuiListItemText-secondary": {
                       fontSize: "0.65rem",
                       fontWeight: 700,
-                      color: "#c62828",
+                      color: "error.dark",
                       mt: 0.1,
                     },
                   }}
@@ -3872,14 +3877,15 @@ function AdminDashboard({ onLogout }) {
             mb: 1,
             p: 1,
             borderRadius: 1.5,
-            bgcolor: "rgba(255,255,255,0.45)",
-            border: "1px solid rgba(0,0,0,0.1)",
+            bgcolor: alpha(secondaryContrast, 0.08),
+            border: 1,
+            borderColor: alpha(secondaryContrast, 0.2),
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: "#333", mb: 0.25 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: secondaryContrast, mb: 0.25, opacity: 0.92 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", color: "#111", wordBreak: "break-word" }}>
+          <Typography sx={{ fontSize: "0.72rem", color: secondaryContrast, opacity: 0.88, wordBreak: "break-word" }}>
             {localStorage.getItem("admin_email") || "Unknown user"}
           </Typography>
           <Typography sx={{ fontSize: "0.68rem", color: "#444", mt: 0.25 }}>
@@ -3892,7 +3898,7 @@ function AdminDashboard({ onLogout }) {
         component="main" 
           sx={{
           flexGrow: 1, 
-          bgcolor: "#f5f5f5", 
+          bgcolor: "background.default", 
           p: { xs: 1, sm: 2, md: 3 },
           overflowX: "hidden",
           overflowY: "auto",

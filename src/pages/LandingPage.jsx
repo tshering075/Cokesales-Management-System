@@ -21,6 +21,7 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HubIcon from "@mui/icons-material/Hub";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LoginIcon from "@mui/icons-material/Login";
+import ThemePresetPicker from "../components/ThemePresetPicker";
 
 const publicUrl = process.env.PUBLIC_URL || "";
 
@@ -107,24 +108,27 @@ export default function LandingPage() {
                 </Typography>
               </Box>
             </Stack>
-            <Button
-              component={RouterLink}
-              to="/login"
-              variant="contained"
-              size="medium"
-              startIcon={<LoginIcon />}
-              sx={{
-                flexShrink: 0,
-                fontWeight: 700,
-                textTransform: "none",
-                px: { xs: 2, sm: 2.5 },
-                bgcolor: brand,
-                boxShadow: `0 4px 14px ${alpha(brand, 0.35)}`,
-                "&:hover": { bgcolor: theme.palette.error.dark, boxShadow: `0 6px 18px ${alpha(brand, 0.4)}` },
-              }}
-            >
-              Sign in
-            </Button>
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+              <ThemePresetPicker />
+              <Button
+                component={RouterLink}
+                to="/login"
+                variant="contained"
+                size="medium"
+                startIcon={<LoginIcon />}
+                sx={{
+                  flexShrink: 0,
+                  fontWeight: 700,
+                  textTransform: "none",
+                  px: { xs: 2, sm: 2.5 },
+                  bgcolor: brand,
+                  boxShadow: `0 4px 14px ${alpha(brand, 0.35)}`,
+                  "&:hover": { bgcolor: theme.palette.error.dark, boxShadow: `0 6px 18px ${alpha(brand, 0.4)}` },
+                }}
+              >
+                Sign in
+              </Button>
+            </Stack>
           </Toolbar>
         </Container>
       </Box>

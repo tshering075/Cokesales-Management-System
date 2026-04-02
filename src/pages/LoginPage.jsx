@@ -21,6 +21,7 @@ import { validateDistributorLogin, validateAdminLogin } from "../utils/distribut
 import { signInDistributor, signInAdmin, supabase } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import AppSnackbar from "../components/AppSnackbar";
+import ThemePresetPicker from "../components/ThemePresetPicker";
 
 function LoginPage({ onLogin }) {
   const [userId, setUserId] = useState("");
@@ -197,7 +198,16 @@ function LoginPage({ onLogin }) {
   };
 
   return (
-    <Box className="login-container">
+    <Box className="login-container" sx={{ position: "relative" }}>
+      <Box sx={{ position: "absolute", top: { xs: 10, sm: 14 }, right: { xs: 10, sm: 14 }, zIndex: 30 }}>
+        <ThemePresetPicker
+          sx={{
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.22)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.38)" },
+          }}
+        />
+      </Box>
       {/* Coke fill with bubbles */}
       <div className="coke-fill">
         {Array.from({ length: 25 }).map((_, i) => {
@@ -230,7 +240,7 @@ function LoginPage({ onLogin }) {
                 variant="h4"
                 sx={{
                   fontWeight: 700,
-                  color: "#e53935",
+                  color: "primary.main",
                   mb: 0.5,
                   letterSpacing: 0.5,
                   fontFamily: "'Segoe UI', 'Roboto', sans-serif",
