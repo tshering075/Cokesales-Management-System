@@ -23,11 +23,11 @@ export default function ThemePresetPicker({ sx: sxProp }) {
 
   return (
     <>
-      <Tooltip title="App color theme">
+      <Tooltip title="Themes inspired by global cola & soft-drink varieties">
         <IconButton
           color="inherit"
           onClick={(e) => setAnchorEl(e.currentTarget)}
-          aria-label="Choose app color theme"
+          aria-label="Choose beverage-inspired color theme"
           aria-haspopup="true"
           aria-expanded={open ? "true" : undefined}
           size="medium"
@@ -45,7 +45,7 @@ export default function ThemePresetPicker({ sx: sxProp }) {
         PaperProps={{ sx: { minWidth: 220, maxWidth: 320 } }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 2, pt: 1, pb: 0.5 }}>
-          Primary · Secondary · Tertiary
+          Packaging-inspired palettes · 3 colors each
         </Typography>
         {presets.map((p) => (
           <MenuItem
@@ -71,7 +71,10 @@ export default function ThemePresetPicker({ sx: sxProp }) {
                 aria-hidden
               />
             </ListItemIcon>
-            <ListItemText primary={p.label} secondary={p.mode === "dark" ? "Dark" : "Light"} />
+            <ListItemText
+              primary={p.label}
+              secondary={[p.subtitle, p.mode === "dark" ? "Dark UI" : "Light UI"].filter(Boolean).join(" · ")}
+            />
             {p.id === presetId ? <CheckIcon fontSize="small" color="primary" sx={{ ml: 0.5 }} /> : null}
           </MenuItem>
         ))}

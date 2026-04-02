@@ -4,69 +4,87 @@ import CssBaseline from "@mui/material/CssBaseline";
 
 const STORAGE_KEY = "coke_theme_preset";
 
-/** Older builds used `sand`; same family as Sunset Ember. */
-const LEGACY_PRESET_ID_MAP = { sand: "sunset" };
+/**
+ * Maps old preset ids so saved localStorage choices still resolve after renames.
+ */
+const LEGACY_PRESET_ID_MAP = {
+  sand: "gold",
+  sunset: "fanta",
+  ocean: "sprite",
+  forest: "sprite",
+  berry: "cherry",
+  slate: "zero",
+  midnight: "zero",
+};
 
 /**
- * Curated triplets: primary (app bar / key actions), secondary (drawer / warm accent),
- * tertiary (subheaders, row tints — complements the first two).
+ * Color triplets inspired by well-known Coca-Cola Company cola & soft-drink lines
+ * sold worldwide (packaging-inspired palettes — not official brand assets).
+ * primary → app bar; secondary → drawer; tertiary → table subheaders & tints.
  */
 export const THEME_PRESETS = [
   {
     id: "classic",
-    label: "Classic Heritage",
-    primary: "#c62828",
-    secondary: "#f9a825",
-    tertiary: "#1565c0",
+    label: "Original Taste",
+    subtitle: "Classic cola — red, gold, ribbon blue",
+    primary: "#D7000F",
+    secondary: "#FFC72C",
+    tertiary: "#003087",
     mode: "light",
   },
   {
-    id: "ocean",
-    label: "Ocean Teal",
-    primary: "#006978",
-    secondary: "#26c6da",
-    tertiary: "#004d40",
-    mode: "light",
-  },
-  {
-    id: "forest",
-    label: "Forest & Earth",
-    primary: "#2e7d32",
-    secondary: "#9ccc65",
-    tertiary: "#5d4037",
-    mode: "light",
-  },
-  {
-    id: "sunset",
-    label: "Sunset Ember",
-    primary: "#d84315",
-    secondary: "#ff8f00",
-    tertiary: "#6a1b9a",
-    mode: "light",
-  },
-  {
-    id: "berry",
-    label: "Berry Bloom",
-    primary: "#7b1fa2",
-    secondary: "#f06292",
-    tertiary: "#b39ddb",
-    mode: "light",
-  },
-  {
-    id: "slate",
-    label: "Slate Pro",
-    primary: "#37474f",
-    secondary: "#78909c",
-    tertiary: "#00838f",
-    mode: "light",
-  },
-  {
-    id: "midnight",
-    label: "Midnight",
-    primary: "#ef5350",
-    secondary: "#ffca28",
-    tertiary: "#26c6da",
+    id: "zero",
+    label: "Zero Sugar",
+    subtitle: "No-sugar cola — black can, red flash",
+    primary: "#141414",
+    secondary: "#F40009",
+    tertiary: "#757575",
     mode: "dark",
+  },
+  {
+    id: "cherry",
+    label: "Cherry Cola",
+    subtitle: "Cherry & berry cola accents",
+    primary: "#B71C1C",
+    secondary: "#6A1B3D",
+    tertiary: "#EC407A",
+    mode: "light",
+  },
+  {
+    id: "vanilla",
+    label: "Vanilla Cola",
+    subtitle: "Cream, caramel & cola red",
+    primary: "#E53935",
+    secondary: "#FFE0B2",
+    tertiary: "#6D4C41",
+    mode: "light",
+  },
+  {
+    id: "sprite",
+    label: "Lemon-Lime",
+    subtitle: "Crisp citrus green & lime",
+    primary: "#009A44",
+    secondary: "#D4E157",
+    tertiary: "#1B5E20",
+    mode: "light",
+  },
+  {
+    id: "fanta",
+    label: "Orange Citrus",
+    subtitle: "Bright orange & playful purple",
+    primary: "#FF5800",
+    secondary: "#FFB300",
+    tertiary: "#5E35B1",
+    mode: "light",
+  },
+  {
+    id: "gold",
+    label: "Golden Kola",
+    subtitle: "Gold citrus cola (e.g. Latin America)",
+    primary: "#C49000",
+    secondary: "#FFEB3B",
+    tertiary: "#E65100",
+    mode: "light",
   },
 ];
 
