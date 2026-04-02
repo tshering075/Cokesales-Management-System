@@ -45,7 +45,7 @@ export default function ThemePresetPicker({ sx: sxProp }) {
         PaperProps={{ sx: { minWidth: 220, maxWidth: 320 } }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 2, pt: 1, pb: 0.5 }}>
-          Color theme
+          Primary · Secondary · Tertiary
         </Typography>
         {presets.map((p) => (
           <MenuItem
@@ -57,15 +57,16 @@ export default function ThemePresetPicker({ sx: sxProp }) {
             }}
             dense
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>
+            <ListItemIcon sx={{ minWidth: 44 }}>
               <Box
                 sx={{
-                  width: 22,
+                  width: 28,
                   height: 22,
                   borderRadius: 1,
-                  background: `linear-gradient(135deg, ${p.primary} 52%, ${p.secondary} 52%)`,
+                  background: `linear-gradient(135deg, ${p.primary} 0%, ${p.secondary} 50%, ${p.tertiary} 100%)`,
                   border: 1,
                   borderColor: "divider",
+                  boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
                 }}
                 aria-hidden
               />

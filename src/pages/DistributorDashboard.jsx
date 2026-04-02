@@ -1786,7 +1786,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   Balance
                 </TableCell>
               </TableRow>
-              <TableRow sx={{ bgcolor: "secondary.main" }}>
+              <TableRow sx={{ bgcolor: (t) => t.palette.tertiary.main }}>
                 {Array(3)
                   .fill()
                   .map((_, i) => (
@@ -1795,7 +1795,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                         align="center"
                         sx={{
                           fontWeight: 700,
-                          color: theme.palette.getContrastText(theme.palette.secondary.main),
+                          color: (t) => t.palette.tertiary.contrastText,
                           p: { xs: 0.65, sm: 1.15 },
                           fontSize: { xs: "0.7rem", sm: "0.8rem" },
                           lineHeight: { xs: 1.35, sm: 1.5 },
@@ -1809,7 +1809,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                         align="center"
                         sx={{
                           fontWeight: 700,
-                          color: theme.palette.getContrastText(theme.palette.secondary.main),
+                          color: (t) => t.palette.tertiary.contrastText,
                           p: { xs: 0.65, sm: 1.15 },
                           fontSize: { xs: "0.7rem", sm: "0.8rem" },
                           lineHeight: { xs: 1.35, sm: 1.5 },
@@ -1834,7 +1834,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                       bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.05),
                     },
                     "&:nth-of-type(even)": {
-                      bgcolor: alpha(theme.palette.secondary.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                      bgcolor: alpha(theme.palette.tertiary.main, theme.palette.mode === "dark" ? 0.12 : 0.07),
                     },
                     "&:hover": {
                       bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.1),
