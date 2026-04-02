@@ -12,6 +12,7 @@ import {
 import PaletteIcon from "@mui/icons-material/Palette";
 import CheckIcon from "@mui/icons-material/Check";
 import { useAppThemePreset } from "../theme/AppThemeProvider";
+import { themePresetRgbGradient } from "../theme/themePresetRgbGradient";
 
 /**
  * Menu to pick a saved app color theme (persisted in localStorage).
@@ -45,7 +46,7 @@ export default function ThemePresetPicker({ sx: sxProp }) {
         PaperProps={{ sx: { minWidth: 220, maxWidth: 320 } }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 2, pt: 1, pb: 0.5 }}>
-          Packaging-inspired palettes · 3 colors each
+          RGB-smoothed gradients · primary → secondary → tertiary
         </Typography>
         {presets.map((p) => (
           <MenuItem
@@ -57,13 +58,13 @@ export default function ThemePresetPicker({ sx: sxProp }) {
             }}
             dense
           >
-            <ListItemIcon sx={{ minWidth: 44 }}>
+            <ListItemIcon sx={{ minWidth: 48 }}>
               <Box
                 sx={{
-                  width: 28,
-                  height: 22,
+                  width: 32,
+                  height: 24,
                   borderRadius: 1,
-                  background: `linear-gradient(135deg, ${p.primary} 0%, ${p.secondary} 50%, ${p.tertiary} 100%)`,
+                  background: themePresetRgbGradient(p.primary, p.secondary, p.tertiary),
                   border: 1,
                   borderColor: "divider",
                   boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
