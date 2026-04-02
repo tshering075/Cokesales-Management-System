@@ -24,6 +24,7 @@ import {
   getRawPhysicalStockFromDistributor,
   rowTotal,
 } from "../utils/physicalStockTemplate";
+import { alpha, useTheme } from "@mui/material/styles";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -41,6 +42,7 @@ function formatWhen(iso) {
 }
 
 export default function PhysicalStockAdminDialog({ open, onClose, distributors, onOpened }) {
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
 
@@ -89,7 +91,8 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
       PaperProps={{
         elevation: 0,
         sx: {
-          bgcolor: "#f0f4f8",
+          bgcolor: "background.default",
+          color: "text.primary",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -144,7 +147,7 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           py: 1.5,
           borderBottom: "1px solid",
           borderColor: "divider",
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
         }}
       >
         <TextField
@@ -175,7 +178,7 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
       >
         <PhysicalStockFifoNote />
         {filtered.length === 0 ? (
-          <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 2, bgcolor: "#fff" }}>
+          <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 2, bgcolor: "background.paper" }}>
             <Typography color="text.secondary">No distributors match your search.</Typography>
           </Paper>
         ) : (
@@ -196,8 +199,9 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                   overflow: "hidden",
                   border: "1px solid",
                   borderColor: "divider",
-                  bgcolor: "#fff",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  bgcolor: "background.paper",
+                  color: "text.primary",
+                  boxShadow: (t) => `0 1px 3px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.06)}`,
                   "&:before": { display: "none" },
                 }}
               >
@@ -211,13 +215,17 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                 >
                   <Box sx={{ display: "flex", flexDirection: "column", width: "100%", pr: 1, gap: 0.75 }}>
                     <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: "1rem" }}>{d.name || "—"}</Typography>
+                      <Typography sx={{ fontWeight: 800, fontSize: "1rem", color: "text.primary" }}>{d.name || "—"}</Typography>
                       <Chip label={code || "—"} size="small" variant="outlined" />
                       {raw ? (
                         <Chip
                           label={`${grandTotal.toLocaleString()} units`}
                           size="small"
-                          sx={{ fontWeight: 700, bgcolor: "#e3f2fd" }}
+                          sx={{
+                            fontWeight: 700,
+                            bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === "dark" ? 0.22 : 0.12),
+                            color: "text.primary",
+                          }}
                         />
                       ) : (
                         <Chip label="No data" size="small" color="default" variant="outlined" />
@@ -230,7 +238,15 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                     </Typography>
                   </Box>
                 </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, px: { xs: 0.5, sm: 1.5 }, pb: 2, bgcolor: "#fafafa" }}>
+                <AccordionDetails
+                  sx={{
+                    pt: 0,
+                    px: { xs: 0.5, sm: 1.5 },
+                    pb: 2,
+                    bgcolor: (t) => alpha(t.palette.action.hover, t.palette.mode === "dark" ? 0.5 : 1),
+                    color: "text.primary",
+                  }}
+                >
                   {!raw ? (
                     <Typography color="text.secondary" sx={{ py: 3, px: 2, textAlign: "center" }}>
                       No physical stock submitted yet.
@@ -261,20 +277,19 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           borderColor: "divider",
           display: "flex",
           justifyContent: "flex-end",
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
         }}
       >
         <Button
           onClick={onClose}
           variant="contained"
+          color="error"
           size="large"
           sx={{
             minWidth: 120,
             borderRadius: 2,
             py: 1,
             fontWeight: 700,
-            bgcolor: "#d32f2f",
-            "&:hover": { bgcolor: "#b71c1c" },
           }}
         >
           Close

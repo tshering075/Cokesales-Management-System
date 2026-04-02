@@ -47,6 +47,7 @@ import { saveProductRates } from "../services/supabaseService";
 import AppSnackbar from "./AppSnackbar";
 import { DEFAULT_SKUS, DEFAULT_SKU_NAMES, UC_DIVISOR, customProductLineName } from "../constants/productSkus";
 import { writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
+import { tableSubHeaderBandBg } from "../theme/contrastSurfaces";
 
 const DEFAULT_CAN_RATE = 750;
 
@@ -543,7 +544,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
                   fontSize: "0.7rem",
                   textTransform: "uppercase",
                   letterSpacing: 0.6,
-                  bgcolor: alpha("#f8f9fa", 0.98),
+                  bgcolor: tableSubHeaderBandBg(theme),
+                  color: "text.primary",
                   borderBottom: `2px solid ${alpha(theme.palette.divider, 0.12)}`,
                 }}
               >
@@ -556,7 +558,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
                   fontSize: "0.7rem",
                   textTransform: "uppercase",
                   letterSpacing: 0.6,
-                  bgcolor: alpha("#f8f9fa", 0.98),
+                  bgcolor: tableSubHeaderBandBg(theme),
+                  color: "text.primary",
                   borderBottom: `2px solid ${alpha(theme.palette.divider, 0.12)}`,
                 }}
               >
@@ -569,7 +572,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
                   fontSize: "0.7rem",
                   textTransform: "uppercase",
                   letterSpacing: 0.6,
-                  bgcolor: alpha("#f8f9fa", 0.98),
+                  bgcolor: tableSubHeaderBandBg(theme),
+                  color: "text.primary",
                   borderBottom: `2px solid ${alpha(theme.palette.divider, 0.12)}`,
                 }}
               >
@@ -1011,6 +1015,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
+            bgcolor: "background.default",
+            color: "text.primary",
           },
         }}
       >
@@ -1083,7 +1089,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
             pb: 0.5,
             borderBottom: 1,
             borderColor: "divider",
-            bgcolor: alpha(theme.palette.grey[50], 0.95),
+            bgcolor: (t) =>
+              t.palette.mode === "dark" ? alpha(t.palette.common.white, 0.04) : alpha(t.palette.grey[50], 0.95),
             flexShrink: 0,
           }}
         >
@@ -1096,7 +1103,7 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
                 p: 0.5,
                 mb: 1,
                 borderColor: alpha(theme.palette.divider, 0.12),
-                bgcolor: "#fff",
+                bgcolor: "background.paper",
               }}
             >
               <Tabs
@@ -1156,7 +1163,16 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
           </Container>
         </Box>
 
-        <DialogContent sx={{ flex: 1, overflow: "auto", p: 0, bgcolor: alpha(theme.palette.grey[50], 0.5) }}>
+        <DialogContent
+          sx={{
+            flex: 1,
+            overflow: "auto",
+            p: 0,
+            bgcolor: (t) =>
+              t.palette.mode === "dark" ? alpha(t.palette.common.white, 0.03) : alpha(t.palette.grey[50], 0.5),
+            color: "text.primary",
+          }}
+        >
           {tab === 0 ? ratesPanel : productsPanel}
         </DialogContent>
 
@@ -1169,8 +1185,8 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
             gap: 1.5,
             flexShrink: 0,
             flexWrap: "wrap",
-            bgcolor: "#fff",
-            boxShadow: `0 -4px 24px ${alpha("#000", 0.04)}`,
+            bgcolor: "background.paper",
+            boxShadow: (t) => `0 -4px 24px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.2 : 0.04)}`,
           }}
         >
           <Button

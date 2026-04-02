@@ -31,6 +31,8 @@ import {
   Tabs,
   Tab,
 } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
+import { tableStripeAt } from "../theme/contrastSurfaces";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
@@ -55,6 +57,7 @@ import { getAllDistributors, supabase } from "../services/supabaseService";
  * - onAdd(payload), onUpdate(codeOrName, updates), onDelete(codeOrName)
  */
 export default function DistributorsDialog({ open, onClose, distributors = [], onAdd, onUpdate, onDelete, canWrite = true, canDelete = true }) {
+  const theme = useTheme();
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -967,7 +970,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
           title="Access Restricted"
           message="This section is password protected. Please enter your admin password to manage distributors."
         />
-        <Dialog fullScreen open={open} onClose={() => { reset(); onClose && onClose(); }}>
+        <Dialog fullScreen open={open} onClose={() => { reset(); onClose && onClose(); }} PaperProps={{ sx: { bgcolor: "background.default" } }}>
           <AppBar sx={{ position: "relative", bgcolor: "#d61916" }}>
             <Toolbar>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1 }}>
@@ -989,8 +992,8 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
               </IconButton>
             </Toolbar>
           </AppBar>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-            <Typography variant="h6" sx={{ color: "#999" }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", bgcolor: "background.default" }}>
+            <Typography variant="h6" sx={{ color: "text.secondary" }}>
               Please enter password to continue
             </Typography>
           </Box>
@@ -1014,7 +1017,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
         title="Access Restricted"
         message="This section is password protected. Please enter your admin password to manage distributors."
       />
-      <Dialog fullScreen open={open} onClose={() => { reset(); onClose && onClose(); }}>
+      <Dialog fullScreen open={open} onClose={() => { reset(); onClose && onClose(); }} PaperProps={{ sx: { bgcolor: "background.default", color: "text.primary" } }}>
         <AppBar sx={{ position: "relative", bgcolor: "#d61916" }}>
           <Toolbar>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1 }}>
@@ -1055,7 +1058,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ p: { xs: 2, sm: 3 }, maxHeight: "100vh", overflow: "auto" }}>
+        <Box sx={{ p: { xs: 2, sm: 3 }, maxHeight: "100vh", overflow: "auto", bgcolor: "background.default", color: "text.primary" }}>
           {/* Search Bar */}
           <Box sx={{ mb: 3 }}>
             <TextField
@@ -1065,13 +1068,13 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
                 startAdornment: (
-                  <SearchIcon sx={{ color: "#999", mr: 1 }} />
+                  <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
                 ),
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
-                  bgcolor: "#fff",
+                  bgcolor: "background.paper",
                   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   transition: "all 0.2s",
                   "&:hover": {
@@ -1109,10 +1112,10 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                 <EditIcon />
               </Avatar>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: "#333", mb: 0.5 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>
                   Edit Distributor
                 </Typography>
-                <Typography variant="body2" sx={{ color: "#666" }}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   Update distributor information
                 </Typography>
               </Box>
@@ -1129,7 +1132,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   borderBottom: "2px solid #e0e0e0"
                 }}>
                   <PeopleIcon sx={{ color: "#d61916", fontSize: 24 }} />
-                  <Typography variant="h6" sx={{ color: "#333", fontWeight: 700, fontSize: "1.1rem" }}>
+                  <Typography variant="h6" sx={{ color: "text.primary", fontWeight: 700, fontSize: "1.1rem" }}>
                     Personal Information
                   </Typography>
                 </Box>
@@ -1142,7 +1145,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   onChange={handleChange("name")}
                   required
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1175,7 +1178,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                     }
                   }}
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1198,7 +1201,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   value={form.region} 
                   onChange={handleChange("region")}
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     borderRadius: 2,
                     "& .MuiOutlinedInput-notchedOutline": {
                       borderRadius: 2
@@ -1227,7 +1230,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   placeholder="+1234567890"
                   helperText="Optional: Enter phone number (10-15 digits)"
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1248,7 +1251,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   multiline
                   minRows={2}
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1272,7 +1275,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   borderBottom: "2px solid #e0e0e0"
                 }}>
                   <LockIcon sx={{ color: "#d61916", fontSize: 24 }} />
-                  <Typography variant="h6" sx={{ color: "#333", fontWeight: 700, fontSize: "1.1rem" }}>
+                  <Typography variant="h6" sx={{ color: "text.primary", fontWeight: 700, fontSize: "1.1rem" }}>
                     Login Credentials
                   </Typography>
                 </Box>
@@ -1286,7 +1289,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   required
                   helperText="Used for distributor login"
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1308,7 +1311,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                   required={!editingCode}
                   helperText={editingCode ? "Leave blank to keep current password" : "Minimum 4 characters"}
                   sx={{ 
-                    bgcolor: "#fff",
+                    bgcolor: "background.paper",
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       transition: "all 0.2s",
@@ -1380,8 +1383,8 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
           )}
 
           {/* Region Filter Tabs with Upload/Download buttons */}
-          <Paper elevation={4} sx={{ mb: 3, borderRadius: 3, overflow: "hidden", border: "1px solid #e0e0e0" }}>
-            <Box sx={{ p: 2, background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+          <Paper elevation={4} sx={{ mb: 3, borderRadius: 3, overflow: "hidden", border: "1px solid", borderColor: "divider", color: "text.primary" }}>
+            <Box sx={{ p: 2, background: (t) => (t.palette.mode === "dark" ? alpha(t.palette.warning.main, 0.12) : "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)"), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
               <Tabs
                 value={tabRegion}
                 onChange={(e, v) => setTabRegion(v)}
@@ -1398,8 +1401,9 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                     px: { xs: 1.5, sm: 3 },
                     py: { xs: 0.5, sm: 1 },
                     transition: "all 0.2s",
+                    color: "text.primary",
                     "&:hover": {
-                      bgcolor: "rgba(255, 255, 255, 0.3)"
+                      bgcolor: (t) => alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.08 : 0.35),
                     }
                   },
                   "& .Mui-selected": { 
@@ -1479,12 +1483,12 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                         py: 0.75,
                         borderWidth: 1.5,
                         transition: "all 0.2s",
-                        bgcolor: "rgba(255, 255, 255, 0.9)",
+                        bgcolor: "background.paper",
                         "&:hover": {
                           borderWidth: 1.5,
                           transform: "translateY(-1px)",
                           boxShadow: 2,
-                          bgcolor: "#fff"
+                          bgcolor: "background.paper",
                         }
                       }}
                     >
@@ -1506,12 +1510,12 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                       py: 0.75,
                       borderWidth: 1.5,
                       transition: "all 0.2s",
-                      bgcolor: "rgba(255, 255, 255, 0.9)",
+                      bgcolor: "background.paper",
                       "&:hover": {
                         borderWidth: 1.5,
                         transform: "translateY(-1px)",
                         boxShadow: 2,
-                        bgcolor: "#fff"
+                        bgcolor: "background.paper",
                       }
                     }}
                   >
@@ -1560,7 +1564,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
           )}
 
           {/* Distributors List */}
-          <Paper elevation={4} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid #e0e0e0" }}>
+          <Paper elevation={4} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}>
             <Box sx={{ 
               p: 2.5, 
               background: "linear-gradient(135deg, #d61916 0%, #b71c1c 100%)",
@@ -1584,9 +1588,9 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow sx={{ background: "linear-gradient(135deg, #d61916 0%, #b71c1c 100%)" }}>
-                    <TableCell padding="checkbox">
+                    <TableCell padding="checkbox" sx={{ color: "#fff", bgcolor: "transparent" }}>
                       <Checkbox
-                        color="primary"
+                        sx={{ color: "#fff", "&.Mui-checked": { color: "#fff" } }}
                         indeterminate={
                           selectedDistributors.length > 0 &&
                           selectedDistributors.length < filteredList.length
@@ -1608,27 +1612,30 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                 <TableBody>
                   {filteredList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#999" }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>
                         {searchTerm ? "No distributors found matching your search" : "No distributors registered yet"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredList.map((d, i) => (
+                    filteredList.map((d, i) => {
+                      const rowBg = tableStripeAt(theme, i);
+                      return (
                       <TableRow 
                         key={d.code || d.name || i}
                         hover
                         sx={{
-                          "&:nth-of-type(even)": { bgcolor: "#fafafa" },
+                          bgcolor: rowBg,
+                          color: "text.primary",
                           "&:hover": { 
-                            bgcolor: "#fff3e0",
+                            bgcolor: (t) => alpha(t.palette.warning.main, t.palette.mode === "dark" ? 0.16 : 0.12),
                             transform: "scale(1.01)",
                             transition: "all 0.2s",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                            boxShadow: (t) => `0 2px 8px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.1)}`,
                           },
                           transition: "all 0.2s"
                         }}
                       >
-                        <TableCell padding="checkbox">
+                        <TableCell padding="checkbox" sx={{ color: "text.primary" }}>
                           <Checkbox
                             color="primary"
                             checked={selectedDistributors.includes(d.code)}
@@ -1636,29 +1643,33 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                             inputProps={{ "aria-label": `select distributor ${d.code}` }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ fontWeight: 500, color: "text.primary" }}>{d.name}</TableCell>
+                        <TableCell sx={{ color: "text.primary" }}>
                           <Box sx={{ 
                             display: "inline-block", 
                             px: 1.5, 
                             py: 0.75, 
                             borderRadius: 2, 
-                            background: "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)",
-                            color: "#1976d2",
+                            background: (t) =>
+                              t.palette.mode === "dark"
+                                ? alpha(t.palette.info.main, 0.2)
+                                : "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)",
+                            color: "info.main",
                             fontWeight: 700,
                             fontSize: "0.875rem",
-                            border: "1px solid #90caf9",
-                            boxShadow: "0 2px 4px rgba(25, 118, 210, 0.2)"
+                            border: "1px solid",
+                            borderColor: "info.light",
+                            boxShadow: (t) => `0 2px 4px ${alpha(t.palette.info.main, 0.25)}`,
                           }}>
                             {d.code}
                           </Box>
                         </TableCell>
-                        <TableCell>{d.region}</TableCell>
-                        <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <TableCell sx={{ color: "text.primary" }}>{d.region}</TableCell>
+                        <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "text.primary" }}>
                           {d.address || "-"}
                         </TableCell>
-                        <TableCell>{d.credentials?.username || d.username || "-"}</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: "text.primary" }}>{d.credentials?.username || d.username || "-"}</TableCell>
+                        <TableCell sx={{ color: "text.primary" }}>
                           <Box sx={{ 
                             display: "flex", 
                             alignItems: "center", 
@@ -1669,7 +1680,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                             {d.credentials?.password || d.password || "-"}
                           </Box>
                         </TableCell>
-                        <TableCell align="center">
+                        <TableCell align="center" sx={{ color: "text.primary" }}>
                           <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
                             <Button 
                               size="small" 
@@ -1721,7 +1732,8 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                           </Box>
                         </TableCell>
                       </TableRow>
-                    ))
+                    );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -1836,7 +1848,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
 
               {bulkUploadResults.skipped.length > 0 && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: "#666" }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: "text.secondary" }}>
                     Skipped - Already Exists ({bulkUploadResults.skipped.length}):
                   </Typography>
                   <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: "#f5f5f5", borderRadius: 1, p: 1 }}>
@@ -1846,7 +1858,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                           primary={`${item.name} (${item.code})`}
                           secondary={item.reason}
                           primaryTypographyProps={{ variant: "body2" }}
-                          secondaryTypographyProps={{ variant: "caption", color: "#666" }}
+                          secondaryTypographyProps={{ variant: "caption", color: "text.secondary" }}
                         />
                       </ListItem>
                     ))}

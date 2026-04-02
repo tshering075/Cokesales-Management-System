@@ -67,6 +67,13 @@ export function calculatorPaperSx(theme, isMobile) {
 }
 
 /** Discount / gross / GST / net footer bands in calculator tables */
+/** Table subheader band (replaces hardcoded `#f8f9fa` in dialogs). */
+export function tableSubHeaderBandBg(theme) {
+  return theme.palette.mode === "dark"
+    ? alpha(theme.palette.common.white, 0.08)
+    : alpha(theme.palette.grey[100], 0.98);
+}
+
 export function calcSummaryRows(theme) {
   const d = theme.palette.mode === "dark";
   return {

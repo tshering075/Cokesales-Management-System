@@ -19,6 +19,8 @@ import {
   TextField,
   Checkbox,
 } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
+import { tableStripeAt } from "../theme/contrastSurfaces";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import LockIcon from "@mui/icons-material/Lock";
@@ -60,6 +62,7 @@ export default function TargetsDialog({
   open, onClose, distributors = [], initialStart, initialEnd,
   onApplyTargets, onUpdateAchieved, onUpdatePeriod, onDeleteTargets, canWrite = true
 }) {
+  const theme = useTheme();
   const [tabRegion, setTabRegion] = useState("All");
   // Use initial values or get from storage
   const defaultPeriod = getTargetPeriod();
@@ -585,6 +588,41 @@ export default function TargetsDialog({
     e.target.value = null;
   };
 
+  const targetTablePastel = React.useMemo(
+    () => ({
+      csdBand: {
+        fontWeight: "bold",
+        bgcolor: "#fff3e0",
+        color: theme.palette.getContrastText("#fff3e0"),
+        textAlign: "center",
+        fontSize: "0.85rem",
+      },
+      waterBand: {
+        fontWeight: "bold",
+        bgcolor: "#e3f2fd",
+        color: theme.palette.getContrastText("#e3f2fd"),
+        textAlign: "center",
+        fontSize: "0.85rem",
+      },
+      pinkCorner: {
+        fontWeight: "bold",
+        bgcolor: "#ffcdd2",
+        color: theme.palette.getContrastText("#ffcdd2"),
+        position: "sticky",
+        left: 0,
+        zIndex: 10,
+      },
+      pinkCell75: {
+        fontWeight: "bold",
+        bgcolor: "#ffcdd2",
+        color: theme.palette.getContrastText("#ffcdd2"),
+        textAlign: "center",
+        fontSize: "0.75rem",
+      },
+    }),
+    [theme]
+  );
+
   // Don't render content if not authenticated
   if (!isAuthenticated) {
     return (
@@ -596,7 +634,7 @@ export default function TargetsDialog({
           title="Access Restricted"
           message="This section is password protected. Please enter your admin password to manage targets."
         />
-        <Dialog fullScreen open={open} onClose={onClose}>
+        <Dialog fullScreen open={open} onClose={onClose} PaperProps={{ sx: { bgcolor: "background.default" } }}>
           <AppBar sx={{ position: 'relative', bgcolor: "#d61916" }}>
             <Toolbar>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1 }}>
@@ -618,8 +656,8 @@ export default function TargetsDialog({
               </IconButton>
             </Toolbar>
           </AppBar>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-            <Typography variant="h6" sx={{ color: "#999" }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", bgcolor: "background.default" }}>
+            <Typography variant="h6" sx={{ color: "text.secondary" }}>
               Please enter password to continue
             </Typography>
           </Box>
@@ -643,6 +681,7 @@ export default function TargetsDialog({
         onClose={onClose}
         disableEnforceFocus={false}
         disableAutoFocus={false}
+        PaperProps={{ sx: { bgcolor: "background.default", color: "text.primary" } }}
       >
         <AppBar sx={{ position: 'relative', bgcolor: "#d61916" }}>
           <Toolbar>
@@ -673,34 +712,34 @@ export default function TargetsDialog({
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: "background.default", color: "text.primary" }}>
           {/* Summary Cards - First Row */}
           {filtered.length > 0 && (
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: "#e3f2fd" }}>
-                <Typography variant="caption" sx={{ color: "#666", fontWeight: 600 }}>
+              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === "dark" ? 0.2 : 0.12), color: "text.primary" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                   Total Distributors
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1976d2" }}>
+                <Typography variant="h4" sx={{ fontWeight: "bold", color: "info.main" }}>
                   {filtered.length}
                 </Typography>
               </Paper>
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: "#fff3e0" }}>
-                <Typography variant="caption" sx={{ color: "#666", fontWeight: 600 }}>
+              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: (t) => alpha(t.palette.warning.main, t.palette.mode === "dark" ? 0.2 : 0.12), color: "text.primary" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                   Total Target UC
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: "bold", color: "#f57c00" }}>
+                <Typography variant="h4" sx={{ fontWeight: "bold", color: "warning.dark" }}>
                   {filtered.reduce((sum, d) => {
                     const target = editing[d.name] || d.target || {};
                     return sum + (target.CSD_UC || 0) + (target.Water_UC || 0);
                   }, 0).toLocaleString()}
                 </Typography>
               </Paper>
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: "#e8f5e9" }}>
-                <Typography variant="caption" sx={{ color: "#666", fontWeight: 600 }}>
+              <Paper elevation={2} sx={{ p: 2, borderRadius: 2, bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === "dark" ? 0.2 : 0.12), color: "text.primary" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                   Total Achieved UC
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: "bold", color: "#388e3c" }}>
+                <Typography variant="h4" sx={{ fontWeight: "bold", color: "success.dark" }}>
                   {filtered.reduce((sum, d) => {
                     return sum + (d.achieved?.CSD_UC || 0) + (d.achieved?.Water_UC || 0);
                   }, 0).toLocaleString()}
@@ -710,12 +749,12 @@ export default function TargetsDialog({
           )}
 
           {/* Target Period - Second Row */}
-          <Paper elevation={4} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", border: "2px solid #ff9800" }}>
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", mb: 2, pb: 2, borderBottom: "2px solid #ff9800" }}>
+          <Paper elevation={4} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, background: (t) => (t.palette.mode === "dark" ? alpha(t.palette.warning.main, 0.14) : "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)"), border: "2px solid", borderColor: "warning.main", color: "text.primary" }}>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", mb: 2, pb: 2, borderBottom: "2px solid", borderColor: "warning.main" }}>
               <Avatar sx={{ bgcolor: "#ff9800", width: 40, height: 40 }}>
                 <EventIcon sx={{ color: "white" }} />
               </Avatar>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: "#e65100" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "warning.dark" }}>
                 Target Period
               </Typography>
             </Box>
@@ -727,7 +766,7 @@ export default function TargetsDialog({
                 onChange={(e) => setStart(e.target.value)} 
                 InputLabelProps={{ shrink: true }}
                 size="small"
-                sx={{ bgcolor: "#fff", borderRadius: 1 }}
+                sx={{ bgcolor: "background.paper", borderRadius: 1 }}
               />
               <TextField 
                 label="End Date" 
@@ -736,11 +775,11 @@ export default function TargetsDialog({
                 onChange={(e) => setEnd(e.target.value)} 
                 InputLabelProps={{ shrink: true }}
                 size="small"
-                sx={{ bgcolor: "#fff", borderRadius: 1 }}
+                sx={{ bgcolor: "background.paper", borderRadius: 1 }}
               />
               <Box sx={{ flex: 1 }} />
             </Box>
-            <Typography variant="body2" sx={{ color: "#5d4037", mt: 1.5, lineHeight: 1.5, maxWidth: 720 }}>
+            <Typography variant="body2" sx={{ color: "text.primary", mt: 1.5, lineHeight: 1.5, maxWidth: 720 }}>
               Start and end can be any dates you need—the range does not have to sit inside a single calendar month.
               Set them to match your commercial cycle. Sales are counted toward <strong>Achieved</strong> on the
               performance table only when the invoice date falls between start and end (inclusive).
@@ -748,10 +787,10 @@ export default function TargetsDialog({
           </Paper>
 
           {/* Region tabs with colored selected tab and buttons - Third Row */}
-          <Paper elevation={4} sx={{ mb: 3, borderRadius: 3, overflow: "visible", border: "1px solid #e0e0e0" }}>
+          <Paper elevation={4} sx={{ mb: 3, borderRadius: 3, overflow: "visible", border: "1px solid", borderColor: "divider", color: "text.primary" }}>
             <Box sx={{ 
               p: { xs: 1.5, sm: 2 }, 
-              background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", 
+              background: (t) => (t.palette.mode === "dark" ? alpha(t.palette.warning.main, 0.12) : "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)"), 
               display: "flex", 
               flexDirection: { xs: "column", sm: "row" },
               alignItems: { xs: "stretch", sm: "center" },
@@ -776,8 +815,9 @@ export default function TargetsDialog({
                       px: { xs: 1.25, sm: 3 },
                       py: { xs: 0.5, sm: 1 },
                       transition: "all 0.2s",
+                      color: "text.primary",
                       "&:hover": {
-                        bgcolor: "rgba(255, 255, 255, 0.3)"
+                        bgcolor: (t) => alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.08 : 0.35),
                       }
                     },
                     "& .Mui-selected": { 
@@ -833,13 +873,13 @@ export default function TargetsDialog({
                     py: 0.75,
                     borderWidth: 1.5,
                     transition: "all 0.2s",
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
+                    bgcolor: "background.paper",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     "&:hover": {
                       borderWidth: 1.5,
                       transform: "translateY(-1px)",
                       boxShadow: 2,
-                      bgcolor: "#fff"
+                      bgcolor: "background.paper",
                     }
                   }}
                 >
@@ -861,13 +901,13 @@ export default function TargetsDialog({
                     py: 0.75,
                     borderWidth: 1.5,
                     transition: "all 0.2s",
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
+                    bgcolor: "background.paper",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     "&:hover": {
                       borderWidth: 1.5,
                       transform: "translateY(-1px)",
                       boxShadow: 2,
-                      bgcolor: "#fff"
+                      bgcolor: "background.paper",
                     }
                   }}
                 >
@@ -892,7 +932,7 @@ export default function TargetsDialog({
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
                 startAdornment: (
-                  <SearchIcon sx={{ color: "#999", mr: 1 }} />
+                  <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
                 ),
               }}
               sx={{
@@ -900,14 +940,14 @@ export default function TargetsDialog({
                 minWidth: 200,
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
-                  bgcolor: "#fff",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  bgcolor: "background.paper",
+                  boxShadow: (t) => `0 2px 8px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.1)}`,
                   transition: "all 0.2s",
                   "&:hover": {
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    boxShadow: (t) => `0 4px 12px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.45 : 0.15)}`,
                   },
                   "&.Mui-focused": {
-                    boxShadow: "0 4px 12px rgba(214, 25, 22, 0.2)",
+                    boxShadow: (t) => `0 4px 12px ${alpha(t.palette.error.main, 0.25)}`,
                   }
                 }
               }}
@@ -936,7 +976,7 @@ export default function TargetsDialog({
                 width: "8px",
               },
               "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "#ccc",
+                backgroundColor: alpha(theme.palette.text.primary, 0.26),
                 borderRadius: "4px",
               },
             }}
@@ -967,45 +1007,59 @@ export default function TargetsDialog({
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", position: "sticky", left: 0, zIndex: 10 }}></TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#fff3e0", textAlign: "center", fontSize: "0.85rem" }}>CSD</TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#e3f2fd", textAlign: "center", fontSize: "0.85rem" }}>Water</TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#fff3e0", textAlign: "center", fontSize: "0.85rem" }}>CSD</TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#e3f2fd", textAlign: "center", fontSize: "0.85rem" }}>Water</TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#fff3e0", textAlign: "center", fontSize: "0.85rem" }}>CSD</TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: "bold", bgcolor: "#e3f2fd", textAlign: "center", fontSize: "0.85rem" }}>Water</TableCell>
+                <TableCell sx={targetTablePastel.pinkCorner} />
+                <TableCell colSpan={2} sx={targetTablePastel.csdBand}>
+                  CSD
+                </TableCell>
+                <TableCell colSpan={2} sx={targetTablePastel.waterBand}>
+                  Water
+                </TableCell>
+                <TableCell colSpan={2} sx={targetTablePastel.csdBand}>
+                  CSD
+                </TableCell>
+                <TableCell colSpan={2} sx={targetTablePastel.waterBand}>
+                  Water
+                </TableCell>
+                <TableCell colSpan={2} sx={targetTablePastel.csdBand}>
+                  CSD
+                </TableCell>
+                <TableCell colSpan={2} sx={targetTablePastel.waterBand}>
+                  Water
+                </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", position: "sticky", left: 0, zIndex: 10 }}></TableCell>
+                <TableCell sx={targetTablePastel.pinkCorner} />
                 {/* Target Headers */}
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
                 {/* Achieved Headers */}
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
                 {/* Balance Headers */}
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>PC</TableCell>
-                <TableCell sx={{ fontWeight: "bold", bgcolor: "#ffcdd2", textAlign: "center", fontSize: "0.75rem" }}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>PC</TableCell>
+                <TableCell sx={targetTablePastel.pinkCell75}>UC</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} align="center" sx={{ py: 4, color: "#999" }}>
+                  <TableCell colSpan={13} align="center" sx={{ py: 4, color: "text.secondary" }}>
                     {searchTerm ? "No distributors found matching your search" : "No distributors available"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((d) => (
-                  <TableRow key={d.name || d.code || `distributor-${d.id}`}>
-                    <TableCell sx={{ fontWeight: "bold", position: "sticky", left: 0, bgcolor: "#fff", zIndex: 9 }}>
+                filtered.map((d, rowIdx) => {
+                  const rowBg = tableStripeAt(theme, rowIdx);
+                  return (
+                  <TableRow key={d.name || d.code || `distributor-${d.id}`} sx={{ bgcolor: rowBg, color: "text.primary" }}>
+                    <TableCell sx={{ fontWeight: "bold", position: "sticky", left: 0, bgcolor: rowBg, color: "text.primary", zIndex: 9 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Checkbox
                           size="small"
@@ -1018,52 +1072,53 @@ export default function TargetsDialog({
                     </TableCell>
 
                     {/* Target - CSD PC, CSD UC, Water PC, Water UC */}
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
                       <TextField size="small" value={editing[d.name]?.CSD_PC ?? d.target?.CSD_PC ?? 0} onChange={handleField(d.name, "CSD_PC")} disabled={!canWrite} inputProps={{ style: { textAlign: "center", width: 80 } }} />
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
                       <TextField size="small" value={editing[d.name]?.CSD_UC ?? d.target?.CSD_UC ?? 0} onChange={handleField(d.name, "CSD_UC")} disabled={!canWrite} inputProps={{ style: { textAlign: "center", width: 80 } }} />
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
                       <TextField size="small" value={editing[d.name]?.Water_PC ?? d.target?.Water_PC ?? 0} onChange={handleField(d.name, "Water_PC")} disabled={!canWrite} inputProps={{ style: { textAlign: "center", width: 80 } }} />
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
                       <TextField size="small" value={editing[d.name]?.Water_UC ?? d.target?.Water_UC ?? 0} onChange={handleField(d.name, "Water_UC")} disabled={!canWrite} inputProps={{ style: { textAlign: "center", width: 80 } }} />
                     </TableCell>
 
                     {/* Achieved - CSD PC, CSD UC, Water PC, Water UC */}
-                    <TableCell align="center">{d.achieved?.CSD_PC ?? 0}</TableCell>
-                    <TableCell align="center">{d.achieved?.CSD_UC ?? 0}</TableCell>
-                    <TableCell align="center">{d.achieved?.Water_PC ?? 0}</TableCell>
-                    <TableCell align="center">{d.achieved?.Water_UC ?? 0}</TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.CSD_PC ?? 0}</TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.CSD_UC ?? 0}</TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.Water_PC ?? 0}</TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.Water_UC ?? 0}</TableCell>
 
                     {/* Balance - CSD PC, CSD UC, Water PC, Water UC */}
                     <TableCell align="center" sx={{ 
-                      color: ((editing[d.name]?.CSD_PC ?? d.target?.CSD_PC ?? 0) - (d.achieved?.CSD_PC ?? 0)) >= 0 ? "#666" : "#d32f2f",
+                      color: ((editing[d.name]?.CSD_PC ?? d.target?.CSD_PC ?? 0) - (d.achieved?.CSD_PC ?? 0)) >= 0 ? "text.secondary" : "error.main",
                       fontWeight: ((editing[d.name]?.CSD_PC ?? d.target?.CSD_PC ?? 0) - (d.achieved?.CSD_PC ?? 0)) < 0 ? 600 : "normal"
                     }}>
                       {Math.round((editing[d.name]?.CSD_PC ?? d.target?.CSD_PC ?? 0) - (d.achieved?.CSD_PC ?? 0))}
                     </TableCell>
                     <TableCell align="center" sx={{ 
-                      color: ((editing[d.name]?.CSD_UC ?? d.target?.CSD_UC ?? 0) - (d.achieved?.CSD_UC ?? 0)) >= 0 ? "#666" : "#d32f2f",
+                      color: ((editing[d.name]?.CSD_UC ?? d.target?.CSD_UC ?? 0) - (d.achieved?.CSD_UC ?? 0)) >= 0 ? "text.secondary" : "error.main",
                       fontWeight: 600
                     }}>
                       {Math.round((editing[d.name]?.CSD_UC ?? d.target?.CSD_UC ?? 0) - (d.achieved?.CSD_UC ?? 0))}
                     </TableCell>
                     <TableCell align="center" sx={{ 
-                      color: ((editing[d.name]?.Water_PC ?? d.target?.Water_PC ?? 0) - (d.achieved?.Water_PC ?? 0)) >= 0 ? "#666" : "#d32f2f",
+                      color: ((editing[d.name]?.Water_PC ?? d.target?.Water_PC ?? 0) - (d.achieved?.Water_PC ?? 0)) >= 0 ? "text.secondary" : "error.main",
                       fontWeight: ((editing[d.name]?.Water_PC ?? d.target?.Water_PC ?? 0) - (d.achieved?.Water_PC ?? 0)) < 0 ? 600 : "normal"
                     }}>
                       {Math.round((editing[d.name]?.Water_PC ?? d.target?.Water_PC ?? 0) - (d.achieved?.Water_PC ?? 0))}
                     </TableCell>
                     <TableCell align="center" sx={{ 
-                      color: ((editing[d.name]?.Water_UC ?? d.target?.Water_UC ?? 0) - (d.achieved?.Water_UC ?? 0)) >= 0 ? "#666" : "#d32f2f",
+                      color: ((editing[d.name]?.Water_UC ?? d.target?.Water_UC ?? 0) - (d.achieved?.Water_UC ?? 0)) >= 0 ? "text.secondary" : "error.main",
                       fontWeight: 600
                     }}>
                       {Math.round((editing[d.name]?.Water_UC ?? d.target?.Water_UC ?? 0) - (d.achieved?.Water_UC ?? 0))}
                     </TableCell>
                   </TableRow>
-                ))
+                );
+                })
               )}
             </TableBody>
           </Table>
@@ -1087,16 +1142,13 @@ export default function TargetsDialog({
             </Button>
             <Button 
               variant="contained" 
+              color="error"
               startIcon={<SaveIcon />}
               onClick={apply}
               disabled={!canWrite}
               sx={{ 
-                bgcolor: "#d61916",
                 borderRadius: 2,
                 minWidth: 150,
-                "&:hover": {
-                  bgcolor: "#b01512"
-                }
               }}
               title={!canWrite ? "You don't have permission to update targets. Only admins can update targets." : ""}
             >
@@ -1128,11 +1180,12 @@ export default function TargetsDialog({
           onClose={() => bulkUploadProgress.processed === bulkUploadProgress.total ? setBulkUploadOpen(false) : null}
           maxWidth="md"
           fullWidth
+          PaperProps={{ sx: { bgcolor: "background.paper", color: "text.primary" } }}
         >
-          <DialogTitle>
+          <DialogTitle sx={{ color: "text.primary" }}>
             Bulk Upload Targets Progress
           </DialogTitle>
-          <DialogContent>
+          <DialogContent sx={{ color: "text.primary" }}>
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
@@ -1171,10 +1224,10 @@ export default function TargetsDialog({
               <Box>
                 {bulkUploadResults.success.length > 0 && (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "#2e7d32" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "success.dark" }}>
                       Successfully Updated ({bulkUploadResults.success.length}):
                     </Typography>
-                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: "#f5f5f5", borderRadius: 1 }}>
+                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: "action.hover", borderRadius: 1 }}>
                       {bulkUploadResults.success.slice(0, 10).map((item, idx) => (
                         <ListItem key={idx}>
                           <ListItemText 
@@ -1187,7 +1240,7 @@ export default function TargetsDialog({
                         <ListItem>
                           <ListItemText 
                             primary={`... and ${bulkUploadResults.success.length - 10} more`}
-                            sx={{ fontStyle: "italic", color: "#666" }}
+                            sx={{ fontStyle: "italic", color: "text.secondary" }}
                           />
                         </ListItem>
                       )}
@@ -1197,10 +1250,10 @@ export default function TargetsDialog({
 
                 {bulkUploadResults.skipped.length > 0 && (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "#f57c00" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "warning.dark" }}>
                       Skipped ({bulkUploadResults.skipped.length}):
                     </Typography>
-                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: "#fff3e0", borderRadius: 1 }}>
+                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: (t) => alpha(t.palette.warning.main, 0.12), borderRadius: 1 }}>
                       {bulkUploadResults.skipped.slice(0, 10).map((item, idx) => (
                         <ListItem key={idx}>
                           <ListItemText 
@@ -1213,7 +1266,7 @@ export default function TargetsDialog({
                         <ListItem>
                           <ListItemText 
                             primary={`... and ${bulkUploadResults.skipped.length - 10} more`}
-                            sx={{ fontStyle: "italic", color: "#666" }}
+                            sx={{ fontStyle: "italic", color: "text.secondary" }}
                           />
                         </ListItem>
                       )}
@@ -1223,10 +1276,10 @@ export default function TargetsDialog({
 
                 {bulkUploadResults.failed.length > 0 && (
                   <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "#d32f2f" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "error.main" }}>
                       Failed ({bulkUploadResults.failed.length}):
                     </Typography>
-                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: "#ffebee", borderRadius: 1 }}>
+                    <List dense sx={{ maxHeight: 150, overflow: "auto", bgcolor: (t) => alpha(t.palette.error.main, 0.1), borderRadius: 1 }}>
                       {bulkUploadResults.failed.map((item, idx) => (
                         <ListItem key={idx}>
                           <ListItemText 

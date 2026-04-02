@@ -1082,8 +1082,16 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   const tableMaxH = { xs: "min(48vh, 360px)", sm: "min(56vh, 520px)" };
   const skuTableMaxH = { xs: "min(34vh, 300px)", sm: "min(38vh, 340px)" };
   const headSx = { fontWeight: 700, backgroundColor: "#c62828", color: "#fff", py: 1.25 };
-  const subHeadCsd = { fontWeight: 700, backgroundColor: alpha(theme.palette.warning.main, 0.12) };
-  const subHeadWater = { fontWeight: 700, backgroundColor: alpha(theme.palette.info.main, 0.12) };
+  const subHeadCsd = {
+    fontWeight: 700,
+    backgroundColor: alpha(theme.palette.warning.main, theme.palette.mode === "dark" ? 0.22 : 0.12),
+    color: "text.primary",
+  };
+  const subHeadWater = {
+    fontWeight: 700,
+    backgroundColor: alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.22 : 0.12),
+    color: "text.primary",
+  };
 
   return (
     <Dialog
@@ -1094,7 +1102,8 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
         sx: {
           display: "flex",
           flexDirection: "column",
-          bgcolor: "grey.50",
+          bgcolor: "background.default",
+          color: "text.primary",
         },
       }}
     >
@@ -1187,7 +1196,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                   alignItems: "center",
                   justifyContent: "center",
                   bgcolor: alpha(theme.palette.info.main, 0.12),
-                  color: "info.dark",
+                  color: "info.main",
                 }}
               >
                 <TableRowsOutlinedIcon />
@@ -1603,23 +1612,35 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                               key={row.name}
                               hover
                               sx={{
+                                color: "text.primary",
                                 "&:nth-of-type(even)": { bgcolor: alpha(theme.palette.grey[500], 0.04) },
                               }}
                             >
-                              <TableCell sx={{ fontWeight: 800, color: row.rank <= 3 ? "#c62828" : "inherit" }}>
+                              <TableCell
+                                sx={{ fontWeight: 800, color: row.rank <= 3 ? "error.main" : "text.primary" }}
+                              >
                                 {row.rank}
                               </TableCell>
-                              <TableCell sx={{ fontWeight: 600 }}>{row.name}</TableCell>
-                              <TableCell align="center">{row.csdPC.toLocaleString()}</TableCell>
-                              <TableCell align="center">{row.csdUC.toFixed(2)}</TableCell>
-                              <TableCell align="center">{row.waterPC.toLocaleString()}</TableCell>
-                              <TableCell align="center">{row.waterUC.toFixed(2)}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: "text.primary" }}>{row.name}</TableCell>
+                              <TableCell align="center" sx={{ color: "text.primary" }}>
+                                {row.csdPC.toLocaleString()}
+                              </TableCell>
+                              <TableCell align="center" sx={{ color: "text.primary" }}>
+                                {row.csdUC.toFixed(2)}
+                              </TableCell>
+                              <TableCell align="center" sx={{ color: "text.primary" }}>
+                                {row.waterPC.toLocaleString()}
+                              </TableCell>
+                              <TableCell align="center" sx={{ color: "text.primary" }}>
+                                {row.waterUC.toFixed(2)}
+                              </TableCell>
                             </TableRow>
                           ))}
                           <TableRow
                             sx={{
                               bgcolor: alpha(theme.palette.grey[700], 0.06),
-                              "& .MuiTableCell-root": { fontWeight: 800 },
+                              color: "text.primary",
+                              "& .MuiTableCell-root": { fontWeight: 800, color: "text.primary" },
                             }}
                           >
                             <TableCell />
@@ -1681,15 +1702,16 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                                 key={`csd-${row.sku}`}
                                 hover
                                 sx={{
+                                  color: "text.primary",
                                   "&:nth-of-type(even)": {
                                     bgcolor: alpha(theme.palette.grey[500], 0.04),
                                   },
                                 }}
                               >
-                                <TableCell sx={{ fontWeight: 700 }}>{index + 1}</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>{row.sku}</TableCell>
-                                <TableCell align="center">{row.totalPC.toLocaleString()}</TableCell>
-                                <TableCell align="center">{row.totalUC.toFixed(2)}</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "text.primary" }}>{index + 1}</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: "text.primary" }}>{row.sku}</TableCell>
+                                <TableCell align="center" sx={{ color: "text.primary" }}>{row.totalPC.toLocaleString()}</TableCell>
+                                <TableCell align="center" sx={{ color: "text.primary" }}>{row.totalUC.toFixed(2)}</TableCell>
                               </TableRow>
                             ))
                           )}
@@ -1702,7 +1724,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                     <Typography
                       variant="subtitle2"
                       fontWeight={800}
-                      sx={{ mb: 1, px: 0.5, color: "info.dark" }}
+                      sx={{ mb: 1, px: 0.5, color: "info.main" }}
                     >
                       Water (Kinley) — SKU sales
                     </Typography>
@@ -1743,15 +1765,16 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                                 key={`water-${row.sku}`}
                                 hover
                                 sx={{
+                                  color: "text.primary",
                                   "&:nth-of-type(even)": {
                                     bgcolor: alpha(theme.palette.grey[500], 0.04),
                                   },
                                 }}
                               >
-                                <TableCell sx={{ fontWeight: 700 }}>{index + 1}</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>{row.sku}</TableCell>
-                                <TableCell align="center">{row.totalPC.toLocaleString()}</TableCell>
-                                <TableCell align="center">{row.totalUC.toFixed(2)}</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "text.primary" }}>{index + 1}</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: "text.primary" }}>{row.sku}</TableCell>
+                                <TableCell align="center" sx={{ color: "text.primary" }}>{row.totalPC.toLocaleString()}</TableCell>
+                                <TableCell align="center" sx={{ color: "text.primary" }}>{row.totalUC.toFixed(2)}</TableCell>
                               </TableRow>
                             ))
                           )}
