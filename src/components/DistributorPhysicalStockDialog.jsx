@@ -13,6 +13,7 @@ import {
   Paper,
   InputAdornment,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import SaveIcon from "@mui/icons-material/Save";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
@@ -43,6 +44,7 @@ export default function DistributorPhysicalStockDialog({
   onDialogOpened,
   onPhysicalStockAcknowledged,
 }) {
+  const theme = useTheme();
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState(() => normalizePhysicalStockPayload(null).rows);
   const [dirty, setDirty] = useState(false);
@@ -276,7 +278,7 @@ export default function DistributorPhysicalStockDialog({
           flexWrap: "wrap",
           alignItems: "center",
           gap: 2,
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
         }}
       >
         <TextField
@@ -302,7 +304,11 @@ export default function DistributorPhysicalStockDialog({
           <Chip
             label={`Total units: ${grandTotal.toLocaleString()}`}
             size="small"
-            sx={{ fontWeight: 700, bgcolor: "#e3f2fd", color: "#0d47a1" }}
+            sx={{
+              fontWeight: 700,
+              bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === "dark" ? 0.22 : 0.12),
+              color: "info.light",
+            }}
           />
           {dirty ? <Chip label="Unsaved changes" size="small" color="warning" variant="outlined" /> : null}
         </Box>
@@ -351,7 +357,7 @@ export default function DistributorPhysicalStockDialog({
           justifyContent: "flex-end",
           alignItems: "center",
           gap: 1.5,
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
         }}
       >
         <Button onClick={onClose} color="inherit" size="large" disabled={saving} sx={{ minWidth: 100 }}>
@@ -368,9 +374,9 @@ export default function DistributorPhysicalStockDialog({
             borderRadius: 2,
             py: 1,
             fontWeight: 700,
-            boxShadow: "0 4px 14px rgba(229, 57, 53, 0.4)",
-            bgcolor: "#e53935",
-            "&:hover": { bgcolor: "#c62828" },
+            boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.45)}`,
+            bgcolor: "primary.main",
+            "&:hover": { bgcolor: "primary.dark" },
           }}
         >
           Save stock

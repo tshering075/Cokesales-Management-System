@@ -20,6 +20,14 @@ import {
   useTheme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import {
+  calculatorResultsShellSx,
+  calcSummaryRows,
+  tableFooterBandBg,
+  tableFooterBandBorder,
+  tableRowHoverBg,
+  tableStripeAt,
+} from "../theme/contrastSurfaces";
 
 function num(v, fallback = 0) {
   const n = Number(v);
@@ -39,6 +47,8 @@ export default function OrderCalculatedTableDialog({
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const summ = calcSummaryRows(theme);
+  const resultsShellSx = calculatorResultsShellSx(theme);
 
   const rows = useMemo(
     () => (Array.isArray(order?.data) ? order.data : []),
@@ -107,8 +117,8 @@ export default function OrderCalculatedTableDialog({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          bgcolor: "#e53935",
-          color: "#fff",
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
           py: 1.5,
         }}
       >
@@ -120,7 +130,7 @@ export default function OrderCalculatedTableDialog({
             {status}
           </Typography>
         </Box>
-        <IconButton onClick={onClose} sx={{ color: "#fff" }} aria-label="close">
+        <IconButton onClick={onClose} sx={{ color: "inherit" }} aria-label="close">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -131,16 +141,7 @@ export default function OrderCalculatedTableDialog({
           </Typography>
         ) : (
           <>
-            <TableContainer
-              component={Paper}
-              sx={{
-                background: "#fffde7",
-                borderRadius: 3,
-                boxShadow: 3,
-                border: "2px solid #fbc02d",
-                width: "100%",
-              }}
-            >
+            <TableContainer component={Paper} sx={{ ...resultsShellSx, borderRadius: 3, boxShadow: 3 }}>
               <Box
                 sx={{
                   display: "flex",
@@ -153,13 +154,21 @@ export default function OrderCalculatedTableDialog({
                   gap: 1,
                 }}
               >
-                <Box sx={{ fontWeight: "bold", color: "#000", fontSize: isMobile ? 12 : 14 }}>
+                <Box sx={{ fontWeight: "bold", color: "text.primary", fontSize: isMobile ? 12 : 14 }}>
                   {distributorName || "Distributor"}
                 </Box>
-                <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 12 : 14, textAlign: "center", flexGrow: 1 }}>
+                <Box
+                  sx={{
+                    fontWeight: "bold",
+                    fontSize: isMobile ? 12 : 14,
+                    textAlign: "center",
+                    flexGrow: 1,
+                    color: "text.primary",
+                  }}
+                >
                   Order No: {orderNo}
                 </Box>
-                <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 12, color: "#000" }}>
+                <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 12, color: "text.primary" }}>
                   📅 {headerDate}
                 </Box>
               </Box>
@@ -206,20 +215,35 @@ export default function OrderCalculatedTableDialog({
                       <TableRow
                         key={i}
                         sx={{
-                          background: i % 2 === 0 ? "#f8f9fa" : "#ffffff",
+                          background: tableStripeAt(theme, i),
+                          color: "text.primary",
+                          "&:hover": { bgcolor: tableRowHoverBg(theme) },
                         }}
                       >
-                        <TableCell sx={{ fontWeight: 700, fontSize: isMobile ? 9 : 13, wordBreak: isMobile ? "break-word" : "normal" }}>
+                        <TableCell
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: isMobile ? 9 : 13,
+                            wordBreak: isMobile ? "break-word" : "normal",
+                            color: "text.primary",
+                          }}
+                        >
                           {row.sku}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                           {freeCases > 0 ? (
                             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.4 }}>
-                              <Typography component="span" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                              <Typography
+                                component="span"
+                                sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}
+                              >
                                 {orderedCases.toLocaleString()}
                               </Typography>
                               <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                                <Typography component="span" sx={{ color: "#2e7d32", fontSize: isMobile ? 8 : 11, fontWeight: "bold" }}>
+                                <Typography
+                                  component="span"
+                                  sx={{ color: "success.light", fontSize: isMobile ? 8 : 11, fontWeight: "bold" }}
+                                >
                                   +{freeCases}
                                 </Typography>
                                 <Chip
@@ -236,13 +260,15 @@ export default function OrderCalculatedTableDialog({
                               </Box>
                             </Box>
                           ) : (
-                            <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>{cases.toLocaleString()}</Typography>
+                            <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
+                              {cases.toLocaleString()}
+                            </Typography>
                           )}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                           {scheme?.type === "discount" && num(row.discountAmount) > 0 ? (
                             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.3 }}>
-                              <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#1976d2" }}>
+                              <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "info.light" }}>
                                 {(() => {
                                   const discountPerCase = num(scheme.discountAmount);
                                   const discountedRate = rate - discountPerCase;
@@ -262,20 +288,20 @@ export default function OrderCalculatedTableDialog({
                               />
                             </Box>
                           ) : (
-                            <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                            <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                               {isMobile ? rate : rate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                           {isMobile
                             ? Math.round(totalAmount).toLocaleString()
                             : totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                           {totalTon.toFixed(3)}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
+                        <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                           {totalUC != null ? totalUC.toFixed(2) : "—"}
                         </TableCell>
                       </TableRow>
@@ -286,8 +312,10 @@ export default function OrderCalculatedTableDialog({
                     <TableRow
                       sx={{
                         fontWeight: "bold",
-                        background: "linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)",
-                        borderTop: "2px solid #f44336",
+                        background: summ.discountBg,
+                        borderTop: "2px solid",
+                        borderColor: summ.discountBorder,
+                        color: "text.primary",
                       }}
                     >
                       <TableCell colSpan={3} align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
@@ -298,7 +326,7 @@ export default function OrderCalculatedTableDialog({
                           ? Math.round(aggregates.totalDiscountSum).toLocaleString()
                           : aggregates.totalDiscountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell colSpan={2} align="right" sx={{ color: "#757575" }}>
+                      <TableCell colSpan={2} align="right" sx={{ color: "text.secondary" }}>
                         —
                       </TableCell>
                     </TableRow>
@@ -307,18 +335,22 @@ export default function OrderCalculatedTableDialog({
                   <TableRow
                     sx={{
                       fontWeight: "bold",
-                      background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)",
-                      borderTop: "3px solid #ff9800",
+                      background: summ.grossBg,
+                      borderTop: "3px solid",
+                      borderColor: summ.grossBorder,
+                      color: "text.primary",
                     }}
                   >
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14, color: "#e65100" }}>Gross Total</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14, color: "warning.light" }}>
+                      Gross Total
+                    </TableCell>
                     <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14 }}>
                       {aggregates.sumCasesDisplay.toLocaleString()}
                     </TableCell>
-                    <TableCell align="right" sx={{ color: "#757575" }}>
+                    <TableCell align="right" sx={{ color: "text.secondary" }}>
                       —
                     </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14, color: "#d32f2f" }}>
+                    <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14, color: "error.light" }}>
                       {isMobile
                         ? Math.round(aggregates.totalAmountSum).toLocaleString()
                         : aggregates.totalAmountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
@@ -326,7 +358,7 @@ export default function OrderCalculatedTableDialog({
                     <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 14 }}>
                       {aggregates.totalTonSum.toFixed(3)}
                     </TableCell>
-                    <TableCell align="right" sx={{ color: "#757575" }}>
+                    <TableCell align="right" sx={{ color: "text.secondary" }}>
                       —
                     </TableCell>
                   </TableRow>
@@ -335,17 +367,19 @@ export default function OrderCalculatedTableDialog({
                     <TableRow
                       sx={{
                         fontWeight: "bold",
-                        background: "linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)",
-                        borderTop: "2px solid #ffc107",
+                        background: summ.gstBg,
+                        borderTop: "2px solid",
+                        borderColor: summ.gstBorder,
+                        color: "text.primary",
                       }}
                     >
-                      <TableCell colSpan={3} align="right" sx={{ fontWeight: "bold", color: "#f57c00", fontSize: isMobile ? 9 : 13 }}>
+                      <TableCell colSpan={3} align="right" sx={{ fontWeight: "bold", color: "warning.light", fontSize: isMobile ? 9 : 13 }}>
                         GST (5%):
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
                         {isMobile ? Math.round(gstAmount).toLocaleString() : gstAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell colSpan={2} align="right" sx={{ color: "#757575" }}>
+                      <TableCell colSpan={2} align="right" sx={{ color: "text.secondary" }}>
                         —
                       </TableCell>
                     </TableRow>
@@ -354,22 +388,32 @@ export default function OrderCalculatedTableDialog({
                   <TableRow
                     sx={{
                       fontWeight: "bold",
-                      background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)",
-                      borderTop: "3px solid #4caf50",
+                      background: summ.netBg,
+                      borderTop: "3px solid",
+                      borderColor: summ.netBorder,
+                      color: "text.primary",
                     }}
                   >
-                    <TableCell colSpan={3} align="right" sx={{ fontWeight: "bold", color: "#1b5e20", fontSize: isMobile ? 10 : 15 }}>
+                    <TableCell colSpan={3} align="right" sx={{ fontWeight: "bold", color: "success.light", fontSize: isMobile ? 10 : 15 }}>
                       Net Total:
                     </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold", color: "#2e7d32", fontSize: isMobile ? 10 : 15 }}>
+                    <TableCell align="right" sx={{ fontWeight: "bold", color: "success.main", fontSize: isMobile ? 10 : 15 }}>
                       {isMobile ? Math.round(netTotal).toLocaleString() : netTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell colSpan={2} align="right" sx={{ color: "#757575" }}>
+                    <TableCell colSpan={2} align="right" sx={{ color: "text.secondary" }}>
                       —
                     </TableCell>
                   </TableRow>
 
-                  <TableRow sx={{ fontWeight: "bold", background: "#f5f5f5", borderTop: "1px solid #e0e0e0" }}>
+                  <TableRow
+                    sx={{
+                      fontWeight: "bold",
+                      background: tableFooterBandBg(theme),
+                      borderTop: "1px solid",
+                      borderColor: tableFooterBandBorder(theme),
+                      color: "text.primary",
+                    }}
+                  >
                     <TableCell colSpan={5} align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
                       CSD UC:
                     </TableCell>
@@ -377,7 +421,7 @@ export default function OrderCalculatedTableDialog({
                       {aggregates.totalUC_CSD.toFixed(2)}
                     </TableCell>
                   </TableRow>
-                  <TableRow sx={{ fontWeight: "bold", background: "#f5f5f5" }}>
+                  <TableRow sx={{ fontWeight: "bold", background: tableFooterBandBg(theme), color: "text.primary" }}>
                     <TableCell colSpan={5} align="right" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13 }}>
                       Water UC:
                     </TableCell>
@@ -398,7 +442,7 @@ export default function OrderCalculatedTableDialog({
         )}
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose} variant="contained" sx={{ bgcolor: "#e53935", "&:hover": { bgcolor: "#c62828" } }}>
+        <Button onClick={onClose} variant="contained" color="primary">
           Close
         </Button>
       </DialogActions>

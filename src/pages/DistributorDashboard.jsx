@@ -2042,7 +2042,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 3, overflow: "hidden" } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.15rem", pb: 0.5 }}>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.15rem", pb: 0.5, color: "text.primary" }}>
           Notifications
         </DialogTitle>
         <Typography variant="body2" color="text.secondary" sx={{ px: 3, pb: 1.5 }}>
@@ -2150,9 +2150,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         disableEnforceFocus={false}
         disableAutoFocus={false}
       >
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 2, bgcolor: "background.default", minHeight: "100%", color: "text.primary" }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-            <Typography variant="h6">{editingOrder ? "Update order" : "Place Order"}</Typography>
+            <Typography variant="h6" sx={{ color: "text.primary", fontWeight: 700 }}>
+              {editingOrder ? "Update order" : "Place Order"}
+            </Typography>
             <IconButton
               onClick={() => {
                 setShowCalculator(false);
@@ -2161,6 +2163,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setDistributorCurrentView("dashboard");
               }}
               aria-label="close dialog"
+              sx={{ color: "text.primary" }}
             >
               <CloseIcon />
             </IconButton>

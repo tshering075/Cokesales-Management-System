@@ -14,7 +14,7 @@ import {
   Chip,
   Divider,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { rowTotal } from "../utils/physicalStockTemplate";
@@ -318,10 +318,11 @@ export default function PhysicalStockMatrix({
   const cellSx = useMemo(
     () => ({
       border: "1px solid",
-      borderColor: isFs ? "rgba(0,0,0,0.08)" : "#ddd",
+      borderColor: "divider",
       p: isFs ? 0.75 : 0.5,
       fontSize: isFs ? "0.78rem" : "0.7rem",
       verticalAlign: "middle",
+      color: "text.primary",
       ...(boldDataValues ? { fontWeight: 700 } : {}),
     }),
     [isFs, boldDataValues]
@@ -415,7 +416,12 @@ export default function PhysicalStockMatrix({
   );
 
   const headTeal = isFs ? "#006064" : "#00bcd4";
-  const catBodyBg = isFs ? "#fff8e1" : "#fff9c4";
+  const isDark = theme.palette.mode === "dark";
+  const catBodyBg = isDark
+    ? alpha(theme.palette.warning.main, isFs ? 0.22 : 0.18)
+    : isFs
+      ? "#fff8e1"
+      : "#fff9c4";
 
   const stickyHeadCategorySx = freezeLeadingCols
     ? {
@@ -558,7 +564,15 @@ export default function PhysicalStockMatrix({
                 key={`${row.category}-${row.sku}`}
                 hover
                 sx={{
-                  bgcolor: zebra ? (isFs ? "rgba(0, 96, 100, 0.03)" : "rgba(0,0,0,0.02)") : "transparent",
+                  bgcolor: zebra
+                    ? isFs
+                      ? isDark
+                        ? alpha("#006064", 0.12)
+                        : "rgba(0, 96, 100, 0.03)"
+                      : isDark
+                        ? alpha(theme.palette.common.white, 0.04)
+                        : "rgba(0,0,0,0.02)"
+                    : "transparent",
                 }}
               >
                 {spanInfo ? (
@@ -586,7 +600,9 @@ export default function PhysicalStockMatrix({
                     }}
                     rowSpan={spanInfo.count}
                   >
-                    {row.category}
+                    <Typography component="span" variant="body2" sx={{ color: "text.primary", fontWeight: 700 }}>
+                      {row.category}
+                    </Typography>
                   </TableCell>
                 ) : null}
                 <TableCell
@@ -604,8 +620,12 @@ export default function PhysicalStockMatrix({
                           boxSizing: "border-box",
                           backgroundColor: zebra
                             ? isFs
-                              ? "rgba(0, 96, 100, 0.03)"
-                              : "rgba(0,0,0,0.02)"
+                              ? isDark
+                                ? alpha("#006064", 0.12)
+                                : "rgba(0, 96, 100, 0.03)"
+                              : isDark
+                                ? alpha(theme.palette.common.white, 0.04)
+                                : "rgba(0,0,0,0.02)"
                             : theme.palette.background.paper,
                           boxShadow: "3px 0 6px -2px rgba(0,0,0,0.1)",
                           wordBreak: "break-word",
@@ -636,7 +656,8 @@ export default function PhysicalStockMatrix({
                   sx={{
                     ...cellSx,
                     fontWeight: 800,
-                    bgcolor: "#e3f2fd",
+                    bgcolor: isDark ? alpha(theme.palette.info.main, 0.22) : "#e3f2fd",
+                    color: "text.primary",
                     fontVariantNumeric: "tabular-nums",
                     borderLeft: "3px solid",
                     borderLeftColor: "primary.main",

@@ -139,14 +139,15 @@ function ActivityDialog({ open, onClose }) {
           </Box>
         </Box>
       </DialogTitle>
-      <DialogContent sx={{ p: 0, bgcolor: "#f5f5f5" }}>
+      <DialogContent sx={{ p: 0, bgcolor: "action.hover", color: "text.primary" }}>
         {/* Search and Filter Bar */}
         <Paper
           elevation={0}
           sx={{
             p: 2,
-            bgcolor: "white",
-            borderBottom: "1px solid #e0e0e0",
+            bgcolor: "background.paper",
+            borderBottom: "1px solid",
+            borderColor: "divider",
             position: "sticky",
             top: 0,
             zIndex: 1,
@@ -326,7 +327,7 @@ function ActivityDialog({ open, onClose }) {
           </Box>
         )}
       </DialogContent>
-      <DialogActions sx={{ bgcolor: "white", borderTop: "1px solid #e0e0e0", px: 3, py: 2 }}>
+      <DialogActions sx={{ bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider", px: 3, py: 2 }}>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>

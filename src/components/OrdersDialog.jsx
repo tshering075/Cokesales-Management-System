@@ -20,7 +20,9 @@ import {
   Chip,
   Tooltip,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
+import { tableHeaderBg, tableStripeAt } from "../theme/contrastSurfaces";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EditIcon from "@mui/icons-material/Edit";
 
@@ -47,11 +49,19 @@ export default function OrdersDialog({
       maxWidth="lg"
       fullScreen={isMobile}
     >
-      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#e53935", color: "#fff" }}>
+      <DialogTitle
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+        }}
+      >
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Order List - {distributorName}
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: "#fff" }}>
+        <IconButton onClick={onClose} sx={{ color: "inherit" }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -66,15 +76,53 @@ export default function OrdersDialog({
           <TableContainer component={Paper} sx={{ maxHeight: { xs: "70vh", sm: "60vh" }, overflow: "auto" }}>
             <Table size={isMobile ? "small" : "medium"} stickyHeader>
               <TableHead>
-                <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                  <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Order #</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Date</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>CSD PC</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>CSD UC</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Water PC</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Water UC</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Status</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Action</TableCell>
+                <TableRow sx={{ bgcolor: tableHeaderBg(theme) }}>
+                  <TableCell
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Order #
+                  </TableCell>
+                  <TableCell
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Date
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    CSD PC
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    CSD UC
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Water PC
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Water UC
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Status
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}
+                  >
+                    Action
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -84,29 +132,36 @@ export default function OrdersDialog({
                     hover
                     onClick={() => onOrderRowClick && onOrderRowClick(order)}
                     sx={{
-                      "&:nth-of-type(even)": { bgcolor: "#f9f9f9" },
+                      bgcolor: tableStripeAt(theme, idx),
+                      color: "text.primary",
+                      "&:hover": {
+                        bgcolor:
+                          theme.palette.mode === "dark"
+                            ? alpha(theme.palette.primary.main, 0.12)
+                            : alpha(theme.palette.primary.main, 0.06),
+                      },
                       ...(onOrderRowClick ? { cursor: "pointer" } : {}),
                     }}
                   >
-                    <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.orderNumber || `#${orders.length - idx}`}
                     </TableCell>
-                    <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.timestamp || order.created_at || "N/A"}
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.csdPC || 0}
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.csdUC ? parseFloat(order.csdUC).toFixed(2) : "0.00"}
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.waterPC || 0}
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, fontWeight: 700, color: "text.primary" }}>
                       {order.waterUC ? parseFloat(order.waterUC).toFixed(2) : "0.00"}
                     </TableCell>
-                    <TableCell align="center" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
+                    <TableCell align="center" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "text.primary" }}>
                       {(() => {
                         const status = (getOrderStatus ? getOrderStatus(order) : order?.status || "pending").toLowerCase();
                         const color =
@@ -182,7 +237,7 @@ export default function OrdersDialog({
         )}
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose} variant="contained" sx={{ bgcolor: "#e53935", "&:hover": { bgcolor: "#c62828" } }}>
+        <Button onClick={onClose} variant="contained" color="primary">
           Close
         </Button>
       </DialogActions>

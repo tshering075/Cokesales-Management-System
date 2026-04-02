@@ -143,6 +143,47 @@ function createDayTheme() {
           },
         },
       },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "rgba(255, 255, 255, 0.28)",
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderWidth: 2,
+            },
+          },
+          notchedOutline: {
+            borderColor: "rgba(255, 255, 255, 0.22)",
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: "rgba(255, 255, 255, 0.72)",
+          },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: {
+            color: "rgba(255, 255, 255, 0.65)",
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          body: {
+            color: "inherit",
+            borderColor: "rgba(255, 255, 255, 0.08)",
+          },
+          head: {
+            color: "inherit",
+            borderColor: "rgba(255, 255, 255, 0.08)",
+          },
+        },
+      },
     },
   });
 }

@@ -24,7 +24,17 @@ import {
   Switch,
   FormControlLabel,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
+import {
+  calcSummaryRows,
+  calculatorPageShellSx,
+  calculatorPaperSx,
+  calculatorResultsShellSx,
+  tableFooterBandBg,
+  tableFooterBandBorder,
+  tableRowHoverBg,
+  tableStripeAt,
+} from "./theme/contrastSurfaces";
 import CheckIcon from "@mui/icons-material/Check";
 import { getNextOrderNumber, getCurrentOrderNumber } from "./utils/orderNumber";
 import AppSnackbar from "./components/AppSnackbar";
@@ -126,6 +136,8 @@ function CokeCalculator({
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [gstEnabled, setGstEnabled] = useState(true); // GST toggle - default ON
   const theme = useTheme();
+  const summ = calcSummaryRows(theme);
+  const resultsShellSx = calculatorResultsShellSx(theme);
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const tableRef = React.useRef(null);
   const [caption, setCaption] = useState("");
@@ -364,7 +376,7 @@ function CokeCalculator({
     if (tableRef.current) {
       try {
         const canvas = await html2canvas(tableRef.current, {
-          backgroundColor: '#ffffff',
+          backgroundColor: theme.palette.mode === "dark" ? "#1e1e1e" : "#ffffff",
           scale: 2,
           logging: false,
           useCORS: true
@@ -433,9 +445,11 @@ function CokeCalculator({
     .reduce((sum, r) => sum + (r.totalUC || 0), 0);
 
   const getInputStyle = (item) => {
+    const isDark = theme.palette.mode === "dark";
+    const textColor = theme.palette.text.primary;
     const baseStyle = {
       fontWeight: "bold",
-      color: "#000",
+      color: textColor,
       textAlign: "left",
       fontSize: "0.9rem",
       borderRadius: "6px",
@@ -446,23 +460,31 @@ function CokeCalculator({
       overflow: "hidden",
       textOverflow: "ellipsis",
     };
+    const tint = (light, darkBg) => (isDark ? darkBg : light);
 
-    if (item.name.startsWith("Coca Cola")) return { input: { ...baseStyle, background: "#fdecea" } };
-    if (item.name.startsWith("Fanta")) return { input: { ...baseStyle, background: "#fff7e6" } };
-    if (item.name.startsWith("Sprite")) return { input: { ...baseStyle, background: "#eafaf1" } };
-    if (item.name.startsWith("Kinley")) return { input: { ...baseStyle, background: "#e6f2ff" } };
-    if (item.name.startsWith("Charge")) return { input: { ...baseStyle, background: "#ffeaea" } };
+    if (item.name.startsWith("Coca Cola"))
+      return { input: { ...baseStyle, background: tint("#fdecea", alpha(theme.palette.error.main, 0.22)) } };
+    if (item.name.startsWith("Fanta"))
+      return { input: { ...baseStyle, background: tint("#fff7e6", alpha(theme.palette.warning.main, 0.2)) } };
+    if (item.name.startsWith("Sprite"))
+      return { input: { ...baseStyle, background: tint("#eafaf1", alpha(theme.palette.success.main, 0.2)) } };
+    if (item.name.startsWith("Kinley"))
+      return { input: { ...baseStyle, background: tint("#e6f2ff", alpha(theme.palette.info.main, 0.22)) } };
+    if (item.name.startsWith("Charge"))
+      return { input: { ...baseStyle, background: tint("#ffeaea", alpha(theme.palette.error.main, 0.16)) } };
     if (item.category === "CAN" || item.name.startsWith("CAN"))
       return {
         input: {
           ...baseStyle,
-          background: "linear-gradient(90deg,rgb(241, 224, 224) 0%, #fff7e6 50%, #eafaf1 100%)",
+          background: isDark
+            ? alpha(theme.palette.secondary.light, 0.15)
+            : "linear-gradient(90deg,rgb(241, 224, 224) 0%, #fff7e6 50%, #eafaf1 100%)",
           WebkitBackgroundClip: "padding-box",
         },
       };
     if (item.isCustom)
-      return { input: { ...baseStyle, background: "#f3e5f5" } };
-    return { input: { ...baseStyle, background: "#fffde7" } };
+      return { input: { ...baseStyle, background: tint("#f3e5f5", alpha("#ce93d8", 0.22)) } };
+    return { input: { ...baseStyle, background: tint("#fffde7", alpha(theme.palette.secondary.light, 0.12)) } };
   };
 
   // Group SKUs by category
@@ -471,14 +493,14 @@ function CokeCalculator({
 
   return (
     <>
-      <Box sx={{ minHeight: "100vh", background: "linear-gradient(135deg, #e53935 0%, #fbc02d 100%)", display: "flex", alignItems: "center", justifyContent: "center", p: isMobile ? 1 : 4 }}>
-        <Paper elevation={6} sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: 4, maxWidth: isMobile ? "100%" : 900, width: "100%", background: "rgba(255,255,255,0.95)", boxSizing: "border-box", overflow: "hidden" }}>
+      <Box sx={calculatorPageShellSx(theme, isMobile)}>
+        <Paper elevation={6} sx={calculatorPaperSx(theme, isMobile)}>
           {/* Header Section */}
           <Box sx={{ textAlign: "center", mb: 3 }}>
-            <Typography variant={isMobile ? "h5" : "h4"} gutterBottom sx={{ fontWeight: "bold", color: "#e53935", letterSpacing: 1.5, mb: 1 }}>
+            <Typography variant={isMobile ? "h5" : "h4"} gutterBottom sx={{ fontWeight: "bold", color: "primary.main", letterSpacing: 1.5, mb: 1 }}>
               Coke Calculator
             </Typography>
-            <Typography variant="subtitle2" sx={{ color: "#666", fontWeight: 400, fontSize: { xs: "0.8rem", sm: "0.9rem" }, px: { xs: 1, sm: 0 } }}>
+            <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 400, fontSize: { xs: "0.8rem", sm: "0.9rem" }, px: { xs: 1, sm: 0 } }}>
               Enter the number of cases for each product to calculate totals (PC, UC, and weight in tons)
             </Typography>
           </Box>
@@ -487,11 +509,12 @@ function CokeCalculator({
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ 
               fontWeight: 600, 
-              color: "#e53935", 
+              color: "primary.main", 
               mb: 2, 
               fontSize: { xs: "1rem", sm: "1.1rem" },
               pb: 1,
-              borderBottom: "2px solid #e53935"
+              borderBottom: "2px solid",
+              borderColor: "primary.main",
             }}>
               CSD Products
             </Typography>
@@ -532,11 +555,12 @@ function CokeCalculator({
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ 
               fontWeight: 600, 
-              color: "#e53935", 
+              color: "primary.main", 
               mb: 2, 
               fontSize: { xs: "1rem", sm: "1.1rem" },
               pb: 1,
-              borderBottom: "2px solid #e53935"
+              borderBottom: "2px solid",
+              borderColor: "primary.main",
             }}>
               CAN Products
             </Typography>
@@ -546,12 +570,15 @@ function CokeCalculator({
                 maxWidth: "100%",
                 p: { xs: 2, sm: 2.5 },
                 borderRadius: 3,
-                bgcolor: "linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)",
-                background: "linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)",
-                border: "2px solid #e53935",
+                background:
+                  theme.palette.mode === "dark"
+                    ? alpha(theme.palette.primary.main, 0.14)
+                    : "linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)",
+                border: "2px solid",
+                borderColor: "primary.main",
                 boxSizing: "border-box",
                 overflow: "hidden",
-                boxShadow: "0 2px 8px rgba(229, 57, 53, 0.1)"
+                boxShadow: (t) => `0 2px 8px ${alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.2 : 0.1)}`,
               }}
             >
               <Select
@@ -561,7 +588,7 @@ function CokeCalculator({
                 displayEmpty
                 renderValue={(selected) =>
                   selected.length === 0 ? (
-                    <Typography sx={{ color: "#999", fontSize: { xs: "0.875rem", sm: "0.9rem" } }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: { xs: "0.875rem", sm: "0.9rem" } }}>
                       Select CAN Products
                     </Typography>
                   ) : (
@@ -585,10 +612,10 @@ function CokeCalculator({
                 sx={{ 
                   mb: 2,
                   "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#e53935"
+                    borderColor: "primary.main"
                   },
                   "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#c62828"
+                    borderColor: "primary.dark"
                   }
                 }}
                 size={isMobile ? "small" : "medium"}
@@ -648,11 +675,12 @@ function CokeCalculator({
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ 
               fontWeight: 600, 
-              color: "#1976d2", 
+              color: "info.main", 
               mb: 2, 
               fontSize: { xs: "1rem", sm: "1.1rem" },
               pb: 1,
-              borderBottom: "2px solid #1976d2"
+              borderBottom: "2px solid",
+              borderColor: "info.main",
             }}>
               Water Products
             </Typography>
@@ -697,9 +725,13 @@ function CokeCalculator({
             mb: 2,
             p: { xs: 1.5, sm: 2 },
             borderRadius: 2,
-            background: "linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)",
-            border: "2px solid #ffc107",
-            boxShadow: "0 2px 8px rgba(255, 193, 7, 0.2)"
+            background:
+              theme.palette.mode === "dark"
+                ? alpha(theme.palette.warning.main, 0.16)
+                : "linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)",
+            border: "2px solid",
+            borderColor: "warning.main",
+            boxShadow: (t) => `0 2px 8px ${alpha(t.palette.warning.main, t.palette.mode === "dark" ? 0.25 : 0.2)}`,
           }}>
             <FormControlLabel
               control={
@@ -709,10 +741,10 @@ function CokeCalculator({
                   color="warning"
                   sx={{
                     "& .MuiSwitch-switchBase.Mui-checked": {
-                      color: "#ff9800",
+                      color: "warning.main",
                     },
                     "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                      backgroundColor: "#ff9800",
+                      backgroundColor: "warning.main",
                     },
                   }}
                 />
@@ -721,7 +753,7 @@ function CokeCalculator({
                 <Typography sx={{ 
                   fontWeight: 700, 
                   fontSize: { xs: "0.9rem", sm: "1rem" },
-                  color: "#f57c00"
+                  color: "warning.light"
                 }}>
                   GST 5%
                 </Typography>
@@ -784,7 +816,7 @@ function CokeCalculator({
                 "&:hover": {
                   borderWidth: 2.5,
                   borderColor: "#f57c00",
-                  color: "#f57c00",
+                  color: "warning.light",
                   transform: "translateY(-3px)",
                   boxShadow: 4,
                   backgroundColor: "rgba(255, 152, 0, 0.05)"
@@ -845,7 +877,7 @@ function CokeCalculator({
                   fontWeight: 700, 
                   fontSize: { xs: "1.1rem", sm: "1.3rem" }, 
                   textAlign: "center",
-                  color: "#e65100",
+                  color: "warning.light",
                   letterSpacing: 0.5
                 }}>
                   Quick Summary
@@ -868,7 +900,7 @@ function CokeCalculator({
                     }
                   }}>
                     <Typography variant="caption" sx={{ 
-                      color: "#666", 
+                      color: "text.secondary", 
                       display: "block", 
                       mb: 1, 
                       fontSize: { xs: "0.75rem", sm: "0.8rem" },
@@ -880,7 +912,7 @@ function CokeCalculator({
                     </Typography>
                     <Typography variant="h6" sx={{ 
                       fontWeight: "bold", 
-                      color: "#e53935", 
+                      color: "primary.main", 
                       fontSize: { xs: "1.1rem", sm: "1.3rem" },
                       lineHeight: 1.2
                     }}>
@@ -899,7 +931,7 @@ function CokeCalculator({
                     }
                   }}>
                     <Typography variant="caption" sx={{ 
-                      color: "#666", 
+                      color: "text.secondary", 
                       display: "block", 
                       mb: 1, 
                       fontSize: { xs: "0.75rem", sm: "0.8rem" },
@@ -911,7 +943,7 @@ function CokeCalculator({
                     </Typography>
                     <Typography variant="h6" sx={{ 
                       fontWeight: "bold", 
-                      color: "#e53935", 
+                      color: "primary.main", 
                       fontSize: { xs: "1.1rem", sm: "1.3rem" },
                       lineHeight: 1.2
                     }}>
@@ -930,7 +962,7 @@ function CokeCalculator({
                     }
                   }}>
                     <Typography variant="caption" sx={{ 
-                      color: "#666", 
+                      color: "text.secondary", 
                       display: "block", 
                       mb: 1, 
                       fontSize: { xs: "0.75rem", sm: "0.8rem" },
@@ -942,7 +974,7 @@ function CokeCalculator({
                     </Typography>
                     <Typography variant="h6" sx={{ 
                       fontWeight: "bold", 
-                      color: "#e53935", 
+                      color: "primary.main", 
                       fontSize: { xs: "1.1rem", sm: "1.3rem" },
                       lineHeight: 1.2
                     }}>
@@ -961,7 +993,7 @@ function CokeCalculator({
                     }
                   }}>
                     <Typography variant="caption" sx={{ 
-                      color: "#666", 
+                      color: "text.secondary", 
                       display: "block", 
                       mb: 1, 
                       fontSize: { xs: "0.75rem", sm: "0.8rem" },
@@ -973,7 +1005,7 @@ function CokeCalculator({
                     </Typography>
                     <Typography variant="h6" sx={{ 
                       fontWeight: "bold", 
-                      color: "#e53935", 
+                      color: "primary.main", 
                       fontSize: { xs: "1.1rem", sm: "1.3rem" },
                       lineHeight: 1.2
                     }}>
@@ -987,26 +1019,15 @@ function CokeCalculator({
 
           {/* Detailed Results Table */}
           {results.length > 0 && (
-            <TableContainer
-              component={Paper}
-              ref={tableRef}
-              sx={{ 
-                mt: 2, 
-                background: "#fffde7", 
-                borderRadius: 3, 
-                boxShadow: 3, 
-                border: "2px solid #fbc02d", 
-                width: "100%"
-              }}
-            >
+            <TableContainer component={Paper} ref={tableRef} sx={resultsShellSx}>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, pt: 1, pb: 1 }}>
               {/* Distributor Name on left */}
-              <Box sx={{ fontWeight: "bold", color: "#000", fontSize: isMobile ? 12 : 14 }}>
+              <Box sx={{ fontWeight: "bold", color: "text.primary", fontSize: isMobile ? 12 : 14 }}>
                 {distributorName || "Demo Distributor"}
               </Box>
 
               {/* Order No. in center */}
-              <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 12 : 14, textAlign: "center", flexGrow: 1 }}>
+              <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 12 : 14, textAlign: "center", flexGrow: 1, color: "text.primary" }}>
                 Order No: {currentOrderNumber || getCurrentOrderNumber()}
               </Box>
 
@@ -1015,7 +1036,7 @@ function CokeCalculator({
                 sx={{
                   fontWeight: "bold",
                   fontSize: isMobile ? 10 : 12, // smaller font
-                  color: "#000",
+                  color: "text.primary",
                   letterSpacing: 0.5,
                 }}
               >
@@ -1107,12 +1128,13 @@ function CokeCalculator({
                     <TableRow 
                       key={i} 
                       sx={{ 
-                        background: i % 2 === 0 ? "#f8f9fa" : "#ffffff",
+                        background: tableStripeAt(theme, i),
+                        color: "text.primary",
                         "&:hover": { 
-                          background: "#e3f2fd",
+                          background: tableRowHoverBg(theme),
                           transform: "scale(1.01)",
                           transition: "all 0.2s ease-in-out",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                          boxShadow: (t) => `0 2px 4px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.1)}`,
                         },
                         transition: "all 0.2s ease-in-out"
                       }}
@@ -1124,13 +1146,13 @@ function CokeCalculator({
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "left", 
                         wordBreak: isMobile ? "break-word" : "normal",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         <Typography sx={{ 
                           fontSize: isMobile ? 9 : 13, 
                           lineHeight: 1.4, 
                           fontWeight: "600",
-                          color: "#212121"
+                          color: "text.primary"
                         }}>
                           {r.sku}
                         </Typography>
@@ -1141,20 +1163,20 @@ function CokeCalculator({
                         px: isMobile ? 0.5 : 1.5, 
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {r.finalCases > r.cases && r.freeCases > 0 ? (
                           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.4 }}>
                             <Typography component="span" sx={{ 
                               fontWeight: "bold", 
                               fontSize: isMobile ? 9 : 13,
-                              color: "#212121"
+                              color: "text.primary"
                             }}>
                               {r.cases.toLocaleString()}
                             </Typography>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
                               <Typography component="span" sx={{ 
-                                color: "#2e7d32", 
+                                color: "success.main", 
                                 fontSize: isMobile ? 8 : 11, 
                                 fontWeight: "bold" 
                               }}>
@@ -1178,7 +1200,7 @@ function CokeCalculator({
                           <Typography sx={{ 
                             fontSize: isMobile ? 9 : 13, 
                             fontWeight: "bold",
-                            color: "#212121"
+                            color: "text.primary"
                           }}>
                             {r.cases.toLocaleString()}
                           </Typography>
@@ -1190,14 +1212,14 @@ function CokeCalculator({
                         px: isMobile ? 0.5 : 1.5, 
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {r.schemeApplied && r.schemeApplied.type === "discount" && r.discountAmount > 0 ? (
                           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.3 }}>
                             <Typography sx={{ 
                               fontSize: isMobile ? 9 : 13, 
                               fontWeight: "bold", 
-                              color: "#1976d2",
+                              color: "info.light",
                               textAlign: "right"
                             }}>
                               {(() => {
@@ -1212,7 +1234,7 @@ function CokeCalculator({
                               sx={{ 
                                 height: isMobile ? 18 : 20, 
                                 fontSize: isMobile ? 7 : 9, 
-                                backgroundColor: "#1976d2", 
+                                backgroundColor: "info.main", 
                                 color: "white", 
                                 fontWeight: "bold",
                                 boxShadow: "0 2px 4px rgba(25, 118, 210, 0.3)"
@@ -1223,7 +1245,7 @@ function CokeCalculator({
                           <Typography sx={{ 
                             fontSize: isMobile ? 9 : 13, 
                             fontWeight: "bold",
-                            color: "#212121"
+                            color: "text.primary"
                           }}>
                             {isMobile ? r.rate : r.rate.toLocaleString()}
                           </Typography>
@@ -1235,12 +1257,12 @@ function CokeCalculator({
                         px: isMobile ? 0.5 : 1.5, 
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         <Typography sx={{ 
                           fontSize: isMobile ? 9 : 13, 
                           fontWeight: "bold",
-                          color: "#212121"
+                          color: "text.primary"
                         }}>
                           {isMobile ? Math.round(r.totalAmount).toLocaleString() : r.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                         </Typography>
@@ -1251,12 +1273,12 @@ function CokeCalculator({
                         px: isMobile ? 0.5 : 1.5, 
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         <Typography sx={{ 
                           fontSize: isMobile ? 9 : 13, 
                           fontWeight: "bold",
-                          color: "#212121"
+                          color: "text.primary"
                         }}>
                           {r.totalTon.toFixed(3)}
                         </Typography>
@@ -1267,12 +1289,12 @@ function CokeCalculator({
                         px: isMobile ? 0.5 : 1.5, 
                         py: isMobile ? 0.75 : 1.2, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         <Typography sx={{ 
                           fontSize: isMobile ? 9 : 13, 
                           fontWeight: "bold",
-                          color: "#212121"
+                          color: "text.primary"
                         }}>
                           {r.totalUC !== null ? r.totalUC.toFixed(2) : "-"}
                         </Typography>
@@ -1283,9 +1305,11 @@ function CokeCalculator({
                   {totalDiscountSum > 0 && (
                     <TableRow sx={{ 
                       fontWeight: "bold", 
-                      background: "linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)",
-                      borderTop: "2px solid #f44336",
-                      boxShadow: "0 2px 4px rgba(244, 67, 54, 0.2)"
+                      background: summ.discountBg,
+                      borderTop: "2px solid",
+                      borderColor: summ.discountBorder,
+                      color: "text.primary",
+                      boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 4px rgba(244, 67, 54, 0.2)"),
                     }}>
                       <TableCell colSpan={3} sx={{ 
                         fontWeight: "bold", 
@@ -1296,7 +1320,7 @@ function CokeCalculator({
                       }}>
                         <Typography sx={{ 
                           fontWeight: "bold", 
-                          color: "#c62828",
+                          color: "error.light",
                           fontSize: isMobile ? 9 : 13
                         }}>
                           Total Discount:
@@ -1311,7 +1335,7 @@ function CokeCalculator({
                       }}>
                         <Typography sx={{ 
                           fontWeight: "bold", 
-                          color: "#c62828",
+                          color: "error.light",
                           fontSize: isMobile ? 9 : 13
                         }}>
                           {isMobile ? Math.round(totalDiscountSum).toLocaleString() : totalDiscountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
@@ -1332,9 +1356,11 @@ function CokeCalculator({
                   {/* Gross Total Row */}
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)",
-                    borderTop: "3px solid #ff9800",
-                    boxShadow: "0 2px 6px rgba(255, 152, 0, 0.2)"
+                    background: summ.grossBg,
+                    borderTop: "3px solid",
+                    borderColor: summ.grossBorder,
+                    color: "text.primary",
+                    boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 6px rgba(255, 152, 0, 0.2)"),
                   }}>
                     <TableCell sx={{ 
                       fontWeight: "bold", 
@@ -1342,7 +1368,7 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "left",
-                      color: "#e65100"
+                      color: "warning.light"
                     }}>
                       Gross Total
                     </TableCell>
@@ -1352,12 +1378,12 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "right",
-                      color: "#212121"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontSize: isMobile ? 10 : 14, 
                         fontWeight: "bold",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {(totalCasesSum + totalFreeCasesSum).toLocaleString()}
                       </Typography>
@@ -1368,7 +1394,7 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "right",
-                      color: "#757575"
+                      color: "text.secondary"
                     }}>
                       -
                     </TableCell>
@@ -1378,12 +1404,12 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "right", 
-                      color: "#d32f2f" 
+                      color: "error.light" 
                     }}>
                       <Typography sx={{ 
                         fontSize: isMobile ? 10 : 14, 
                         fontWeight: "bold",
-                        color: "#d32f2f"
+                        color: "error.light"
                       }}>
                         {isMobile ? Math.round(totalAmountSum).toLocaleString() : totalAmountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </Typography>
@@ -1394,12 +1420,12 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "right",
-                      color: "#212121"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontSize: isMobile ? 10 : 14, 
                         fontWeight: "bold",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {totalTonSum.toFixed(3)}
                       </Typography>
@@ -1410,7 +1436,7 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.5, 
                       fontSize: isMobile ? 10 : 14, 
                       textAlign: "right",
-                      color: "#757575"
+                      color: "text.secondary"
                     }}>
                       -
                     </TableCell>
@@ -1420,9 +1446,11 @@ function CokeCalculator({
                   {gstEnabled && !isGelephuGrocery && gstAmount > 0 && (
                     <TableRow sx={{ 
                       fontWeight: "bold", 
-                      background: "linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)",
-                      borderTop: "2px solid #ffc107",
-                      boxShadow: "0 2px 4px rgba(255, 193, 7, 0.2)"
+                      background: summ.gstBg,
+                      borderTop: "2px solid",
+                      borderColor: summ.gstBorder,
+                      color: "text.primary",
+                      boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 4px rgba(255, 193, 7, 0.2)"),
                     }}>
                       <TableCell colSpan={3} sx={{ 
                         fontWeight: "bold", 
@@ -1430,12 +1458,12 @@ function CokeCalculator({
                         py: isMobile ? 0.75 : 1, 
                         fontSize: isMobile ? 9 : 13, 
                         textAlign: "right",
-                        color: "#f57c00"
+                        color: "warning.light"
                       }}>
                         <Typography sx={{ 
                           fontWeight: "bold",
                           fontSize: isMobile ? 9 : 13,
-                          color: "#f57c00"
+                          color: "warning.light"
                         }}>
                           GST (5%):
                         </Typography>
@@ -1446,12 +1474,12 @@ function CokeCalculator({
                         py: isMobile ? 0.75 : 1, 
                         fontSize: isMobile ? 9 : 13, 
                         textAlign: "right",
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         <Typography sx={{ 
                           fontWeight: "bold",
                           fontSize: isMobile ? 9 : 13,
-                          color: "#212121"
+                          color: "text.primary"
                         }}>
                           {isMobile ? Math.round(gstAmount).toLocaleString() : gstAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                         </Typography>
@@ -1462,7 +1490,7 @@ function CokeCalculator({
                         py: isMobile ? 0.75 : 1, 
                         fontSize: isMobile ? 9 : 13, 
                         textAlign: "right",
-                        color: "#757575"
+                        color: "text.secondary"
                       }}>
                         -
                       </TableCell>
@@ -1472,9 +1500,11 @@ function CokeCalculator({
                   {/* Net Total Row */}
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)",
-                    borderTop: "3px solid #4caf50",
-                    boxShadow: "0 4px 8px rgba(76, 175, 80, 0.3)"
+                    background: summ.netBg,
+                    borderTop: "3px solid",
+                    borderColor: summ.netBorder,
+                    color: "text.primary",
+                    boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 4px 8px rgba(76, 175, 80, 0.3)"),
                   }}>
                     <TableCell colSpan={3} sx={{ 
                       fontWeight: "bold", 
@@ -1482,12 +1512,12 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.25, 
                       fontSize: isMobile ? 10 : 15, 
                       textAlign: "right",
-                      color: "#1b5e20"
+                      color: "success.light"
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold", 
                         fontSize: isMobile ? 10 : 15,
-                        color: "#1b5e20"
+                        color: "success.light"
                       }}>
                         Net Total:
                       </Typography>
@@ -1498,12 +1528,12 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.25, 
                       fontSize: isMobile ? 10 : 15, 
                       textAlign: "right", 
-                      color: "#2e7d32" 
+                      color: "success.main" 
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold", 
                         fontSize: isMobile ? 10 : 15,
-                        color: "#2e7d32"
+                        color: "success.main"
                       }}>
                         {isMobile ? Math.round(netTotal).toLocaleString() : netTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </Typography>
@@ -1514,15 +1544,17 @@ function CokeCalculator({
                       py: isMobile ? 0.75 : 1.25, 
                       fontSize: isMobile ? 10 : 15, 
                       textAlign: "right",
-                      color: "#757575"
+                      color: "text.secondary"
                     }}>
                       -
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "#f5f5f5",
-                    borderTop: "1px solid #e0e0e0"
+                    background: tableFooterBandBg(theme),
+                    borderTop: "1px solid",
+                    borderColor: tableFooterBandBorder(theme),
+                    color: "text.primary",
                   }}>
                     <TableCell colSpan={5} sx={{ 
                       fontWeight: "bold", 
@@ -1530,12 +1562,12 @@ function CokeCalculator({
                       py: isMobile ? 0.5 : 1, 
                       textAlign: "right", 
                       fontSize: isMobile ? 9 : 13,
-                      color: "#424242"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold",
                         fontSize: isMobile ? 9 : 13,
-                        color: "#424242"
+                        color: "text.primary"
                       }}>
                         CSD UC:
                       </Typography>
@@ -1546,12 +1578,12 @@ function CokeCalculator({
                       py: isMobile ? 0.5 : 1, 
                       textAlign: "right", 
                       fontSize: isMobile ? 9 : 13,
-                      color: "#212121"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold",
                         fontSize: isMobile ? 9 : 13,
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {totalUC_CSD.toFixed(2)}
                       </Typography>
@@ -1559,7 +1591,8 @@ function CokeCalculator({
                   </TableRow>
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "#f5f5f5"
+                    background: tableFooterBandBg(theme),
+                    color: "text.primary",
                   }}>
                     <TableCell colSpan={5} sx={{ 
                       fontWeight: "bold", 
@@ -1567,12 +1600,12 @@ function CokeCalculator({
                       py: isMobile ? 0.5 : 1, 
                       textAlign: "right", 
                       fontSize: isMobile ? 9 : 13,
-                      color: "#424242"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold",
                         fontSize: isMobile ? 9 : 13,
-                        color: "#424242"
+                        color: "text.primary"
                       }}>
                         Water UC:
                       </Typography>
@@ -1583,12 +1616,12 @@ function CokeCalculator({
                       py: isMobile ? 0.5 : 1, 
                       textAlign: "right", 
                       fontSize: isMobile ? 9 : 13,
-                      color: "#212121"
+                      color: "text.primary"
                     }}>
                       <Typography sx={{ 
                         fontWeight: "bold",
                         fontSize: isMobile ? 9 : 13,
-                        color: "#212121"
+                        color: "text.primary"
                       }}>
                         {totalUC_Kinley.toFixed(2)}
                       </Typography>
@@ -1603,18 +1636,18 @@ function CokeCalculator({
 
       {/* Order Summary Dialog */}
       <Dialog open={orderDialogOpen} onClose={() => setOrderDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: "bold", color: "#e53935" }}>
+        <DialogTitle sx={{ fontWeight: "bold", color: "primary.main" }}>
           Order Summary
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ color: "text.primary" }}>
        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, pt: 1, pb: 1 }}>
         {/* Distributor Name on left */}
-        <Box sx={{ fontWeight: "bold", color: "#000", fontSize: isMobile ? 12 : 14 }}>
+        <Box sx={{ fontWeight: "bold", color: "text.primary", fontSize: isMobile ? 12 : 14 }}>
           {distributorName || "Demo Distributor"}
         </Box>
 
         {/* Order No. in center */}
-        <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 12 : 14, textAlign: "center", flexGrow: 1 }}>
+        <Box sx={{ fontWeight: "bold", fontSize: isMobile ? 12 : 14, textAlign: "center", flexGrow: 1, color: "text.primary" }}>
           Order No: {currentOrderNumber || getCurrentOrderNumber()}
         </Box>
 
@@ -1623,14 +1656,14 @@ function CokeCalculator({
           sx={{
             fontWeight: "bold",
             fontSize: isMobile ? 10 : 12, // smaller font
-            color: "#000",
+            color: "text.primary",
             letterSpacing: 0.5,
           }}
         >
           📅 {new Date().toLocaleDateString()}
         </Box>
       </Box>
-          <TableContainer component={Paper} sx={{ background: "#ffffff", borderRadius: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", border: "1px solid #e0e0e0" }}>
+          <TableContainer component={Paper} sx={{ bgcolor: "background.paper", borderRadius: 2, boxShadow: 2, border: "1px solid", borderColor: "divider" }}>
             <Table size="small" sx={{ width: "100%" }}>
               <TableHead>
                 <TableRow sx={{ 
@@ -1716,60 +1749,61 @@ function CokeCalculator({
                   <TableRow 
                     key={i} 
                     sx={{ 
-                      background: i % 2 === 0 ? "#f8f9fa" : "#ffffff",
+                      background: tableStripeAt(theme, i),
+                      color: "text.primary",
                       "&:hover": { 
-                        background: "#e3f2fd",
+                        background: tableRowHoverBg(theme),
                         transform: "scale(1.01)",
                         transition: "all 0.2s ease-in-out",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                        boxShadow: (t) => `0 2px 4px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.1)}`,
                       },
                       transition: "all 0.2s ease-in-out"
                     }}
                   >
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "left", whiteSpace: "nowrap", color: "#212121" }}>
-                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "600", color: "#212121" }}>{r.sku}</Typography>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "left", whiteSpace: "nowrap", color: "text.primary" }}>
+                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "600", color: "text.primary" }}>{r.sku}</Typography>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
                       {r.finalCases > r.cases && r.freeCases > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.4 }}>
-                          <Typography component="span" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#212121" }}>{r.cases.toLocaleString()}</Typography>
+                          <Typography component="span" sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>{r.cases.toLocaleString()}</Typography>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                            <Typography component="span" sx={{ color: "#2e7d32", fontSize: isMobile ? 8 : 11, fontWeight: "bold" }}>+{r.freeCases}</Typography>
+                            <Typography component="span" sx={{ color: "success.main", fontSize: isMobile ? 8 : 11, fontWeight: "bold" }}>+{r.freeCases}</Typography>
                             <Chip label="FREE" size="small" sx={{ height: isMobile ? 18 : 20, fontSize: isMobile ? 7 : 9, backgroundColor: "#4caf50", color: "white", fontWeight: "bold", boxShadow: "0 2px 4px rgba(76, 175, 80, 0.3)" }} />
                           </Box>
                         </Box>
                       ) : (
-                        <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#212121" }}>{r.cases.toLocaleString()}</Typography>
+                        <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>{r.cases.toLocaleString()}</Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
                       {r.schemeApplied && r.schemeApplied.type === "discount" && r.discountAmount > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.3 }}>
-                          <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#1976d2", textAlign: "right" }}>
+                          <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "info.light", textAlign: "right" }}>
                             {(() => {
                               const discountPerCase = r.schemeApplied.discountAmount || 0;
                               const discountedRate = r.rate - discountPerCase;
                               return isMobile ? discountedRate : discountedRate.toLocaleString("en-IN", { maximumFractionDigits: 2 });
                             })()}
                           </Typography>
-                          <Chip label="DISCOUNTED" size="small" sx={{ height: isMobile ? 18 : 20, fontSize: isMobile ? 7 : 9, backgroundColor: "#1976d2", color: "white", fontWeight: "bold", boxShadow: "0 2px 4px rgba(25, 118, 210, 0.3)" }} />
+                          <Chip label="DISCOUNTED" size="small" sx={{ height: isMobile ? 18 : 20, fontSize: isMobile ? 7 : 9, backgroundColor: "info.main", color: "white", fontWeight: "bold", boxShadow: "0 2px 4px rgba(25, 118, 210, 0.3)" }} />
                         </Box>
                       ) : (
-                        <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#212121" }}>
+                        <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "text.primary" }}>
                           {isMobile ? r.rate : r.rate.toLocaleString()}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#212121" }}>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "text.primary" }}>
                         {isMobile ? Math.round(r.totalAmount).toLocaleString() : r.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#212121" }}>{r.totalTon.toFixed(3)}</Typography>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "text.primary" }}>{r.totalTon.toFixed(3)}</Typography>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "#212121" }}>{r.totalUC !== null ? r.totalUC.toFixed(2) : "-"}</Typography>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.2, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                      <Typography sx={{ fontSize: isMobile ? 9 : 13, fontWeight: "bold", color: "text.primary" }}>{r.totalUC !== null ? r.totalUC.toFixed(2) : "-"}</Typography>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1777,15 +1811,17 @@ function CokeCalculator({
                 {totalDiscountSum > 0 && (
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)",
-                    borderTop: "2px solid #f44336",
-                    boxShadow: "0 2px 4px rgba(244, 67, 54, 0.2)"
+                    background: summ.discountBg,
+                    borderTop: "2px solid",
+                    borderColor: summ.discountBorder,
+                    color: "text.primary",
+                    boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 4px rgba(244, 67, 54, 0.2)"),
                   }}>
                     <TableCell colSpan={3} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap" }}>
-                      <Typography sx={{ fontWeight: "bold", color: "#c62828", fontSize: isMobile ? 9 : 13 }}>Total Discount:</Typography>
+                      <Typography sx={{ fontWeight: "bold", color: "error.light", fontSize: isMobile ? 9 : 13 }}>Total Discount:</Typography>
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap" }}>
-                      <Typography sx={{ fontWeight: "bold", color: "#c62828", fontSize: isMobile ? 9 : 13 }}>
+                      <Typography sx={{ fontWeight: "bold", color: "error.light", fontSize: isMobile ? 9 : 13 }}>
                         {isMobile ? Math.round(totalDiscountSum).toLocaleString() : totalDiscountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </Typography>
                     </TableCell>
@@ -1796,78 +1832,84 @@ function CokeCalculator({
                 {/* Gross Total Row */}
                 <TableRow sx={{ 
                   fontWeight: "bold", 
-                  background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)",
-                  borderTop: "3px solid #ff9800",
-                  boxShadow: "0 2px 6px rgba(255, 152, 0, 0.2)"
+                  background: summ.grossBg,
+                  borderTop: "3px solid",
+                  borderColor: summ.grossBorder,
+                  color: "text.primary",
+                  boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 6px rgba(255, 152, 0, 0.2)"),
                 }}>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "left", whiteSpace: "nowrap", color: "#e65100" }}>Gross Total</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "#212121" }}>{(totalCasesSum + totalFreeCasesSum).toLocaleString()}</Typography>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "left", whiteSpace: "nowrap", color: "warning.light" }}>Gross Total</TableCell>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "text.primary" }}>{(totalCasesSum + totalFreeCasesSum).toLocaleString()}</Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "#757575" }}>-</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", color: "#d32f2f", whiteSpace: "nowrap" }}>
-                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "#d32f2f" }}>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "text.secondary" }}>-</TableCell>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", color: "error.light", whiteSpace: "nowrap" }}>
+                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "error.light" }}>
                       {isMobile ? Math.round(totalAmountSum).toLocaleString() : totalAmountSum.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "#212121" }}>{totalTonSum.toFixed(3)}</Typography>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontSize: isMobile ? 10 : 14, fontWeight: "bold", color: "text.primary" }}>{totalTonSum.toFixed(3)}</Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "#757575" }}>-</TableCell>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.5, fontSize: isMobile ? 10 : 14, textAlign: "right", whiteSpace: "nowrap", color: "text.secondary" }}>-</TableCell>
                 </TableRow>
                 
                 {/* GST Row - Only show if GST is enabled and applicable */}
                 {gstEnabled && !isGelephuGrocery && gstAmount > 0 && (
                   <TableRow sx={{ 
                     fontWeight: "bold", 
-                    background: "linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)",
-                    borderTop: "2px solid #ffc107",
-                    boxShadow: "0 2px 4px rgba(255, 193, 7, 0.2)"
+                    background: summ.gstBg,
+                    borderTop: "2px solid",
+                    borderColor: summ.gstBorder,
+                    color: "text.primary",
+                    boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 2px 4px rgba(255, 193, 7, 0.2)"),
                   }}>
-                    <TableCell colSpan={3} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "#f57c00" }}>
-                      <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#f57c00" }}>GST (5%):</Typography>
+                    <TableCell colSpan={3} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "warning.light" }}>
+                      <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "warning.light" }}>GST (5%):</Typography>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "#212121" }}>
-                      <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#212121" }}>
+                    <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "text.primary" }}>
+                      <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>
                         {isMobile ? Math.round(gstAmount).toLocaleString() : gstAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </Typography>
                     </TableCell>
-                    <TableCell colSpan={2} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "#757575" }}>-</TableCell>
+                    <TableCell colSpan={2} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1, fontSize: isMobile ? 9 : 13, textAlign: "right", whiteSpace: "nowrap", color: "text.secondary" }}>-</TableCell>
                   </TableRow>
                 )}
                 
                 {/* Net Total Row */}
                 <TableRow sx={{ 
                   fontWeight: "bold", 
-                  background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)",
-                  borderTop: "3px solid #4caf50",
-                  boxShadow: "0 4px 8px rgba(76, 175, 80, 0.3)"
+                  background: summ.netBg,
+                  borderTop: "3px solid",
+                  borderColor: summ.netBorder,
+                  color: "text.primary",
+                  boxShadow: (t) => (t.palette.mode === "dark" ? "none" : "0 4px 8px rgba(76, 175, 80, 0.3)"),
                 }}>
-                  <TableCell colSpan={3} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", whiteSpace: "nowrap", color: "#1b5e20" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 15, color: "#1b5e20" }}>Net Total:</Typography>
+                  <TableCell colSpan={3} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", whiteSpace: "nowrap", color: "success.light" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 15, color: "success.light" }}>Net Total:</Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", color: "#2e7d32", whiteSpace: "nowrap" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 15, color: "#2e7d32" }}>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", color: "success.main", whiteSpace: "nowrap" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 10 : 15, color: "success.main" }}>
                       {isMobile ? Math.round(netTotal).toLocaleString() : netTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </Typography>
                   </TableCell>
-                  <TableCell colSpan={2} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", whiteSpace: "nowrap", color: "#757575" }}>-</TableCell>
+                  <TableCell colSpan={2} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.75 : 1.25, fontSize: isMobile ? 10 : 15, textAlign: "right", whiteSpace: "nowrap", color: "text.secondary" }}>-</TableCell>
                 </TableRow>
                 
-                <TableRow sx={{ fontWeight: "bold", background: "#f5f5f5", borderTop: "1px solid #e0e0e0" }}>
-                  <TableCell colSpan={5} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "#424242" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#424242" }}>CSD UC:</Typography>
+                  <TableRow sx={{ fontWeight: "bold", background: tableFooterBandBg(theme), borderTop: "1px solid", borderColor: tableFooterBandBorder(theme), color: "text.primary" }}>
+                  <TableCell colSpan={5} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>CSD UC:</Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "#212121" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#212121" }}>{totalUC_CSD.toFixed(2)}</Typography>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>{totalUC_CSD.toFixed(2)}</Typography>
                   </TableCell>
                 </TableRow>
-                <TableRow sx={{ fontWeight: "bold", background: "#f5f5f5" }}>
-                  <TableCell colSpan={5} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "#424242" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#424242" }}>Water UC:</Typography>
+                  <TableRow sx={{ fontWeight: "bold", background: tableFooterBandBg(theme), color: "text.primary" }}>
+                  <TableCell colSpan={5} sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>Water UC:</Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "#212121" }}>
-                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "#212121" }}>{totalUC_Kinley.toFixed(2)}</Typography>
+                  <TableCell sx={{ fontWeight: "bold", px: isMobile ? 0.5 : 1.5, py: isMobile ? 0.5 : 1, textAlign: "right", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", color: "text.primary" }}>
+                    <Typography sx={{ fontWeight: "bold", fontSize: isMobile ? 9 : 13, color: "text.primary" }}>{totalUC_Kinley.toFixed(2)}</Typography>
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -1884,10 +1926,11 @@ function CokeCalculator({
               sx={{
                 mt: 2,
             "& .MuiInputBase-root": {
-              backgroundColor: "#fffde7", // match table background
+              backgroundColor: (t) =>
+                t.palette.mode === "dark" ? alpha(t.palette.secondary.main, 0.12) : "#fffde7",
               borderRadius: 2,
             },
-            "& .MuiInputLabel-root": { fontWeight: "bold", color: "#e53935" },
+            "& .MuiInputLabel-root": { fontWeight: "bold", color: "primary.main" },
           }}
           placeholder="Write any additional info here..."
         />
