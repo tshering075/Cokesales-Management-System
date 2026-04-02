@@ -12,13 +12,27 @@ function createNightTheme() {
   return createTheme({
     palette: {
       mode: "light",
-      primary: { main: "#e53935" },
-      secondary: { main: "#fbc02d" },
-      background: { default: "#f5f5f5", paper: "#ffffff" },
-      error: { main: "#d32f2f" },
-      info: { main: "#0288d1" },
-      warning: { main: "#ed6c02" },
-      success: { main: "#2e7d32" },
+      primary: { main: "#e53935", dark: "#c62828", light: "#ff6b6b" },
+      secondary: { main: "#fbc02d", dark: "#f9a825", light: "#ffdf7e" },
+      background: { default: "#eceff1", paper: "#ffffff" },
+      error: { main: "#c62828" },
+      info: { main: "#0277bd" },
+      warning: { main: "#e65100" },
+      success: { main: "#1b5e20" },
+      /** Stronger than MUI default 0.6 secondary — improves labels on tinted cards & sidebars */
+      text: {
+        primary: "rgba(0, 0, 0, 0.9)",
+        secondary: "rgba(0, 0, 0, 0.72)",
+        disabled: "rgba(0, 0, 0, 0.48)",
+      },
+      divider: "rgba(0, 0, 0, 0.14)",
+      action: {
+        active: "rgba(0, 0, 0, 0.65)",
+        hover: "rgba(0, 0, 0, 0.06)",
+        selected: "rgba(0, 0, 0, 0.1)",
+        disabled: "rgba(0, 0, 0, 0.38)",
+        disabledBackground: "rgba(0, 0, 0, 0.12)",
+      },
     },
     typography: {
       fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
@@ -27,6 +41,42 @@ function createNightTheme() {
     components: {
       MuiAppBar: {
         defaultProps: { color: "primary", enableColorOnDark: true },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "rgba(0, 0, 0, 0.32)",
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderWidth: 2,
+            },
+          },
+          notchedOutline: {
+            borderColor: "rgba(0, 0, 0, 0.26)",
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: "rgba(0, 0, 0, 0.68)",
+          },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: {
+            color: "rgba(0, 0, 0, 0.65)",
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          body: {
+            color: "rgba(0, 0, 0, 0.88)",
+          },
+        },
       },
     },
   });

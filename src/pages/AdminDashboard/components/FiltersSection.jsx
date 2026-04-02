@@ -91,7 +91,7 @@ function FiltersSection({ selectedRegion, onRegionChange, updatedDate }) {
           variant="body2"
           sx={{
             ml: { xs: 0, sm: "auto" },
-            color: "#666",
+            color: "text.secondary",
             fontSize: { xs: "0.7rem", sm: "0.85rem" },
             width: { xs: "100%", sm: "auto" },
           }}

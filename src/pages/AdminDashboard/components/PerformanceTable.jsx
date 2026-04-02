@@ -103,7 +103,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
           color: "text.secondary",
         }}
       >
-        <PeopleIcon sx={{ fontSize: { xs: 60, sm: 80 }, mb: 2, opacity: 0.3 }} />
+        <PeopleIcon sx={{ fontSize: { xs: 60, sm: 80 }, mb: 2, opacity: 0.45, color: "text.disabled" }} />
         <Typography variant="h6" sx={{ fontWeight: 500, color: "text.primary", mb: 0.5, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
           No distributors found
         </Typography>
@@ -552,7 +552,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.achieved?.CSD_PC || 0) > 0 ? "#2e7d32" : "grey.800",
+                  color: (distributor.achieved?.CSD_PC || 0) > 0 ? "#2e7d32" : "text.primary",
                   borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
                 }}
               >
@@ -561,7 +561,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.achieved?.CSD_UC || 0) > 0 ? "#2e7d32" : "grey.800",
+                  color: (distributor.achieved?.CSD_UC || 0) > 0 ? "#2e7d32" : "text.primary",
                 }}
               >
                 {Math.round(distributor.achieved?.CSD_UC || 0)}
@@ -570,7 +570,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.achieved?.Water_PC || 0) > 0 ? "#2e7d32" : "grey.800",
+                  color: (distributor.achieved?.Water_PC || 0) > 0 ? "#2e7d32" : "text.primary",
                   borderRight: "none",
                 }}
               >
@@ -579,7 +579,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.achieved?.Water_UC || 0) > 0 ? "#2e7d32" : "grey.800",
+                  color: (distributor.achieved?.Water_UC || 0) > 0 ? "#2e7d32" : "text.primary",
                   borderLeft: "none",
                   borderRight: "2px solid rgba(0, 0, 0, 0.2)",
                 }}
@@ -590,7 +590,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.balance?.CSD_PC || 0) >= 0 ? "grey.800" : "#d32f2f",
+                  color: (distributor.balance?.CSD_PC || 0) >= 0 ? "text.primary" : "#d32f2f",
                 }}
               >
                 {Math.round(distributor.balance?.CSD_PC || 0)}
@@ -598,7 +598,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.balance?.CSD_UC || 0) >= 0 ? "grey.800" : "#d32f2f",
+                  color: (distributor.balance?.CSD_UC || 0) >= 0 ? "text.primary" : "#d32f2f",
                 }}
               >
                 {Math.round(distributor.balance?.CSD_UC || 0)}
@@ -607,7 +607,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.balance?.Water_PC || 0) >= 0 ? "grey.800" : "#d32f2f",
+                  color: (distributor.balance?.Water_PC || 0) >= 0 ? "text.primary" : "#d32f2f",
                 }}
               >
                 {Math.round(distributor.balance?.Water_PC || 0)}
@@ -615,7 +615,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               <TableCell
                 sx={{
                   ...figureSx,
-                  color: (distributor.balance?.Water_UC || 0) >= 0 ? "grey.800" : "#d32f2f",
+                  color: (distributor.balance?.Water_UC || 0) >= 0 ? "text.primary" : "#d32f2f",
                 }}
               >
                 {Math.round(distributor.balance?.Water_UC || 0)}
@@ -657,7 +657,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedCSD_PC > 0 ? "#2e7d32" : "grey.800",
+                color: totals.achievedCSD_PC > 0 ? "#2e7d32" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
                 borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
@@ -669,7 +669,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedCSD_UC > 0 ? "#2e7d32" : "grey.800",
+                color: totals.achievedCSD_UC > 0 ? "#2e7d32" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
               }}
@@ -681,7 +681,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedWater_PC > 0 ? "#2e7d32" : "grey.800",
+                color: totals.achievedWater_PC > 0 ? "#2e7d32" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
                 borderRight: "none",
@@ -693,7 +693,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedWater_UC > 0 ? "#2e7d32" : "grey.800",
+                color: totals.achievedWater_UC > 0 ? "#2e7d32" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
                 borderLeft: "none",
@@ -707,7 +707,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceCSD_PC >= 0 ? "grey.800" : "#d32f2f",
+                color: totals.balanceCSD_PC >= 0 ? "text.primary" : "#d32f2f",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
               }}
@@ -718,7 +718,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceCSD_UC >= 0 ? "grey.800" : "#d32f2f",
+                color: totals.balanceCSD_UC >= 0 ? "text.primary" : "#d32f2f",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
               }}
@@ -730,7 +730,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceWater_PC >= 0 ? "grey.800" : "#d32f2f",
+                color: totals.balanceWater_PC >= 0 ? "text.primary" : "#d32f2f",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
               }}
@@ -741,7 +741,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceWater_UC >= 0 ? "grey.800" : "#d32f2f",
+                color: totals.balanceWater_UC >= 0 ? "text.primary" : "#d32f2f",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
               }}

@@ -1539,13 +1539,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             borderColor: theme.palette.mode === "dark" ? alpha(secondaryContrast, 0.2) : "rgba(0,0,0,0.1)",
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: secondaryContrast, mb: 0.25, opacity: 0.92 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: secondaryContrast, mb: 0.25 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", color: secondaryContrast, opacity: 0.88 }}>
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: secondaryContrast }}>
             {distributorName || "Distributor"}
           </Typography>
-          <Typography sx={{ fontSize: "0.68rem", color: secondaryContrast, opacity: 0.8, mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: secondaryContrast, mt: 0.25 }}>
             Code: {distributorCode || "N/A"} | Role: DISTRIBUTOR
           </Typography>
         </Box>
@@ -1986,7 +1986,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         <DialogContent
           dividers
           sx={{
-            bgcolor: alpha(theme.palette.grey[500], 0.06),
+            bgcolor: "action.hover",
             maxHeight: { xs: "55vh", sm: 400 },
             py: 2,
           }}

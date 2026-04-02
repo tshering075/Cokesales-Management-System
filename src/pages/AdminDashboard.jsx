@@ -3882,13 +3882,13 @@ function AdminDashboard({ onLogout }) {
             borderColor: alpha(secondaryContrast, 0.2),
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: secondaryContrast, mb: 0.25, opacity: 0.92 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: secondaryContrast, mb: 0.25 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", color: secondaryContrast, opacity: 0.88, wordBreak: "break-word" }}>
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: secondaryContrast, wordBreak: "break-word" }}>
             {localStorage.getItem("admin_email") || "Unknown user"}
           </Typography>
-          <Typography sx={{ fontSize: "0.68rem", color: "#444", mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.68rem", color: secondaryContrast, fontWeight: 600, mt: 0.25 }}>
             Role: {(userRole || localStorage.getItem("userRole") || "admin").toString().toUpperCase()}
           </Typography>
         </Box>
@@ -4012,7 +4012,7 @@ function AdminDashboard({ onLogout }) {
           <DialogTitle>Notifications</DialogTitle>
           <DialogContent>
             {notifications.length === 0 ? (
-              <Typography variant="body2" sx={{ color: "#666", py: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
                 No new updates.
               </Typography>
             ) : (
@@ -4022,7 +4022,8 @@ function AdminDashboard({ onLogout }) {
                     key={note.id}
                     sx={{
                       py: 1,
-                      borderBottom: "1px solid #eee",
+                      borderBottom: 1,
+                      borderColor: "divider",
                     }}
                   >
                     <Typography
@@ -4030,16 +4031,16 @@ function AdminDashboard({ onLogout }) {
                       sx={{
                         color:
                           note.type === "success"
-                            ? "#2e7d32"
+                            ? "success.dark"
                             : note.type === "error"
-                            ? "#c62828"
-                            : "#333",
+                            ? "error.dark"
+                            : "text.primary",
                         fontWeight: 500,
                       }}
                     >
                       {note.message}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "#777" }}>
+                    <Typography variant="caption" color="text.secondary">
                       {note.timestamp}
                     </Typography>
                   </Box>

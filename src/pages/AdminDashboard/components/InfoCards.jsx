@@ -76,11 +76,11 @@ function InfoCards({ balance, targetPeriod }) {
               mr: 0.75,
             }}
           >
-            <BarChartIcon sx={{ fontSize: { xs: 16, sm: 20 }, color: "#d32f2f" }} />
+            <BarChartIcon sx={{ fontSize: { xs: 16, sm: 20 }, color: "error.main" }} />
           </Box>
           <Typography
             variant="subtitle2"
-            sx={{ color: "#666", fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.813rem" } }}
+            sx={{ color: "grey.800", fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.813rem" } }}
           >
             Target Balance
           </Typography>
@@ -102,7 +102,7 @@ function InfoCards({ balance, targetPeriod }) {
           >
             <Typography
               variant="caption"
-              sx={{ color: "#666", display: "block", mb: 0.25, fontSize: { xs: "0.6rem", sm: "0.688rem" } }}
+              sx={{ color: "grey.800", display: "block", mb: 0.25, fontSize: { xs: "0.6rem", sm: "0.688rem" }, fontWeight: 600 }}
             >
               CSD
             </Typography>
@@ -110,7 +110,7 @@ function InfoCards({ balance, targetPeriod }) {
               <Box>
                 <Typography
                   variant="caption"
-                  sx={{ color: "#999", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" } }}
+                  sx={{ color: "grey.700", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" }, fontWeight: 600 }}
                 >
                   PC
                 </Typography>
@@ -118,7 +118,7 @@ function InfoCards({ balance, targetPeriod }) {
                   variant="body2"
                   sx={{
                     fontWeight: "bold",
-                    color: "#d32f2f",
+                    color: "error.dark",
                     fontSize: { xs: "0.75rem", sm: "0.938rem" },
                     lineHeight: 1.2,
                   }}
@@ -129,7 +129,7 @@ function InfoCards({ balance, targetPeriod }) {
               <Box>
                 <Typography
                   variant="caption"
-                  sx={{ color: "#999", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" } }}
+                  sx={{ color: "grey.700", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" }, fontWeight: 600 }}
                 >
                   UC
                 </Typography>
@@ -137,7 +137,7 @@ function InfoCards({ balance, targetPeriod }) {
                   variant="body2"
                   sx={{
                     fontWeight: "bold",
-                    color: "#d32f2f",
+                    color: "error.dark",
                     fontSize: { xs: "0.75rem", sm: "0.938rem" },
                     lineHeight: 1.2,
                   }}
@@ -156,7 +156,7 @@ function InfoCards({ balance, targetPeriod }) {
           >
             <Typography
               variant="caption"
-              sx={{ color: "#666", display: "block", mb: 0.25, fontSize: { xs: "0.6rem", sm: "0.688rem" } }}
+              sx={{ color: "grey.800", display: "block", mb: 0.25, fontSize: { xs: "0.6rem", sm: "0.688rem" }, fontWeight: 600 }}
             >
               Water
             </Typography>
@@ -164,7 +164,7 @@ function InfoCards({ balance, targetPeriod }) {
               <Box>
                 <Typography
                   variant="caption"
-                  sx={{ color: "#999", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" } }}
+                  sx={{ color: "grey.700", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" }, fontWeight: 600 }}
                 >
                   PC
                 </Typography>
@@ -172,7 +172,7 @@ function InfoCards({ balance, targetPeriod }) {
                   variant="body2"
                   sx={{
                     fontWeight: "bold",
-                    color: "#d32f2f",
+                    color: "error.dark",
                     fontSize: { xs: "0.75rem", sm: "0.938rem" },
                     lineHeight: 1.2,
                   }}
@@ -183,7 +183,7 @@ function InfoCards({ balance, targetPeriod }) {
               <Box>
                 <Typography
                   variant="caption"
-                  sx={{ color: "#999", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" } }}
+                  sx={{ color: "grey.700", display: "block", fontSize: { xs: "0.55rem", sm: "0.625rem" }, fontWeight: 600 }}
                 >
                   UC
                 </Typography>
@@ -191,7 +191,7 @@ function InfoCards({ balance, targetPeriod }) {
                   variant="body2"
                   sx={{
                     fontWeight: "bold",
-                    color: "#d32f2f",
+                    color: "error.dark",
                     fontSize: { xs: "0.75rem", sm: "0.938rem" },
                     lineHeight: 1.2,
                   }}
@@ -225,7 +225,7 @@ function InfoCards({ balance, targetPeriod }) {
           </Box>
           <Typography
             variant="subtitle2"
-            sx={{ color: "#666", fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.813rem" } }}
+            sx={{ color: "grey.800", fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.813rem" } }}
           >
             Target Period
           </Typography>
@@ -258,7 +258,7 @@ function InfoCards({ balance, targetPeriod }) {
             </Typography>
             <Typography
               variant="caption"
-              sx={{ color: "#558b2f", display: "block", fontSize: { xs: "0.6rem", sm: "0.688rem" }, lineHeight: 1.25 }}
+              sx={{ color: "success.dark", display: "block", fontSize: { xs: "0.6rem", sm: "0.688rem" }, lineHeight: 1.25, fontWeight: 600 }}
             >
               {formatTargetPeriodDisplay(targetPeriod?.start, targetPeriod?.end)}
             </Typography>
@@ -277,10 +277,10 @@ function InfoCards({ balance, targetPeriod }) {
             <Typography
               variant="caption"
               sx={{
-                color: "#666",
+                color: "grey.800",
                 fontSize: { xs: "0.6rem", sm: "0.688rem" },
                 mb: 0.5,
-                fontWeight: 600,
+                fontWeight: 700,
               }}
             >
               Days remaining
