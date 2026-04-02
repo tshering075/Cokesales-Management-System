@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
-import { Box, Typography, Button, Tooltip, CircularProgress, Menu, MenuItem } from "@mui/material";
+import { Box, Typography, Button, Tooltip, CircularProgress, Menu, MenuItem, useTheme } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
@@ -21,6 +22,7 @@ function HeaderActions({
   canDelete,
   fileInputRef,
 }) {
+  const theme = useTheme();
   const hiddenFileRef = useRef(null);
   const fileRef = fileInputRef || hiddenFileRef;
   const [saveMenuAnchor, setSaveMenuAnchor] = useState(null);
@@ -173,8 +175,8 @@ function HeaderActions({
             disabled={deleting || loadingFile}
             sx={{
               textTransform: "none",
-              color: "#d32f2f",
-              borderColor: "#d32f2f",
+              color: "error.main",
+              borderColor: "error.main",
               borderRadius: 1.5,
               px: { xs: 1.5, sm: 2 },
               py: { xs: 0.5, sm: 0.65 },
@@ -184,8 +186,8 @@ function HeaderActions({
               height: 34,
               flex: { xs: "1 1 0", sm: "0 0 auto" },
               "&:hover": {
-                bgcolor: "#ffebee",
-                borderColor: "#c62828",
+                bgcolor: alpha(theme.palette.error.main, theme.palette.mode === "dark" ? 0.15 : 0.08),
+                borderColor: "error.dark",
                 transform: { xs: "none", sm: "translateY(-2px)" },
               },
               transition: "all 0.2s",

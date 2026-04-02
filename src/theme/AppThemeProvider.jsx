@@ -1,123 +1,24 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { createTheme, ThemeProvider, darken, getLuminance, lighten } from "@mui/material/styles";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 
-const STORAGE_KEY = "coke_theme_preset";
+const STORAGE_KEY = "coke_day_night_view";
+const LEGACY_PRESET_KEY = "coke_theme_preset";
 
-/**
- * Maps old preset ids so saved localStorage choices still resolve after renames.
- */
-const LEGACY_PRESET_ID_MAP = {
-  sand: "gold",
-  sunset: "fanta",
-  ocean: "sprite",
-  forest: "sprite",
-  berry: "cherry",
-  slate: "zero",
-  midnight: "zero",
-};
+/** `night` = light theme (current look). `day` = dark theme (high-contrast). */
+const VALID_VIEWS = new Set(["day", "night"]);
 
-/**
- * Color triplets inspired by well-known Coca-Cola Company cola & soft-drink lines
- * sold worldwide (packaging-inspired palettes — not official brand assets).
- * primary → app bar; secondary → drawer; tertiary → table subheaders & tints.
- */
-export const THEME_PRESETS = [
-  {
-    id: "classic",
-    label: "Original Taste",
-    subtitle: "Classic cola — red, gold, ribbon blue",
-    primary: "#D7000F",
-    secondary: "#FFC72C",
-    tertiary: "#003087",
-    mode: "light",
-  },
-  {
-    id: "zero",
-    label: "Zero Sugar",
-    subtitle: "No-sugar cola — black can, red flash",
-    primary: "#141414",
-    secondary: "#F40009",
-    tertiary: "#757575",
-    mode: "dark",
-  },
-  {
-    id: "cherry",
-    label: "Cherry Cola",
-    subtitle: "Cherry & berry cola accents",
-    primary: "#B71C1C",
-    secondary: "#6A1B3D",
-    tertiary: "#EC407A",
-    mode: "light",
-  },
-  {
-    id: "vanilla",
-    label: "Vanilla Cola",
-    subtitle: "Cream, caramel & cola red",
-    primary: "#E53935",
-    secondary: "#FFE0B2",
-    tertiary: "#6D4C41",
-    mode: "light",
-  },
-  {
-    id: "sprite",
-    label: "Lemon-Lime",
-    subtitle: "Crisp citrus green & lime",
-    primary: "#009A44",
-    secondary: "#D4E157",
-    tertiary: "#1B5E20",
-    mode: "light",
-  },
-  {
-    id: "fanta",
-    label: "Orange Citrus",
-    subtitle: "Bright orange & playful purple",
-    primary: "#FF5800",
-    secondary: "#FFB300",
-    tertiary: "#5E35B1",
-    mode: "light",
-  },
-  {
-    id: "gold",
-    label: "Golden Kola",
-    subtitle: "Gold citrus cola (e.g. Latin America)",
-    primary: "#C49000",
-    secondary: "#FFEB3B",
-    tertiary: "#E65100",
-    mode: "light",
-  },
-];
-
-function augmentPaletteColor(main) {
-  const lum = getLuminance(main);
-  const contrastText = lum > 0.55 ? "rgba(0, 0, 0, 0.87)" : "#ffffff";
-  return {
-    main,
-    light: lighten(main, 0.18),
-    dark: darken(main, 0.15),
-    contrastText,
-  };
-}
-
-function createAppTheme(presetId) {
-  const preset = THEME_PRESETS.find((p) => p.id === presetId) || THEME_PRESETS[0];
-  const isDark = preset.mode === "dark";
-
+function createNightTheme() {
   return createTheme({
     palette: {
-      mode: preset.mode,
-      primary: augmentPaletteColor(preset.primary),
-      secondary: augmentPaletteColor(preset.secondary),
-      tertiary: augmentPaletteColor(preset.tertiary),
-      error: { main: isDark ? "#ff5252" : "#c62828" },
-      ...(isDark
-        ? {
-            background: { default: "#0d1117", paper: "#161b22" },
-            divider: "rgba(255, 255, 255, 0.12)",
-          }
-        : {
-            background: { default: "#f5f6f8", paper: "#ffffff" },
-          }),
+      mode: "light",
+      primary: { main: "#e53935" },
+      secondary: { main: "#fbc02d" },
+      background: { default: "#f5f5f5", paper: "#ffffff" },
+      error: { main: "#d32f2f" },
+      info: { main: "#0288d1" },
+      warning: { main: "#ed6c02" },
+      success: { main: "#2e7d32" },
     },
     typography: {
       fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
@@ -131,45 +32,121 @@ function createAppTheme(presetId) {
   });
 }
 
+function createDayTheme() {
+  return createTheme({
+    palette: {
+      mode: "dark",
+      primary: { main: "#ff6b6b" },
+      secondary: { main: "#ffd54f" },
+      background: { default: "#121212", paper: "#1e1e1e" },
+      error: { main: "#ff8a80" },
+      info: { main: "#4fc3f7" },
+      warning: { main: "#ffb74d" },
+      success: { main: "#81c784" },
+      divider: "rgba(255, 255, 255, 0.12)",
+      text: {
+        primary: "rgba(255, 255, 255, 0.95)",
+        secondary: "rgba(255, 255, 255, 0.68)",
+        disabled: "rgba(255, 255, 255, 0.38)",
+      },
+      action: {
+        active: "rgba(255, 255, 255, 0.56)",
+        hover: "rgba(255, 255, 255, 0.08)",
+        selected: "rgba(255, 255, 255, 0.16)",
+        disabled: "rgba(255, 255, 255, 0.3)",
+        disabledBackground: "rgba(255, 255, 255, 0.12)",
+      },
+    },
+    typography: {
+      fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
+    },
+    shape: { borderRadius: 8 },
+    components: {
+      MuiAppBar: {
+        defaultProps: { color: "primary", enableColorOnDark: true },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: "none",
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: "none",
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: "none",
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          outlined: {
+            borderColor: "rgba(255, 255, 255, 0.24)",
+          },
+        },
+      },
+    },
+  });
+}
+
 const AppThemeContext = createContext(null);
 
-export function useAppThemePreset() {
+export function useDayNightTheme() {
   const ctx = useContext(AppThemeContext);
   if (!ctx) {
-    throw new Error("useAppThemePreset must be used within AppThemeProvider");
+    throw new Error("useDayNightTheme must be used within AppThemeProvider");
   }
   return ctx;
 }
 
 export function AppThemeProvider({ children }) {
-  const [presetId, setPresetIdState] = useState(() => {
+  const [view, setViewState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      const resolved = LEGACY_PRESET_ID_MAP[stored] || stored;
-      if (resolved && THEME_PRESETS.some((p) => p.id === resolved)) return resolved;
+      if (stored && VALID_VIEWS.has(stored)) return stored;
+      const legacy = localStorage.getItem(LEGACY_PRESET_KEY);
+      if (legacy && ["midnight", "zero", "slate"].includes(legacy)) return "day";
     } catch {
       /* ignore */
     }
-    return "classic";
+    return "night";
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, presetId);
+      localStorage.setItem(STORAGE_KEY, view);
     } catch {
       /* ignore */
     }
-  }, [presetId]);
+  }, [view]);
 
-  const setPresetId = useCallback((id) => {
-    if (THEME_PRESETS.some((p) => p.id === id)) setPresetIdState(id);
+  const setView = useCallback((next) => {
+    if (VALID_VIEWS.has(next)) setViewState(next);
   }, []);
 
-  const theme = useMemo(() => createAppTheme(presetId), [presetId]);
+  const toggleView = useCallback(() => {
+    setViewState((v) => (v === "day" ? "night" : "day"));
+  }, []);
+
+  const theme = useMemo(() => (view === "day" ? createDayTheme() : createNightTheme()), [view]);
 
   const value = useMemo(
-    () => ({ presetId, setPresetId, presets: THEME_PRESETS }),
-    [presetId, setPresetId]
+    () => ({
+      view,
+      setView,
+      toggleView,
+      /** True when dark UI (Day view) is active */
+      isDayView: view === "day",
+    }),
+    [view, setView, toggleView]
   );
 
   return (

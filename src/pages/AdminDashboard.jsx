@@ -50,7 +50,7 @@ import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
 import AppSnackbar from "../components/AppSnackbar";
-import ThemePresetPicker from "../components/ThemePresetPicker";
+import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
 import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
@@ -3708,7 +3708,7 @@ function AdminDashboard({ onLogout }) {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500, fontSize: { xs: "0.875rem", sm: "1.125rem", md: "1.25rem" } }}>
             Admin Dashboard
           </Typography>
-          <ThemePresetPicker />
+          <DayNightThemeToggle />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"

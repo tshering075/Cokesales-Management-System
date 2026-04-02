@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Box,
   Typography,
@@ -9,21 +9,31 @@ import {
   TableRow,
   TableCell,
   Chip,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import PeopleIcon from "@mui/icons-material/People";
 
 /**
  * PerformanceTable Component
  * Displays the distributor performance table with targets, achieved, and balance
  */
-const PT = {
-  header: "#e53935",
-  subPink: "#ffcdd2",
-  subCsd: "#fff3e0",
-  subWater: "#e3f2fd",
-  bodySticky: "#fff",
-  totalRow: "#f5f5f5",
-};
+function usePerformanceTableColors() {
+  const theme = useTheme();
+  return useMemo(() => {
+    const isDark = theme.palette.mode === "dark";
+    return {
+      header: theme.palette.primary.main,
+      headerContrast: theme.palette.primary.contrastText,
+      headerDivider: alpha(theme.palette.primary.contrastText, 0.35),
+      subPink: isDark ? alpha(theme.palette.primary.main, 0.38) : "#ffcdd2",
+      subCsd: isDark ? alpha(theme.palette.warning.main, 0.24) : "#fff3e0",
+      subWater: isDark ? alpha(theme.palette.info.main, 0.3) : "#e3f2fd",
+      bodySticky: theme.palette.background.paper,
+      totalRow: isDark ? alpha(theme.palette.common.white, 0.08) : "#f5f5f5",
+    };
+  }, [theme]);
+}
 
 /** Bold numerals for target / achieved / balance columns */
 const figureSx = {
@@ -34,6 +44,8 @@ const figureSx = {
 };
 
 function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) {
+  const PT = usePerformanceTableColors();
+
   const normalizeRegionKey = (region) => {
     const map = { South: "Southern", West: "Western", East: "Eastern" };
     return map[region] || region;
@@ -88,14 +100,14 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
           alignItems: "center",
           justifyContent: "center",
           py: { xs: 4, sm: 8 },
-          color: "grey.700",
+          color: "text.secondary",
         }}
       >
         <PeopleIcon sx={{ fontSize: { xs: 60, sm: 80 }, mb: 2, opacity: 0.3 }} />
-        <Typography variant="h6" sx={{ fontWeight: 500, color: "grey.800", mb: 0.5, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+        <Typography variant="h6" sx={{ fontWeight: 500, color: "text.primary", mb: 0.5, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
           No distributors found
         </Typography>
-        <Typography variant="body2" sx={{ color: "grey.700", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
           Add distributors to see their performance data
         </Typography>
       </Box>
@@ -119,7 +131,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
           width: "8px",
         },
         "&::-webkit-scrollbar-thumb": {
-          backgroundColor: "#ccc",
+          backgroundColor: (t) => alpha(t.palette.text.disabled, t.palette.mode === "dark" ? 0.5 : 0.35),
           borderRadius: "4px",
         },
       }}
@@ -135,7 +147,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 fontWeight: "bold",
                 bgcolor: PT.header,
-                color: "#fff",
+                color: PT.headerContrast,
                 position: "sticky",
                 top: 0,
                 left: 0,
@@ -153,7 +165,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 fontWeight: "bold",
                 bgcolor: PT.header,
-                color: "#fff",
+                color: PT.headerContrast,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
@@ -169,14 +181,15 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 fontWeight: "bold",
                 bgcolor: PT.header,
-                color: "#fff",
+                color: PT.headerContrast,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
                 top: 0,
                 zIndex: 15,
-                borderLeft: "2px solid rgba(255, 255, 255, 0.3)",
+                borderLeft: "2px solid",
+                borderLeftColor: PT.headerDivider,
               }}
             >
               Achieved
@@ -186,14 +199,15 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 fontWeight: "bold",
                 bgcolor: PT.header,
-                color: "#fff",
+                color: PT.headerContrast,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
                 top: 0,
                 zIndex: 15,
-                borderLeft: "2px solid rgba(255, 255, 255, 0.3)",
+                borderLeft: "2px solid",
+                borderLeftColor: PT.headerDivider,
               }}
             >
               Balance

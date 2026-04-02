@@ -46,7 +46,7 @@ function FiltersSection({ selectedRegion, onRegionChange, updatedDate }) {
           shrink
           sx={{
             fontSize: { xs: "0.78rem", sm: "0.95rem" },
-            bgcolor: "#f5f5f5",
+            bgcolor: "background.default",
             px: 0.5,
             lineHeight: 1,
           }}
@@ -59,7 +59,7 @@ function FiltersSection({ selectedRegion, onRegionChange, updatedDate }) {
           label="Filter by Region"
           sx={{
             fontSize: { xs: "0.8rem", sm: "0.95rem" },
-            bgcolor: "#fff",
+            bgcolor: "background.paper",
             "& .MuiSelect-select": {
               py: 0.85,
             },

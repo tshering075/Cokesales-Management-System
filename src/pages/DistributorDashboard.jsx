@@ -41,7 +41,7 @@ import StockLiftingRecordsTable from "../components/StockLiftingRecordsTable";
 import OrderCalculatedTableDialog from "../components/OrderCalculatedTableDialog";
 import DistributorPhysicalStockDialog from "../components/DistributorPhysicalStockDialog";
 import AppSnackbar from "../components/AppSnackbar";
-import ThemePresetPicker from "../components/ThemePresetPicker";
+import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
 import {
@@ -1314,7 +1314,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           <Typography variant="body2" sx={{ mr: { xs: 1, sm: 2 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, display: { xs: "none", sm: "block" } }}>
             {today.toLocaleDateString()}
           </Typography>
-          <ThemePresetPicker />
+          <DayNightThemeToggle />
           <Tooltip title="Notifications">
             <IconButton
               color="inherit"
@@ -1534,17 +1534,18 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             mb: 1.5,
             p: 1,
             borderRadius: 1.5,
-            bgcolor: "rgba(255,255,255,0.45)",
-            border: "1px solid rgba(0,0,0,0.1)",
+            bgcolor: theme.palette.mode === "dark" ? alpha(secondaryContrast, 0.08) : "rgba(255,255,255,0.45)",
+            border: 1,
+            borderColor: theme.palette.mode === "dark" ? alpha(secondaryContrast, 0.2) : "rgba(0,0,0,0.1)",
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: "#333", mb: 0.25 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: secondaryContrast, mb: 0.25, opacity: 0.92 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", color: "#111" }}>
+          <Typography sx={{ fontSize: "0.72rem", color: secondaryContrast, opacity: 0.88 }}>
             {distributorName || "Distributor"}
           </Typography>
-          <Typography sx={{ fontSize: "0.68rem", color: "#444", mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.68rem", color: secondaryContrast, opacity: 0.8, mt: 0.25 }}>
             Code: {distributorCode || "N/A"} | Role: DISTRIBUTOR
           </Typography>
         </Box>
@@ -1566,7 +1567,12 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             sx={{ 
               p: { xs: 2, sm: 2.5 },
               borderRadius: 3,
-              background: "linear-gradient(135deg, #fff 0%, #bbdefb 100%)",
+              background:
+                theme.palette.mode === "dark"
+                  ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.14)} 100%)`
+                  : "linear-gradient(135deg, #fff 0%, #bbdefb 100%)",
+              border: theme.palette.mode === "dark" ? 1 : 0,
+              borderColor: "divider",
               transition: "transform 0.2s, box-shadow 0.2s",
               "&:hover": {
                 transform: "translateY(-4px)",
@@ -1578,10 +1584,10 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
               <Box sx={{ 
                 p: { xs: 1, sm: 1.5 }, 
                 borderRadius: 2, 
-                bgcolor: "rgba(13, 71, 161, 0.1)",
+                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
                 mr: 1.5
               }}>
-                <BarChartIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: "#0d47a1" }} />
+                <BarChartIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }} />
               </Box>
               <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
                 Target Balance
@@ -1595,13 +1601,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 </Typography>
                 <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
                     {(targetData.CSD_PC || 0) - (progressAchievedData.CSD_PC || 0)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
                     {Math.round((targetData.CSD_UC || 0) - (progressAchievedData.CSD_UC || 0)).toLocaleString()}
                   </Typography>
                 </Box>
@@ -1613,13 +1619,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 </Typography>
                 <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
                     {(targetData.Water_PC || 0) - (progressAchievedData.Water_PC || 0)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
                     {Math.round((targetData.Water_UC || 0) - (progressAchievedData.Water_UC || 0)).toLocaleString()}
                   </Typography>
                 </Box>
@@ -1632,7 +1638,12 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             sx={{ 
               p: { xs: 2, sm: 2.5 },
               borderRadius: 3,
-              background: "linear-gradient(135deg, #fff 0%, #c8e6c9 100%)",
+              background:
+                theme.palette.mode === "dark"
+                  ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.success.main, 0.14)} 100%)`
+                  : "linear-gradient(135deg, #fff 0%, #c8e6c9 100%)",
+              border: theme.palette.mode === "dark" ? 1 : 0,
+              borderColor: "divider",
               transition: "transform 0.2s, box-shadow 0.2s",
               "&:hover": {
                 transform: "translateY(-4px)",
@@ -1644,10 +1655,10 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
               <Box sx={{ 
                 p: { xs: 1, sm: 1.5 }, 
                 borderRadius: 2, 
-                bgcolor: "rgba(27, 94, 32, 0.1)",
+                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
                 mr: 1.5
               }}>
-                <CalendarMonth sx={{ fontSize: { xs: 24, sm: 28 }, color: "#1b5e20" }} />
+                <CalendarMonth sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }} />
               </Box>
               <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
                 Target Period
@@ -1666,14 +1677,15 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 display: "flex", 
                 flexDirection: "column", 
                 alignItems: "flex-end",
-                borderLeft: "2px solid rgba(27, 94, 32, 0.2)",
+                borderLeft: "2px solid",
+                borderLeftColor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.35) : "rgba(27, 94, 32, 0.2)",
                 pl: 2,
                 minWidth: { xs: "80px", sm: "100px" }
               }}>
                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}>
                   Days Remaining
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1b5e20", fontSize: { xs: "1.5rem", sm: "1.75rem" } }}>
+                <Typography variant="h5" sx={{ fontWeight: "bold", color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20", fontSize: { xs: "1.5rem", sm: "1.75rem" } }}>
                   {remainingDays}
                 </Typography>
               </Box>
@@ -1786,7 +1798,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   Balance
                 </TableCell>
               </TableRow>
-              <TableRow sx={{ bgcolor: (t) => t.palette.tertiary.main }}>
+              <TableRow sx={{ bgcolor: "secondary.main" }}>
                 {Array(3)
                   .fill()
                   .map((_, i) => (
@@ -1795,7 +1807,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                         align="center"
                         sx={{
                           fontWeight: 700,
-                          color: (t) => t.palette.tertiary.contrastText,
+                          color: (t) => t.palette.getContrastText(t.palette.secondary.main),
                           p: { xs: 0.65, sm: 1.15 },
                           fontSize: { xs: "0.7rem", sm: "0.8rem" },
                           lineHeight: { xs: 1.35, sm: 1.5 },
@@ -1809,7 +1821,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                         align="center"
                         sx={{
                           fontWeight: 700,
-                          color: (t) => t.palette.tertiary.contrastText,
+                          color: (t) => t.palette.getContrastText(t.palette.secondary.main),
                           p: { xs: 0.65, sm: 1.15 },
                           fontSize: { xs: "0.7rem", sm: "0.8rem" },
                           lineHeight: { xs: 1.35, sm: 1.5 },
@@ -1834,7 +1846,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                       bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.05),
                     },
                     "&:nth-of-type(even)": {
-                      bgcolor: alpha(theme.palette.tertiary.main, theme.palette.mode === "dark" ? 0.12 : 0.07),
+                      bgcolor: alpha(theme.palette.secondary.main, theme.palette.mode === "dark" ? 0.12 : 0.07),
                     },
                     "&:hover": {
                       bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.1),
@@ -2149,7 +2161,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           fullWidth
           maxWidth="md"
         >
-          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#e53935", color: "#fff" }}>
+          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "primary.main", color: "primary.contrastText" }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Product Rate List
             </Typography>
@@ -2158,7 +2170,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setOpenProductRateDialog(false);
                 setDistributorCurrentView("dashboard");
               }}
-              sx={{ color: "#fff" }}
+              sx={{ color: "primary.contrastText" }}
             >
               <CloseIcon />
             </IconButton>
@@ -2180,7 +2192,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           maxWidth="lg"
           fullScreen={isMobile}
         >
-          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#e53935", color: "#fff" }}>
+          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "primary.main", color: "primary.contrastText" }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 Stock lifting record
@@ -2194,7 +2206,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setOpenStockLiftingDialog(false);
                 setDistributorCurrentView("dashboard");
               }}
-              sx={{ color: "#fff" }}
+              sx={{ color: "primary.contrastText" }}
               aria-label="close"
             >
               <CloseIcon />
@@ -2220,7 +2232,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setDistributorCurrentView("dashboard");
               }}
               variant="contained"
-              sx={{ bgcolor: "#e53935", "&:hover": { bgcolor: "#c62828" } }}
+              sx={{ bgcolor: "primary.main", "&:hover": { bgcolor: "primary.dark" } }}
             >
               Close
             </Button>

@@ -10,7 +10,9 @@ import {
   IconButton,
   Fade,
   Zoom,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
@@ -21,7 +23,8 @@ import { validateDistributorLogin, validateAdminLogin } from "../utils/distribut
 import { signInDistributor, signInAdmin, supabase } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import AppSnackbar from "../components/AppSnackbar";
-import ThemePresetPicker from "../components/ThemePresetPicker";
+import DayNightThemeToggle from "../components/DayNightThemeToggle";
+import { useDayNightTheme } from "../theme/AppThemeProvider";
 
 function LoginPage({ onLogin }) {
   const [userId, setUserId] = useState("");
@@ -35,6 +38,27 @@ function LoginPage({ onLogin }) {
   const [fieldErrors, setFieldErrors] = useState({ userId: "", password: "" });
 
   const navigate = useNavigate();
+  const theme = useTheme();
+  const { isDayView } = useDayNightTheme();
+  const isDarkUi = isDayView;
+
+  const inputSurfaceSx = isDarkUi
+    ? {
+        backgroundColor: theme.palette.action.hover,
+        "&:hover": { backgroundColor: theme.palette.action.selected },
+        "&.Mui-focused": {
+          backgroundColor: theme.palette.background.paper,
+          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.28)}`,
+        },
+      }
+    : {
+        backgroundColor: "#f8f9fa",
+        "&:hover": { backgroundColor: "#f0f0f0" },
+        "&.Mui-focused": {
+          backgroundColor: "#fff",
+          boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
+        },
+      };
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -198,9 +222,12 @@ function LoginPage({ onLogin }) {
   };
 
   return (
-    <Box className="login-container" sx={{ position: "relative" }}>
+    <Box
+      className={`login-container${isDarkUi ? " login-container--day" : ""}`}
+      sx={{ position: "relative" }}
+    >
       <Box sx={{ position: "absolute", top: { xs: 10, sm: 14 }, right: { xs: 10, sm: 14 }, zIndex: 30 }}>
-        <ThemePresetPicker
+        <DayNightThemeToggle
           sx={{
             color: "#fff",
             bgcolor: "rgba(0,0,0,0.22)",
@@ -233,7 +260,20 @@ function LoginPage({ onLogin }) {
 
       {/* Login box */}
       <Fade in timeout={800}>
-        <Paper elevation={10} className="login-box">
+        <Paper
+          elevation={10}
+          className="login-box"
+          sx={
+            isDarkUi
+              ? {
+                  bgcolor: "rgba(30, 30, 32, 0.94)",
+                  backgroundImage: "none",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  boxShadow: "0 12px 40px rgba(0, 0, 0, 0.5)",
+                }
+              : undefined
+          }
+        >
           <Box sx={{ textAlign: "center", mb: 4 }}>
             <Zoom in timeout={1000}>
               <Typography
@@ -250,13 +290,7 @@ function LoginPage({ onLogin }) {
                 Welcome Back
               </Typography>
             </Zoom>
-            <Typography
-              variant="body2"
-              sx={{
-                color: "#666",
-                fontWeight: 400,
-              }}
-            >
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
               CokeSales Management System — sign in to access your dashboard
             </Typography>
           </Box>
@@ -282,21 +316,14 @@ function LoginPage({ onLogin }) {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <PersonIcon sx={{ color: "#e53935", fontSize: 20 }} />
+                    <PersonIcon sx={{ color: "primary.main", fontSize: 20 }} />
                   </InputAdornment>
                 ),
                 sx: {
                   borderRadius: "12px",
-                  backgroundColor: "#f8f9fa",
                   transition: "all 0.3s ease",
-                  "&:hover": {
-                    backgroundColor: "#f0f0f0",
-                  },
-                  "&.Mui-focused": {
-                    backgroundColor: "#fff",
-                    boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
-                  },
-                }
+                  ...inputSurfaceSx,
+                },
               }}
               InputLabelProps={{
                 sx: {
@@ -324,7 +351,7 @@ function LoginPage({ onLogin }) {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <LockIcon sx={{ color: "#e53935", fontSize: 20 }} />
+                    <LockIcon sx={{ color: "primary.main", fontSize: 20 }} />
                   </InputAdornment>
                 ),
                 endAdornment: (
@@ -333,7 +360,7 @@ function LoginPage({ onLogin }) {
                       aria-label="toggle password visibility"
                       onClick={handleTogglePasswordVisibility}
                       edge="end"
-                      sx={{ color: "#666" }}
+                      sx={{ color: "text.secondary" }}
                     >
                       {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                     </IconButton>
@@ -341,16 +368,9 @@ function LoginPage({ onLogin }) {
                 ),
                 sx: {
                   borderRadius: "12px",
-                  backgroundColor: "#f8f9fa",
                   transition: "all 0.3s ease",
-                  "&:hover": {
-                    backgroundColor: "#f0f0f0",
-                  },
-                  "&.Mui-focused": {
-                    backgroundColor: "#fff",
-                    boxShadow: "0 0 0 3px rgba(229, 57, 53, 0.1)",
-                  },
-                }
+                  ...inputSurfaceSx,
+                },
               }}
               InputLabelProps={{
                 sx: {
@@ -365,26 +385,26 @@ function LoginPage({ onLogin }) {
                 variant="contained"
                 fullWidth
                 disabled={loading}
+                color="primary"
                 sx={{
-                  bgcolor: "#e53935",
                   fontWeight: 600,
                   borderRadius: "12px",
                   py: 1.5,
                   fontSize: "1rem",
                   textTransform: "none",
-                  boxShadow: "0 4px 12px rgba(229, 57, 53, 0.4)",
+                  boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.35)}`,
                   transition: "all 0.3s ease",
                   "&:hover": {
-                    bgcolor: "#c62828",
-                    boxShadow: "0 6px 16px rgba(229, 57, 53, 0.5)",
+                    bgcolor: "primary.dark",
+                    boxShadow: (t) => `0 6px 16px ${alpha(t.palette.primary.main, 0.45)}`,
                     transform: "translateY(-2px)",
                   },
                   "&:active": {
                     transform: "translateY(0)",
                   },
                   "&:disabled": {
-                    bgcolor: "#ffcdd2",
-                    color: "#fff",
+                    bgcolor: "action.disabledBackground",
+                    color: "action.disabled",
                   },
                 }}
               >
@@ -403,15 +423,16 @@ function LoginPage({ onLogin }) {
             sx={{
               mt: 3,
               pt: 2,
-              borderTop: "1px solid rgba(0,0,0,0.08)",
+              borderTop: 1,
+              borderColor: "divider",
               textAlign: "center",
             }}
           >
-            <Typography variant="caption" sx={{ color: "#888" }}>
+            <Typography variant="caption" color="text.secondary">
               <Box
                 component={RouterLink}
                 to="/"
-                sx={{ color: "#c62828", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
               >
                 Home
               </Box>
@@ -419,7 +440,7 @@ function LoginPage({ onLogin }) {
               <Box
                 component="a"
                 href={`${process.env.PUBLIC_URL || ""}/privacy-policy.html`}
-                sx={{ color: "#c62828", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
               >
                 Privacy Policy
               </Box>
@@ -427,7 +448,7 @@ function LoginPage({ onLogin }) {
               <Box
                 component="a"
                 href={`${process.env.PUBLIC_URL || ""}/terms-of-service.html`}
-                sx={{ color: "#c62828", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
               >
                 Terms of Service
               </Box>

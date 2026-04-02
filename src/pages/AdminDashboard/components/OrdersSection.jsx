@@ -14,7 +14,9 @@ import {
   Chip,
   IconButton,
   CircularProgress,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import EmailIcon from "@mui/icons-material/Email";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -44,6 +46,7 @@ function OrdersSection({
   getOrderStatus,
   getOrderId,
 }) {
+  const theme = useTheme();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [orderToDelete, setOrderToDelete] = React.useState(null);
 
@@ -120,7 +123,7 @@ function OrdersSection({
 
       {allOrders.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 4 }}>
-          <Typography variant="body1" sx={{ color: "grey.700", fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+          <Typography variant="body1" sx={{ color: "text.secondary", fontSize: { xs: "0.875rem", sm: "1rem" } }}>
             No orders placed yet.
           </Typography>
         </Box>
@@ -133,17 +136,17 @@ function OrdersSection({
               height: "8px",
             },
             "&::-webkit-scrollbar-thumb": {
-              backgroundColor: "#ccc",
+              backgroundColor: alpha(theme.palette.text.disabled, theme.palette.mode === "dark" ? 0.5 : 0.35),
               borderRadius: "4px",
             },
           }}
         >
           <Table size={isMobile ? "small" : "medium"} sx={{ minWidth: { xs: 520, sm: 760, md: 820 } }}>
             <TableHead>
-              <TableRow sx={{ bgcolor: "#e53935" }}>
+              <TableRow sx={{ bgcolor: "primary.main" }}>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -154,7 +157,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -165,7 +168,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -177,7 +180,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -189,7 +192,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -201,7 +204,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },
@@ -213,7 +216,7 @@ function OrdersSection({
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: "#fff",
+                    color: "primary.contrastText",
                     fontWeight: "bold",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
                     py: { xs: 0.85, sm: 1.25 },

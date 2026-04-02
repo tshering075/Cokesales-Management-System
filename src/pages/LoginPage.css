@@ -12,6 +12,18 @@
   overflow: hidden;
 }
 
+/* Day view = dark UI (see AppThemeProvider) */
+.login-container.login-container--day {
+  background: linear-gradient(135deg, #6b1c1c 0%, #1e1a24 45%, #0f0f12 100%);
+}
+
+.login-container.login-container--day .coke-fill {
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.04), transparent 30%),
+    radial-gradient(circle at 80% 40%, rgba(255, 255, 255, 0.02), transparent 25%),
+    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.03), transparent 30%),
+    linear-gradient(to top, #1a0505, #2d0a0a, #3e0d0d);
+}
+
 /* Bottles row */
 .coke-bottles {
   position: absolute;
