@@ -24,7 +24,7 @@ import {
   getRawPhysicalStockFromDistributor,
   rowTotal,
 } from "../utils/physicalStockTemplate";
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -42,7 +42,6 @@ function formatWhen(iso) {
 }
 
 export default function PhysicalStockAdminDialog({ open, onClose, distributors, onOpened }) {
-  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
 
