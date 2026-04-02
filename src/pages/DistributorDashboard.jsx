@@ -30,6 +30,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { DRAWER_FOREGROUND } from "../theme/drawerContrast";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -123,7 +124,14 @@ function fingerprintStockLiftingRecords(records) {
 
 function DistributorDashboard({ distributorName = "Distributor", distributorCode, onLogout }) {
   const theme = useTheme();
-  const secondaryContrast = theme.palette.getContrastText(theme.palette.secondary.main);
+  const drawerPrimaryTypographyProps = {
+    sx: {
+      color: DRAWER_FOREGROUND,
+      fontWeight: 700,
+      fontSize: { xs: "0.82rem", sm: "0.9rem" },
+      lineHeight: 1.35,
+    },
+  };
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -1347,6 +1355,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             width: { xs: 180, sm: 200 },
             boxSizing: "border-box",
             bgcolor: "secondary.main",
+            color: DRAWER_FOREGROUND,
             display: "flex",
             flexDirection: "column",
           },
@@ -1364,6 +1373,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setDistributorCurrentView("dashboard");
                 setSidebarOpen(false);
               }}
+              sx={{
+                color: DRAWER_FOREGROUND,
+                borderRadius: 2,
+                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
+              }}
             >
               <Badge
                 variant="dot"
@@ -1372,6 +1386,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 invisible={!sidebarBadges.dashboard}
                 sx={{
                   mr: 2,
+                  color: "inherit",
                   "& .MuiBadge-badge": {
                     top: 6,
                     right: 6,
@@ -1383,9 +1398,9 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   },
                 }}
               >
-                <DashboardIcon sx={{ fontSize: 20 }} />
+                <DashboardIcon sx={{ fontSize: 20, color: "inherit" }} />
               </Badge>
-              <ListItemText primary="Dashboard" sx={{ fontWeight: "bold", color: secondaryContrast }} />
+              <ListItemText primary="Dashboard" primaryTypographyProps={drawerPrimaryTypographyProps} />
             </ListItemButton>
           </ListItem>
 
@@ -1397,6 +1412,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setDistributorCurrentView("orders");
                 setSidebarOpen(false);
               }}
+              sx={{
+                color: DRAWER_FOREGROUND,
+                borderRadius: 2,
+                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
+              }}
             >
               <Badge
                 badgeContent={sidebarBadges.pendingOrders > 99 ? "99+" : sidebarBadges.pendingOrders}
@@ -1405,6 +1425,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 invisible={sidebarBadges.pendingOrders === 0}
                 sx={{
                   mr: 2,
+                  color: "inherit",
                   "& .MuiBadge-badge": {
                     right: 4,
                     top: 4,
@@ -1414,23 +1435,42 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   },
                 }}
               >
-                <ListAltIcon sx={{ fontSize: 20 }} />
+                <ListAltIcon sx={{ fontSize: 20, color: "inherit" }} />
               </Badge>
               <ListItemText
                 primary="Orders"
                 secondary={sidebarBadges.pendingOrders ? "Awaiting review" : null}
-                sx={{
-                  fontWeight: "bold",
-                  color: secondaryContrast,
-                  "& .MuiListItemText-secondary": { fontSize: "0.68rem", fontWeight: 600, color: "error.dark" },
-                }}
+                primaryTypographyProps={drawerPrimaryTypographyProps}
+                secondaryTypographyProps={
+                  sidebarBadges.pendingOrders
+                    ? {
+                        sx: {
+                          fontSize: "0.68rem",
+                          fontWeight: 600,
+                          color: theme.palette.error.dark,
+                          mt: 0.25,
+                        },
+                      }
+                    : undefined
+                }
               />
             </ListItemButton>
           </ListItem>
 
           {/* Product Rate List */}
           <ListItem disablePadding>
-            <ListItemButton onClick={() => { setOpenProductRateDialog(true); setDistributorCurrentView("product_rates"); setSidebarOpen(false); }}>
+            <ListItemButton
+              onClick={() => {
+                setOpenProductRateDialog(true);
+                setDistributorCurrentView("product_rates");
+                setSidebarOpen(false);
+              }}
+              sx={{
+                color: DRAWER_FOREGROUND,
+                borderRadius: 2,
+                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
+              }}
+            >
               <NuProductRateIcon
                 sx={{
                   mr: 2,
@@ -1442,15 +1482,26 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   color: "#b71c1c",
                 }}
               />
-              <ListItemText primary="Product Rate List" sx={{ fontWeight: "bold", color: secondaryContrast }} />
+              <ListItemText primary="Product Rate List" primaryTypographyProps={drawerPrimaryTypographyProps} />
             </ListItemButton>
           </ListItem>
 
           {/* Stock Lifting Record */}
           <ListItem disablePadding>
-            <ListItemButton onClick={() => { setOpenStockLiftingDialog(true); setDistributorCurrentView("stock_lifting"); setSidebarOpen(false); }}>
-              <InventoryIcon sx={{ mr: 2, fontSize: 20 }} />
-              <ListItemText primary="Stock Lifting Record" sx={{ fontWeight: "bold", color: secondaryContrast }} />
+            <ListItemButton
+              onClick={() => {
+                setOpenStockLiftingDialog(true);
+                setDistributorCurrentView("stock_lifting");
+                setSidebarOpen(false);
+              }}
+              sx={{
+                color: DRAWER_FOREGROUND,
+                borderRadius: 2,
+                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
+              }}
+            >
+              <InventoryIcon sx={{ mr: 2, fontSize: 20, color: "inherit" }} />
+              <ListItemText primary="Stock Lifting Record" primaryTypographyProps={drawerPrimaryTypographyProps} />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
@@ -1460,6 +1511,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 setDistributorCurrentView("physical_stock");
                 setSidebarOpen(false);
               }}
+              sx={{
+                color: DRAWER_FOREGROUND,
+                borderRadius: 2,
+                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
+              }}
             >
               <Badge
                 variant="dot"
@@ -1468,6 +1524,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 invisible={!sidebarBadges.physicalStock}
                 sx={{
                   mr: 2,
+                  color: "inherit",
                   "& .MuiBadge-badge": {
                     top: 6,
                     right: 6,
@@ -1480,16 +1537,24 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   },
                 }}
               >
-                <WarehouseIcon sx={{ fontSize: 20 }} />
+                <WarehouseIcon sx={{ fontSize: 20, color: "inherit" }} />
               </Badge>
               <ListItemText
                 primary="Physical Stock"
                 secondary={sidebarBadges.physicalStock ? "New update" : null}
-                sx={{
-                  fontWeight: "bold",
-                  color: secondaryContrast,
-                  "& .MuiListItemText-secondary": { fontSize: "0.68rem", fontWeight: 600, color: "#6a1b9a" },
-                }}
+                primaryTypographyProps={drawerPrimaryTypographyProps}
+                secondaryTypographyProps={
+                  sidebarBadges.physicalStock
+                    ? {
+                        sx: {
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          color: "#4a148c",
+                          mt: 0.25,
+                        },
+                      }
+                    : undefined
+                }
               />
             </ListItemButton>
           </ListItem>
@@ -1513,16 +1578,16 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 }
               }}
             >
-              <ListItemText 
-                primary="Place Order" 
-                sx={{ 
-                  fontWeight: "bold", 
-                  color: "inherit",
-                  textAlign: "center",
-                  "& .MuiListItemText-primary": {
-                    fontSize: { xs: "0.95rem", sm: "1rem" }
-                  }
-                }} 
+              <ListItemText
+                primary="Place Order"
+                primaryTypographyProps={{
+                  sx: {
+                    fontWeight: 700,
+                    color: "inherit",
+                    textAlign: "center",
+                    fontSize: { xs: "0.95rem", sm: "1rem" },
+                  },
+                }}
               />
             </ListItemButton>
           </ListItem>
@@ -1534,18 +1599,18 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             mb: 1.5,
             p: 1,
             borderRadius: 1.5,
-            bgcolor: theme.palette.mode === "dark" ? alpha(secondaryContrast, 0.08) : "rgba(255,255,255,0.45)",
+            bgcolor: alpha(DRAWER_FOREGROUND, 0.07),
             border: 1,
-            borderColor: theme.palette.mode === "dark" ? alpha(secondaryContrast, 0.2) : "rgba(0,0,0,0.1)",
+            borderColor: alpha(DRAWER_FOREGROUND, 0.2),
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: secondaryContrast, mb: 0.25 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: DRAWER_FOREGROUND, mb: 0.25 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: secondaryContrast }}>
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: DRAWER_FOREGROUND }}>
             {distributorName || "Distributor"}
           </Typography>
-          <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: secondaryContrast, mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: DRAWER_FOREGROUND, mt: 0.25 }}>
             Code: {distributorCode || "N/A"} | Role: DISTRIBUTOR
           </Typography>
         </Box>

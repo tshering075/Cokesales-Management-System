@@ -19,6 +19,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { DRAWER_FOREGROUND } from "../theme/drawerContrast";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";                    
@@ -123,7 +124,6 @@ function readStoredAdminRegion() {
 
 function AdminDashboard({ onLogout }) {
   const theme = useTheme();
-  const secondaryContrast = theme.palette.getContrastText(theme.palette.secondary.main);
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile); // Open by default on desktop
   const [selectedRegion, setSelectedRegion] = useState(readStoredAdminRegion);
@@ -3740,6 +3740,7 @@ function AdminDashboard({ onLogout }) {
             width: { xs: 200, sm: 220 },
             boxSizing: "border-box",
             bgcolor: "secondary.main",
+            color: DRAWER_FOREGROUND,
             borderRight: isMobile ? "none" : "1px solid rgba(0,0,0,0.12)",
             px: { xs: 0.5, sm: 1 },
             display: "flex",
@@ -3748,7 +3749,7 @@ function AdminDashboard({ onLogout }) {
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1 }}>
-          <IconButton onClick={toggleSidebar} sx={{ color: theme.palette.getContrastText(theme.palette.secondary.main) }}>
+          <IconButton onClick={toggleSidebar} sx={{ color: DRAWER_FOREGROUND }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -3815,19 +3816,21 @@ function AdminDashboard({ onLogout }) {
                   borderRadius: 2,
                   py: { xs: 1, sm: 0.85 },
                   px: { xs: 1, sm: 1.25 },
-                  cursor: 'pointer',
+                  cursor: "pointer",
+                  color: DRAWER_FOREGROUND,
                   "&:hover": {
-                    bgcolor: "rgba(0, 0, 0, 0.08)",
+                    bgcolor: alpha(theme.palette.common.black, 0.1),
                   },
                 }}
               >
-                <Box sx={{ mr: 1.25, display: "flex", alignItems: "center", color: secondaryContrast }}>
+                <Box sx={{ mr: 1.25, display: "flex", alignItems: "center", color: "inherit" }}>
                   <Badge
                     overlap="circular"
                     color="error"
                     invisible={!item.badgeCount || item.badgeCount < 1}
                     badgeContent={item.badgeCount > 99 ? "99+" : item.badgeCount}
                     sx={{
+                      color: "inherit",
                       "& .MuiBadge-badge": {
                         fontWeight: 800,
                         fontSize: "0.65rem",
@@ -3840,7 +3843,13 @@ function AdminDashboard({ onLogout }) {
                       },
                     }}
                   >
-                    {React.cloneElement(item.icon, { sx: { fontSize: { xs: 18, sm: 20 } } })}
+                    {React.cloneElement(item.icon, {
+                      sx: {
+                        ...(item.icon?.props?.sx || {}),
+                        fontSize: { xs: 18, sm: 20 },
+                        ...(!item.icon?.props?.sx?.color ? { color: "inherit" } : {}),
+                      },
+                    })}
                   </Badge>
                 </Box>
                 <ListItemText
@@ -3852,19 +3861,27 @@ function AdminDashboard({ onLogout }) {
                         ? "Distributor update(s)"
                         : undefined
                   }
-                  sx={{
-                    fontWeight: "500",
-                    color: secondaryContrast,
-                    "& .MuiListItemText-primary": {
+                  primaryTypographyProps={{
+                    sx: {
+                      color: DRAWER_FOREGROUND,
+                      fontWeight: 600,
                       fontSize: { xs: "0.85rem", sm: "0.9rem" },
-                    },
-                    "& .MuiListItemText-secondary": {
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      color: "error.dark",
-                      mt: 0.1,
+                      lineHeight: 1.35,
                     },
                   }}
+                  secondaryTypographyProps={
+                    (item.text === "Orders" && item.badgeCount > 0) ||
+                    (item.text === "Physical Stock" && item.badgeCount > 0)
+                      ? {
+                          sx: {
+                            color: theme.palette.error.dark,
+                            fontWeight: 700,
+                            fontSize: "0.65rem",
+                            mt: 0.25,
+                          },
+                        }
+                      : undefined
+                  }
                 />
               </ListItemButton>
             </ListItem>
@@ -3877,18 +3894,18 @@ function AdminDashboard({ onLogout }) {
             mb: 1,
             p: 1,
             borderRadius: 1.5,
-            bgcolor: alpha(secondaryContrast, 0.08),
+            bgcolor: alpha(DRAWER_FOREGROUND, 0.07),
             border: 1,
-            borderColor: alpha(secondaryContrast, 0.2),
+            borderColor: alpha(DRAWER_FOREGROUND, 0.2),
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: secondaryContrast, mb: 0.25 }}>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: DRAWER_FOREGROUND, mb: 0.25 }}>
             Logged In
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: secondaryContrast, wordBreak: "break-word" }}>
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: DRAWER_FOREGROUND, wordBreak: "break-word" }}>
             {localStorage.getItem("admin_email") || "Unknown user"}
           </Typography>
-          <Typography sx={{ fontSize: "0.68rem", color: secondaryContrast, fontWeight: 600, mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.68rem", color: DRAWER_FOREGROUND, fontWeight: 600, mt: 0.25 }}>
             Role: {(userRole || localStorage.getItem("userRole") || "admin").toString().toUpperCase()}
           </Typography>
         </Box>

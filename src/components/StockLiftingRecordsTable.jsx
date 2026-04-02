@@ -12,8 +12,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-
-const ZEBRA_ODD = "rgba(251, 192, 45, 0.12)";
+import { alpha } from "@mui/material/styles";
 
 export function formatStockLiftDate(record) {
   if (!record) return "—";
@@ -55,15 +54,21 @@ export default function StockLiftingRecordsTable({
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isDark = theme.palette.mode === "dark";
 
-  const headBg = "#e53935";
-  const subBg = "#fbc02d";
-  const subFg = "#1a1a1a";
-  const subBorder = "#e53935";
+  const headBg = theme.palette.primary.main;
+  const headFg = theme.palette.primary.contrastText;
+  const subBg = theme.palette.secondary.main;
+  const subFg = theme.palette.getContrastText(theme.palette.secondary.main);
+  const subBorder = theme.palette.primary.dark;
+
+  /** Stronger than old yellow 12% tint — works in light + dark; never hardcode #fff rows */
+  const zebraOdd = alpha(theme.palette.primary.main, isDark ? 0.22 : 0.1);
+  const zebraEven = theme.palette.background.paper;
 
   const headSx = {
     fontWeight: 700,
-    color: "#fff",
+    color: headFg,
     bgcolor: headBg,
     textAlign: "center",
     py: 1.25,
@@ -92,6 +97,7 @@ export default function StockLiftingRecordsTable({
     px: 1,
     verticalAlign: "middle",
     boxSizing: "border-box",
+    color: "text.primary",
   };
 
   /** PC / UC: same alignment as sub-headers + tabular figures for a straight digit column */
@@ -239,8 +245,11 @@ export default function StockLiftingRecordsTable({
                 key={record.id || `${record.invoiceDate || record.date || idx}-${idx}`}
                 hover
                 sx={{
-                  "&:nth-of-type(odd)": { bgcolor: ZEBRA_ODD },
-                  "&:nth-of-type(even)": { bgcolor: "#ffffff" },
+                  "&:nth-of-type(odd)": { bgcolor: zebraOdd },
+                  "&:nth-of-type(even)": { bgcolor: zebraEven },
+                  "&:hover": {
+                    bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+                  },
                 }}
               >
                 <TableCell sx={cellSx}>{formatStockLiftDate(record)}</TableCell>
@@ -270,10 +279,10 @@ export default function StockLiftingRecordsTable({
           {showTotalsRow && records.length > 0 && (
             <TableRow
               sx={{
-                bgcolor: "rgba(229, 57, 53, 0.12)",
+                bgcolor: alpha(theme.palette.error.main, isDark ? 0.2 : 0.12),
                 borderTop: "2px solid",
                 borderColor: "error.main",
-                "& .MuiTableCell-root": { fontWeight: 800 },
+                "& .MuiTableCell-root": { fontWeight: 800, color: "text.primary" },
               }}
             >
               <TableCell sx={{ ...cellSx, fontWeight: 800 }}>Total</TableCell>
