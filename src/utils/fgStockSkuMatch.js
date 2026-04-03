@@ -1,19 +1,60 @@
 /**
+ * Read description text from an FG row (admin / Supabase may use different keys).
+ */
+export function fgRowDescription(r) {
+  if (!r || typeof r !== "object") return "";
+  const raw =
+    r.description ??
+    r.Description ??
+    r.DESC ??
+    r.itemDescription ??
+    r.ItemDescription ??
+    r.materialDescription ??
+    r.MaterialDescription ??
+    r.material_description ??
+    r.productDescription ??
+    r.ProductDescription;
+  return String(raw ?? "").trim();
+}
+
+/**
+ * Read quantity from an FG row (tolerant key names and string numbers).
+ */
+export function fgRowQuantity(r) {
+  if (!r || typeof r !== "object") return NaN;
+  const raw = r.quantity ?? r.Quantity ?? r.qty ?? r.Qty ?? r.QTY ?? r.qnty;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  const q = parseFloat(String(raw).replace(/,/g, "").trim());
+  return Number.isFinite(q) ? q : NaN;
+}
+
+function scrubStockLabel(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[''`´]/g, "")
+    .replace(/\u00a0/g, " ");
+}
+
+/**
  * Normalize labels from Excel (e.g. "COKE 500 ML") and calculator SKUs ("Coca Cola 500ml") for matching.
  */
 export function normalizeForStockMatch(s) {
-  let x = String(s || "")
+  let x = scrubStockLabel(s)
     .toUpperCase()
-    .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   x = x.replace(/[_-]+/g, " ");
-  x = x.replace(/\./g, "");
+  // "CHARGE300ML" / "KINLEY500ML" — \bCHARGE\b fails (E and 3 are both "word" chars). Split before volumes.
+  x = x.replace(/([A-Z])(?=(\d+(?:\.\d+)?)\s*(?:ML|L)\b)/gi, "$1 ");
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*LTR\b/gi, (_, n) => `${n}L`);
+  x = x.replace(/\b(\d+(?:\.\d+)?)\s*(?:LITRE|LITER|LTRS?)\b/gi, (_, n) => `${n}L`);
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   x = x.replace(/\b1\.25\s*L\b/gi, "1.25L");
   x = x.replace(/\b1\s*L\b/gi, "1L");
   x = x.replace(/\bML\b/g, "ML");
+  // Drop stray periods (not between digits, so 1.25L / 0.5L stay intact)
+  x = x.replace(/(?<!\d)\.(?!\d)/g, "");
   x = x.replace(/\bCOCO\s+COLA\b/gi, "COCA COLA");
   x = x.replace(/\bCC\b/g, "COCA COLA");
   x = x.replace(/\bCOKE\b/g, "COCA COLA");
@@ -96,15 +137,11 @@ export function tokenOverlapScore(skuNorm, excelNorm) {
 export function aggregateQuantitiesByNormalizedDescription(rows) {
   const map = new Map();
   for (const r of rows) {
-    const desc = r?.description;
-    if (desc == null || String(desc).trim() === "") continue;
+    const desc = fgRowDescription(r);
+    if (!desc) continue;
     const k = normalizeForStockMatch(desc);
     if (!k) continue;
-    const raw = r.quantity;
-    const q =
-      typeof raw === "number" && Number.isFinite(raw)
-        ? raw
-        : parseFloat(String(raw).replace(/,/g, "").trim());
+    const q = fgRowQuantity(r);
     if (!Number.isFinite(q) || q < 0) continue;
     map.set(k, (map.get(k) || 0) + q);
   }
@@ -117,15 +154,11 @@ export function aggregateQuantitiesByNormalizedDescription(rows) {
 export function aggregateQuantitiesByFingerprint(rows) {
   const map = new Map();
   for (const r of rows) {
-    const desc = r?.description;
-    if (desc == null || String(desc).trim() === "") continue;
+    const desc = fgRowDescription(r);
+    if (!desc) continue;
     const fp = stockMatchFingerprint(desc);
     if (!fp) continue;
-    const raw = r.quantity;
-    const q =
-      typeof raw === "number" && Number.isFinite(raw)
-        ? raw
-        : parseFloat(String(raw).replace(/,/g, "").trim());
+    const q = fgRowQuantity(r);
     if (!Number.isFinite(q) || q < 0) continue;
     map.set(fp, (map.get(fp) || 0) + q);
   }
@@ -144,28 +177,38 @@ function linesMatchForSku(skuNorm, excelK) {
   return false;
 }
 
+/** Word-ish match: works after "CHARGE300ML" → "CHARGE 300ML" and for spaced tokens. */
+function hasToken(norm, re) {
+  return re.test(String(norm || ""));
+}
+
 /** Kinley / Charge etc. when Excel uses longer descriptions (e.g. “Kinley mineral water 500 ml”). */
 function sharedCoreBrand(skuNorm, excelNorm) {
-  const sku = ` ${skuNorm} `;
-  const ex = ` ${excelNorm} `;
-  if (sku.includes(" KINLEY ") && ex.includes(" KINLEY ")) return true;
-  if (sku.includes(" CHARGE ")) {
-    if (ex.includes(" CHARGE ")) return true;
-    if (ex.includes(" THUMS ") && ex.includes(" CHARGE ")) return true;
-    if (ex.includes(" THUMS ") && ex.includes(" UP ") && excelNorm.includes("CHARGE")) return true;
+  if (hasToken(skuNorm, /\bKINLEY\b/i) && hasToken(excelNorm, /\bKINLEY\b/i)) return true;
+  if (hasToken(skuNorm, /\bCHARGE\b|\bCHRG\b/i)) {
+    if (hasToken(excelNorm, /\bCHARGE\b|\bCHRG\b/i)) return true;
+    if (hasToken(excelNorm, /\bTHUMS\b/i) && hasToken(excelNorm, /\bCHARGE\b|\bCHRG\b/i)) return true;
+    if (hasToken(excelNorm, /\bTHUMS\b/i) && hasToken(excelNorm, /\bUP\b/i) && /CHARGE|CHRG/i.test(excelNorm)) return true;
   }
   return false;
 }
 
 /** FG row reads as packaged / mineral water (Kinley) but omits the word KINLEY. */
 function excelKinleyWaterHint(excelNorm) {
-  const ex = ` ${excelNorm} `;
-  if (ex.includes(" KINLEY ")) return true;
-  if (ex.includes(" PDW ")) return true;
-  if (ex.includes(" CPDW ")) return true;
-  if (ex.includes(" MINERAL ") && ex.includes(" WATER ")) return true;
-  if (ex.includes(" PACKAGED ") && ex.includes(" DRINKING ")) return true;
-  if (ex.includes(" DRINKING ") && ex.includes(" WATER ")) return true;
+  if (hasToken(excelNorm, /\bKINLEY\b/i)) return true;
+  if (hasToken(excelNorm, /\bPDW\b|\bCPDW\b/i)) return true;
+  if (hasToken(excelNorm, /\bMINERAL\b/i) && hasToken(excelNorm, /\bWATER\b/i)) return true;
+  if (hasToken(excelNorm, /\bPACKAGED\b/i) && hasToken(excelNorm, /\bDRINKING\b/i)) return true;
+  if (hasToken(excelNorm, /\bDRINKING\b/i) && hasToken(excelNorm, /\bWATER\b/i)) return true;
+  return false;
+}
+
+/** Excel line is clearly Thums Charge / Charge even if spacing collapsed. */
+function excelHintsCharge(excelNorm) {
+  if (!excelNorm) return false;
+  if (/\bCHARGE\b|\bCHRG\b/i.test(excelNorm)) return true;
+  if (/\bTHUMS\b.*\bCHARGE\b|\bCHARGE\b.*\bTHUMS\b/i.test(excelNorm)) return true;
+  if (/THUMSUP.*CHARGE|CHARGE.*THUMSUP/i.test(excelNorm.replace(/\s+/g, " "))) return true;
   return false;
 }
 
@@ -221,14 +264,25 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
   }
 
   for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    const sku = ` ${skuTry} `;
-    if (!sku.includes(" KINLEY ")) continue;
+    if (!hasToken(skuTry, /\bKINLEY\b/i)) continue;
     const skuMl = parseSizeToMl(skuTry);
     if (skuMl == null) continue;
     for (const [excelK, qty] of normMap) {
       const exMl = parseSizeToMl(excelK);
       if (exMl == null || exMl !== skuMl) continue;
       if (!excelKinleyWaterHint(excelK)) continue;
+      return qty;
+    }
+  }
+
+  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+    if (!hasToken(skuTry, /\bCHARGE\b|\bCHRG\b/i)) continue;
+    const skuMl = parseSizeToMl(skuTry);
+    if (skuMl == null) continue;
+    for (const [excelK, qty] of normMap) {
+      const exMl = parseSizeToMl(excelK);
+      if (exMl == null || exMl !== skuMl) continue;
+      if (!excelHintsCharge(excelK)) continue;
       return qty;
     }
   }
