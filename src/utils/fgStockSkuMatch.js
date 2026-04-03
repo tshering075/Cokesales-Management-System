@@ -4,26 +4,38 @@
 export function normalizeForStockMatch(s) {
   let x = String(s || "")
     .toUpperCase()
+    .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   x = x.replace(/[_-]+/g, " ");
   x = x.replace(/\./g, "");
+  x = x.replace(/\b(\d+(?:\.\d+)?)\s*LTR\b/gi, (_, n) => `${n}L`);
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   x = x.replace(/\b1\.25\s*L\b/gi, "1.25L");
   x = x.replace(/\b1\s*L\b/gi, "1L");
   x = x.replace(/\bML\b/g, "ML");
   x = x.replace(/\bCOCO\s+COLA\b/gi, "COCA COLA");
-  x = x.replace(/\bTHUMSUP\b/gi, "THUMS UP");
   x = x.replace(/\bCC\b/g, "COCA COLA");
-  x = x.replace(/\bKW\b/g, "KINLEY");
   x = x.replace(/\bCOKE\b/g, "COCA COLA");
   x = x.replace(/\bCOCA\s*COLA\b/g, "COCA COLA");
-  x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
-  x = x.replace(/\bTHUMS\s+UP\s+CHARGE\b/gi, "CHARGE");
-  x = x.replace(/\bTHUMS\s+CHARGE\b/gi, "CHARGE");
-  x = x.replace(/\bTU\b/g, "THUMS UP");
   x = x.replace(/\bDIET\b/g, "DIET");
   x = x.replace(/\bZERO\b/g, "ZERO");
+  // Thums / Charge — compound phrases before lone THUMSUP or TU (avoids "TU CHARGE" never collapsing)
+  x = x.replace(/\bTHUMS\s+UP\s+CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTHUMS\s+CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTU\s+CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTHUMSUP\s*CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTHUMSUPCHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTHUMSUP\b/gi, "THUMS UP");
+  x = x.replace(/\bTU\b/g, "THUMS UP");
+  x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
+  x = x.replace(/\bCHRG\b/g, "CHARGE");
+  // Kinley / PDW labels common in bottler FG extracts
+  x = x.replace(/\bCPDW\b/g, "KINLEY");
+  x = x.replace(/\bPDW\b/g, "KINLEY");
+  x = x.replace(/\bKW\b/g, "KINLEY");
+  x = x.replace(/\bKLY\b/g, "KINLEY");
+  x = x.replace(/\bKNLY\b/g, "KINLEY");
   return x.trim();
 }
 
@@ -140,7 +152,20 @@ function sharedCoreBrand(skuNorm, excelNorm) {
   if (sku.includes(" CHARGE ")) {
     if (ex.includes(" CHARGE ")) return true;
     if (ex.includes(" THUMS ") && ex.includes(" CHARGE ")) return true;
+    if (ex.includes(" THUMS ") && ex.includes(" UP ") && excelNorm.includes("CHARGE")) return true;
   }
+  return false;
+}
+
+/** FG row reads as packaged / mineral water (Kinley) but omits the word KINLEY. */
+function excelKinleyWaterHint(excelNorm) {
+  const ex = ` ${excelNorm} `;
+  if (ex.includes(" KINLEY ")) return true;
+  if (ex.includes(" PDW ")) return true;
+  if (ex.includes(" CPDW ")) return true;
+  if (ex.includes(" MINERAL ") && ex.includes(" WATER ")) return true;
+  if (ex.includes(" PACKAGED ") && ex.includes(" DRINKING ")) return true;
+  if (ex.includes(" DRINKING ") && ex.includes(" WATER ")) return true;
   return false;
 }
 
@@ -191,6 +216,19 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
       const exMl = parseSizeToMl(excelK);
       if (exMl == null || exMl !== skuMl) continue;
       if (!sharedCoreBrand(skuTry, excelK)) continue;
+      return qty;
+    }
+  }
+
+  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+    const sku = ` ${skuTry} `;
+    if (!sku.includes(" KINLEY ")) continue;
+    const skuMl = parseSizeToMl(skuTry);
+    if (skuMl == null) continue;
+    for (const [excelK, qty] of normMap) {
+      const exMl = parseSizeToMl(excelK);
+      if (exMl == null || exMl !== skuMl) continue;
+      if (!excelKinleyWaterHint(excelK)) continue;
       return qty;
     }
   }
