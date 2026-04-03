@@ -72,7 +72,7 @@ import {
   getFgOpeningStock,
   subscribeFgOpeningStock,
 } from "../services/supabaseService";
-import { buildFgStockMapForSkus } from "../utils/fgStockSkuMatch";
+import { buildFgStockOpeningAllSkus } from "../utils/fgStockSkuMatch";
 import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
 import { sumReservedCasesBySku } from "../utils/fgStockOrderReservations";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
@@ -577,9 +577,9 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
 
   /** Per-SKU cases: opening file aggregate minus pending/sent/approved orders (rejected excluded; canceled absent). While editing an order, that order is excluded from reservations. */
   const fgStockBySku = useMemo(() => {
-    if (!fgOpeningStockRecord?.rows?.length) return undefined;
     const names = getAllCalculatorSkuNames(productRates);
-    const base = buildFgStockMapForSkus(names, fgOpeningStockRecord.rows);
+    const rows = Array.isArray(fgOpeningStockRecord?.rows) ? fgOpeningStockRecord.rows : [];
+    const base = buildFgStockOpeningAllSkus(names, rows);
     const excludeKey = editingOrder ? getOrderKey(editingOrder) : null;
     const reserved = sumReservedCasesBySku(orders, getOrderStatus, {
       excludeOrderKey: excludeKey,
@@ -587,13 +587,11 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     });
     const out = {};
     for (const name of names) {
-      const bRaw = base[name];
+      const b = Number(base[name]) || 0;
       const r = Number(reserved[name]) || 0;
-      if (bRaw == null && r === 0) continue;
-      const b = Number(bRaw) || 0;
       out[name] = Math.max(0, Math.round(b - r));
     }
-    return Object.keys(out).length ? out : undefined;
+    return out;
   }, [fgOpeningStockRecord, productRates, orders, getOrderStatus, getOrderKey, editingOrder]);
 
   const refreshDistributorOrders = useCallback(async () => {

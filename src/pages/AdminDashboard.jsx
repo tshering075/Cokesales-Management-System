@@ -60,7 +60,7 @@ import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import CokeCalculator from "../cokecalculator";
-import { buildFgStockMapForSkus } from "../utils/fgStockSkuMatch";
+import { buildFgStockOpeningAllSkus } from "../utils/fgStockSkuMatch";
 import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 // Import extracted components
@@ -949,14 +949,14 @@ function AdminDashboard({ onLogout }) {
       try {
         const data = await getFgOpeningStock();
         if (cancelled) return;
-        if (!data?.rows?.length) {
-          setAdminFgStockBySku(undefined);
-          return;
-        }
         const names = getAllCalculatorSkuNames(productRates);
-        setAdminFgStockBySku(buildFgStockMapForSkus(names, data.rows));
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, rows));
       } catch {
-        if (!cancelled) setAdminFgStockBySku(undefined);
+        if (!cancelled) {
+          const names = getAllCalculatorSkuNames(productRates);
+          setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, []));
+        }
       }
     })();
     return () => {

@@ -14,6 +14,8 @@ export function normalizeForStockMatch(s) {
   x = x.replace(/\bCOKE\b/g, "COCA COLA");
   x = x.replace(/\bCOCA\s*COLA\b/g, "COCA COLA");
   x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
+  x = x.replace(/\bTHUMS\s+UP\s+CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTHUMS\s+CHARGE\b/gi, "CHARGE");
   x = x.replace(/\bDIET\b/g, "DIET");
   x = x.replace(/\bZERO\b/g, "ZERO");
   return x.trim();
@@ -103,6 +105,18 @@ function linesMatchForSku(skuNorm, skuSize, excelK) {
   return false;
 }
 
+/** Kinley / Charge etc. when Excel uses longer descriptions (e.g. “Kinley mineral water 500 ml”). */
+function sharedCoreBrand(skuNorm, excelNorm) {
+  const sku = ` ${skuNorm} `;
+  const ex = ` ${excelNorm} `;
+  if (sku.includes(" KINLEY ") && ex.includes(" KINLEY ")) return true;
+  if (sku.includes(" CHARGE ")) {
+    if (ex.includes(" CHARGE ")) return true;
+    if (ex.includes(" THUMS ") && ex.includes(" CHARGE ")) return true;
+  }
+  return false;
+}
+
 /** Fingerprints to try for file lookup (CAN lines in calculator often omit "CAN" on the Excel side). */
 function skuFingerprintsForFileLookup(skuName) {
   const n = normalizeForStockMatch(skuName);
@@ -142,10 +156,24 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
       }
     }
   }
-  return bestSc >= 2 && bestQty != null ? bestQty : null;
+  if (bestSc >= 2 && bestQty != null) return bestQty;
+
+  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+    const sizeTry = extractSizeToken(skuTry);
+    if (!sizeTry) continue;
+    for (const [excelK, qty] of normMap) {
+      const exSize = extractSizeToken(excelK);
+      if (!exSize || exSize !== sizeTry) continue;
+      if (!sharedCoreBrand(skuTry, excelK)) continue;
+      return qty;
+    }
+  }
+
+  return null;
 }
 
 /**
+ * Sparse map: only SKUs that matched the FG file (non-zero opening or matched row).
  * @param {string[]} skuNames
  * @param {Array<{ description: string, quantity: * }>} rows
  * @returns {Record<string, number>}
@@ -158,6 +186,27 @@ export function buildFgStockMapForSkus(skuNames, rows) {
   for (const name of names) {
     const q = resolveOpeningQtyForSku(name, fpMap, normMap);
     if (q != null && Number.isFinite(q)) out[name] = Math.round(q);
+  }
+  return out;
+}
+
+/**
+ * Every calculator SKU → opening cases from file (0 if no row matches). Use for UI hints on all lines.
+ * @param {string[]} skuNames
+ * @param {Array<{ description: string, quantity: * }>} rows
+ */
+export function buildFgStockOpeningAllSkus(skuNames, rows) {
+  const names = Array.isArray(skuNames) ? skuNames : [];
+  const out = {};
+  if (!Array.isArray(rows) || rows.length === 0) {
+    for (const name of names) out[name] = 0;
+    return out;
+  }
+  const fpMap = aggregateQuantitiesByFingerprint(rows);
+  const normMap = aggregateQuantitiesByNormalizedDescription(rows);
+  for (const name of names) {
+    const q = resolveOpeningQtyForSku(name, fpMap, normMap);
+    out[name] = q != null && Number.isFinite(q) ? Math.round(q) : 0;
   }
   return out;
 }
