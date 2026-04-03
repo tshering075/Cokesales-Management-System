@@ -83,12 +83,37 @@ export function normalizeForStockMatch(s) {
   x = x.replace(/\bKW\b/g, "KINLEY");
   x = x.replace(/\bKLY\b/g, "KINLEY");
   x = x.replace(/\bKNLY\b/g, "KINLEY");
+  x = x.replace(/\bSLK\b/gi, "SLEEK");
   return x.trim();
 }
 
 /** Stable key: same logical product text in the FG table sums here (all batches with same description). */
 export function stockMatchFingerprint(s) {
   return normalizeForStockMatch(s).replace(/\s+/g, "");
+}
+
+/** Calculator SKU is a CAN line — must not use PET/RB FG rows (and vice versa). */
+export function calculatorSkuIsCanFormat(skuName) {
+  return /\bCAN\b/i.test(String(skuName || ""));
+}
+
+/** Normalized FG description is a can / tin / sleek pack (not PET-only). */
+export function excelNormIndicatesCanPackaging(excelNorm) {
+  if (!excelNorm) return false;
+  const s = ` ${String(excelNorm)} `;
+  if (/\bCAN\b/.test(s)) return true;
+  if (/\bTIN\b/.test(s)) return true;
+  if (/\bSLEEK\b/i.test(excelNorm)) return true;
+  if (/\bALU(MINIUM)?\s+CAN\b/i.test(excelNorm)) return true;
+  return false;
+}
+
+/** PET SKUs ignore can-only FG rows; CAN SKUs only use can-marked FG rows. */
+export function packagingMatchesSkuToExcel(skuName, excelNorm) {
+  const skuCan = calculatorSkuIsCanFormat(skuName);
+  const exCan = excelNormIndicatesCanPackaging(excelNorm);
+  if (skuCan) return exCan;
+  return !exCan;
 }
 
 /** e.g. "500ML", "1.25L" — avoid matching 300ml SKU to 500ml stock */
@@ -171,7 +196,8 @@ export function aggregateQuantitiesByFingerprint(rows) {
   return map;
 }
 
-function linesMatchForSku(skuNorm, excelK) {
+function linesMatchForSku(skuNorm, excelK, skuName) {
+  if (!packagingMatchesSkuToExcel(skuName, excelK)) return false;
   if (skuNorm === excelK) return true;
   if (sizesRejectPair(skuNorm, excelK)) return false;
 
@@ -205,7 +231,6 @@ function excelKinleyWaterHint(excelNorm) {
   if (hasToken(excelNorm, /\bPDW\b|\bCPDW\b/i)) return true;
   if (hasToken(excelNorm, /\bMINERAL\b/i) && hasToken(excelNorm, /\bWATER\b/i)) return true;
   if (hasToken(excelNorm, /\bPACKAGED\b/i) && hasToken(excelNorm, /\bDRINKING\b/i)) return true;
-  if (hasToken(excelNorm, /\bDRINKING\b/i) && hasToken(excelNorm, /\bWATER\b/i)) return true;
   return false;
 }
 
@@ -274,7 +299,11 @@ function sumRowsWhere(rows, test) {
   return sum;
 }
 
-/** Fingerprints to try for file lookup (CAN lines in calculator often omit "CAN" on the Excel side). */
+/**
+ * Fingerprints to try for file lookup.
+ * CAN calculator SKUs must NOT strip CAN — otherwise they share PET/RB stock (same fingerprint as Coca Cola 300ml).
+ * PET SKUs may try a CAN-stripped variant only to match FG that forgot the word CAN (legacy); packaging filter still blocks can-only rows.
+ */
 function skuFingerprintsForFileLookup(skuName) {
   const n = normalizeForStockMatch(skuName);
   const out = [];
@@ -283,9 +312,29 @@ function skuFingerprintsForFileLookup(skuName) {
     if (fp && !out.includes(fp)) out.push(fp);
   };
   push(n);
-  const stripped = n.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
-  if (stripped && stripped !== n) push(stripped);
+  if (!calculatorSkuIsCanFormat(skuName)) {
+    const stripped = n.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
+    if (stripped && stripped !== n) push(stripped);
+  }
   return out;
+}
+
+/** Sum FG quantities for rows whose fingerprint equals `fp` and packaging matches the calculator SKU. */
+function sumQtyForFingerprintAndPackaging(skuName, rows, fp) {
+  if (!fp || !Array.isArray(rows)) return { matched: false, sum: 0 };
+  let sum = 0;
+  let matched = false;
+  for (const r of rows) {
+    const desc = fgRowDescription(r);
+    if (!desc) continue;
+    if (stockMatchFingerprint(desc) !== fp) continue;
+    const ex = normalizeForStockMatch(desc);
+    if (!packagingMatchesSkuToExcel(skuName, ex)) continue;
+    matched = true;
+    const q = fgRowQuantity(r);
+    if (Number.isFinite(q) && q >= 0) sum += q;
+  }
+  return { matched, sum };
 }
 
 /**
@@ -294,17 +343,24 @@ function skuFingerprintsForFileLookup(skuName) {
  */
 export function resolveOpeningQtyForSku(skuName, fpMap, normMap, rows) {
   if (!skuName || !fpMap || !normMap) return null;
+  const rowList = Array.isArray(rows) ? rows : [];
+
   for (const fp of skuFingerprintsForFileLookup(skuName)) {
-    if (fpMap.has(fp)) return fpMap.get(fp);
+    const { matched, sum } = sumQtyForFingerprintAndPackaging(skuName, rowList, fp);
+    if (matched) return Math.round(sum);
   }
 
   const skuN = normalizeForStockMatch(skuName);
   const skuNFuzzy = skuN.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
+  const skuTries = calculatorSkuIsCanFormat(skuName)
+    ? [skuN]
+    : [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i);
+
   let bestQty = null;
   let bestSc = -1;
-  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+  for (const skuTry of skuTries) {
     for (const [excelK, qty] of normMap) {
-      if (!linesMatchForSku(skuTry, excelK)) continue;
+      if (!linesMatchForSku(skuTry, excelK, skuName)) continue;
       const sc = tokenOverlapScore(skuTry, excelK);
       if (sc > bestSc) {
         bestSc = sc;
@@ -312,21 +368,35 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap, rows) {
       }
     }
   }
-  if (bestSc >= 2 && bestQty != null) return bestQty;
+  if (bestSc >= 2 && bestQty != null) return Math.round(bestQty);
 
   const skuMl = parseSizeToMl(skuN) ?? parseSizeToMl(skuNFuzzy);
-  const rowList = Array.isArray(rows) ? rows : [];
 
   if (skuMl != null && hasToken(skuN, /\bCHARGE\b|\bCHRG\b/i)) {
-    let s = sumNormMapWhere(normMap, (excelK) => volumeMatchesPack(excelK, skuMl) && excelHintsCharge(excelK));
-    if (s <= 0) s = sumRowsWhere(rowList, (ex) => volumeMatchesPack(ex, skuMl) && excelHintsCharge(ex));
-    if (s > 0) return s;
+    let s = sumNormMapWhere(
+      normMap,
+      (excelK) =>
+        packagingMatchesSkuToExcel(skuName, excelK) &&
+        volumeMatchesPack(excelK, skuMl) &&
+        excelHintsCharge(excelK)
+    );
+    if (s <= 0) {
+      s = sumRowsWhere(
+        rowList,
+        (ex) =>
+          packagingMatchesSkuToExcel(skuName, ex) &&
+          volumeMatchesPack(ex, skuMl) &&
+          excelHintsCharge(ex)
+      );
+    }
+    if (s > 0) return Math.round(s);
   }
 
   if (skuMl != null && hasToken(skuN, /\bKINLEY\b/i)) {
     let s = sumNormMapWhere(
       normMap,
       (excelK) =>
+        packagingMatchesSkuToExcel(skuName, excelK) &&
         volumeMatchesPack(excelK, skuMl) &&
         (hasToken(excelK, /\bKINLEY\b/i) || excelKinleyWaterHint(excelK))
     );
@@ -334,20 +404,23 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap, rows) {
       s = sumRowsWhere(
         rowList,
         (ex) =>
-          volumeMatchesPack(ex, skuMl) && (hasToken(ex, /\bKINLEY\b/i) || excelKinleyWaterHint(ex))
+          packagingMatchesSkuToExcel(skuName, ex) &&
+          volumeMatchesPack(ex, skuMl) &&
+          (hasToken(ex, /\bKINLEY\b/i) || excelKinleyWaterHint(ex))
       );
     }
-    if (s > 0) return s;
+    if (s > 0) return Math.round(s);
   }
 
-  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+  for (const skuTry of skuTries) {
     const tryMl = parseSizeToMl(skuTry);
     if (tryMl == null) continue;
     for (const [excelK, qty] of normMap) {
+      if (!packagingMatchesSkuToExcel(skuName, excelK)) continue;
       const exMl = parseSizeToMl(excelK);
       if (exMl == null || exMl !== tryMl) continue;
       if (!sharedCoreBrand(skuTry, excelK)) continue;
-      return qty;
+      return Math.round(qty);
     }
   }
 
