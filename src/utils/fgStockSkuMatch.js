@@ -39,6 +39,28 @@ export function extractSizeToken(normalized) {
   return m ? `${m[1]}${m[2]}` : null;
 }
 
+/** Millilitres for one volume in a normalized label (1L ↔ 1000ML, 0.5L ↔ 500ML). */
+export function parseSizeToMl(normalized) {
+  const m = String(normalized || "").match(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return null;
+  const u = String(m[2]).toUpperCase();
+  if (u === "L") return Math.round(n * 1000);
+  return Math.round(n);
+}
+
+/** True when both sides carry a volume and those volumes differ (after canonical ml). */
+function sizesRejectPair(skuNorm, excelNorm) {
+  const sm = parseSizeToMl(skuNorm);
+  const em = parseSizeToMl(excelNorm);
+  if (sm != null && em != null) return sm !== em;
+  const st = extractSizeToken(skuNorm);
+  const et = extractSizeToken(excelNorm);
+  if (st && et && (sm == null || em == null) && st !== et) return true;
+  return false;
+}
+
 function tokens(s) {
   return normalizeForStockMatch(s)
     .split(" ")
@@ -151,9 +173,8 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
   let bestQty = null;
   let bestSc = -1;
   for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    const sizeTry = extractSizeToken(skuTry);
     for (const [excelK, qty] of normMap) {
-      if (!linesMatchForSku(skuTry, sizeTry, excelK)) continue;
+      if (!linesMatchForSku(skuTry, excelK)) continue;
       const sc = tokenOverlapScore(skuTry, excelK);
       if (sc > bestSc) {
         bestSc = sc;
