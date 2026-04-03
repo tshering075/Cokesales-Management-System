@@ -19,7 +19,12 @@ export function normalizeForStockMatch(s) {
   return x.trim();
 }
 
-/** e.g. "500ML", "1.25L" — used to avoid matching 300ml SKU to 500ml stock lines */
+/** Stable key: same logical product text in the FG table sums here (all batches with same description). */
+export function stockMatchFingerprint(s) {
+  return normalizeForStockMatch(s).replace(/\s+/g, "");
+}
+
+/** e.g. "500ML", "1.25L" — avoid matching 300ml SKU to 500ml stock */
 export function extractSizeToken(normalized) {
   const n = String(normalized || "");
   const m = n.match(/\b(\d+(?:\.\d+)?)(ML|L)\b/);
@@ -44,7 +49,7 @@ export function tokenOverlapScore(skuNorm, excelNorm) {
 }
 
 /**
- * Sum quantity per normalized description (multiple batches / rows with same text → one bucket).
+ * Sum quantity per normalized description (same description string → one bucket; matches FG table grouping).
  */
 export function aggregateQuantitiesByNormalizedDescription(rows) {
   const map = new Map();
@@ -64,6 +69,27 @@ export function aggregateQuantitiesByNormalizedDescription(rows) {
   return map;
 }
 
+/**
+ * Same totals as summing the admin FG table: all rows whose description normalizes the same way share one bucket.
+ */
+export function aggregateQuantitiesByFingerprint(rows) {
+  const map = new Map();
+  for (const r of rows) {
+    const desc = r?.description;
+    if (desc == null || String(desc).trim() === "") continue;
+    const fp = stockMatchFingerprint(desc);
+    if (!fp) continue;
+    const raw = r.quantity;
+    const q =
+      typeof raw === "number" && Number.isFinite(raw)
+        ? raw
+        : parseFloat(String(raw).replace(/,/g, "").trim());
+    if (!Number.isFinite(q) || q < 0) continue;
+    map.set(fp, (map.get(fp) || 0) + q);
+  }
+  return map;
+}
+
 function linesMatchForSku(skuNorm, skuSize, excelK) {
   if (skuNorm === excelK) return true;
   const exSize = extractSizeToken(excelK);
@@ -77,23 +103,47 @@ function linesMatchForSku(skuNorm, skuSize, excelK) {
   return false;
 }
 
-/**
- * Sum opening qty from every Excel aggregate key that matches this calculator SKU
- * (same product, different batch rows collapse into one key; variant spellings may be multiple keys).
- */
-export function sumOpeningQtyForSku(skuName, aggregateMap) {
-  if (!skuName || !aggregateMap || aggregateMap.size === 0) return null;
-  const skuN = normalizeForStockMatch(skuName);
-  const skuSize = extractSizeToken(skuN);
+/** Fingerprints to try for file lookup (CAN lines in calculator often omit "CAN" on the Excel side). */
+function skuFingerprintsForFileLookup(skuName) {
+  const n = normalizeForStockMatch(skuName);
+  const out = [];
+  const push = (s) => {
+    const fp = stockMatchFingerprint(s);
+    if (fp && !out.includes(fp)) out.push(fp);
+  };
+  push(n);
+  const stripped = n.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
+  if (stripped && stripped !== n) push(stripped);
+  return out;
+}
 
-  let sum = 0;
-  let matched = false;
-  for (const [excelK, qty] of aggregateMap) {
-    if (!linesMatchForSku(skuN, skuSize, excelK)) continue;
-    sum += qty;
-    matched = true;
+/**
+ * Opening cases for one calculator SKU: exact fingerprint match to aggregated file rows first (aligned with admin totals),
+ * else a single best fuzzy bucket (no summing multiple buckets — avoids double-count).
+ */
+export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
+  if (!skuName || !fpMap || !normMap) return null;
+  for (const fp of skuFingerprintsForFileLookup(skuName)) {
+    if (fpMap.has(fp)) return fpMap.get(fp);
   }
-  return matched ? sum : null;
+
+  const skuN = normalizeForStockMatch(skuName);
+  const skuNFuzzy = skuN.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
+  const skuSize = extractSizeToken(skuN);
+  let bestQty = null;
+  let bestSc = -1;
+  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
+    const sizeTry = extractSizeToken(skuTry);
+    for (const [excelK, qty] of normMap) {
+      if (!linesMatchForSku(skuTry, sizeTry, excelK)) continue;
+      const sc = tokenOverlapScore(skuTry, excelK);
+      if (sc > bestSc) {
+        bestSc = sc;
+        bestQty = qty;
+      }
+    }
+  }
+  return bestSc >= 2 && bestQty != null ? bestQty : null;
 }
 
 /**
@@ -102,11 +152,12 @@ export function sumOpeningQtyForSku(skuName, aggregateMap) {
  * @returns {Record<string, number>}
  */
 export function buildFgStockMapForSkus(skuNames, rows) {
-  const agg = aggregateQuantitiesByNormalizedDescription(rows);
+  const fpMap = aggregateQuantitiesByFingerprint(rows);
+  const normMap = aggregateQuantitiesByNormalizedDescription(rows);
   const out = {};
   const names = Array.isArray(skuNames) ? skuNames : [];
   for (const name of names) {
-    const q = sumOpeningQtyForSku(name, agg);
+    const q = resolveOpeningQtyForSku(name, fpMap, normMap);
     if (q != null && Number.isFinite(q)) out[name] = Math.round(q);
   }
   return out;

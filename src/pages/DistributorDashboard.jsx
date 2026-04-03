@@ -587,11 +587,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     });
     const out = {};
     for (const name of names) {
-      const b = Number(base[name]) || 0;
+      const bRaw = base[name];
       const r = Number(reserved[name]) || 0;
+      if (bRaw == null && r === 0) continue;
+      const b = Number(bRaw) || 0;
       out[name] = Math.max(0, Math.round(b - r));
     }
-    return out;
+    return Object.keys(out).length ? out : undefined;
   }, [fgOpeningStockRecord, productRates, orders, getOrderStatus, getOrderKey, editingOrder]);
 
   const refreshDistributorOrders = useCallback(async () => {
