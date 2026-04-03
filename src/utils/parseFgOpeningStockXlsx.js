@@ -13,10 +13,18 @@ function headerKey(cell) {
   if (!h) return null;
   if (h === "description" || h === "desc" || h.includes("description")) return "description";
   if (h.includes("mfg") && h.includes("date")) return "mfgDate";
-  if (h === "mfg date" || h === "manufacturing date") return "mfgDate";
+  if (h === "mfg date" || h === "manufacturing date" || h === "manuf date" || h === "prod date") return "mfgDate";
   if (h.includes("batch")) return "batchNo";
-  if (h === "quantity" || h === "qty" || h === "qty.") return "quantity";
-  if (h.includes("expiry") || h.includes("exp date") || h === "exp") return "expiry";
+  if (h === "quantity" || h === "qty" || h === "qnty" || h === "qnt" || h.endsWith(" qty") || h.startsWith("qty"))
+    return "quantity";
+  if (
+    h.includes("expiry") ||
+    h.includes("exp date") ||
+    h.includes("expire") ||
+    h.includes("expiration") ||
+    (h.includes("exp") && h.includes("date"))
+  )
+    return "expiry";
   return null;
 }
 
@@ -55,7 +63,7 @@ export function parseFgOpeningStockWorkbookArrayBuffer(buffer) {
   let headerRowIndex = -1;
   const colMap = {};
 
-  const maxScan = Math.min(matrix.length, 40);
+  const maxScan = Math.min(matrix.length, 80);
   for (let r = 0; r < maxScan; r++) {
     const row = matrix[r];
     if (!Array.isArray(row)) continue;
@@ -78,11 +86,24 @@ export function parseFgOpeningStockWorkbookArrayBuffer(buffer) {
     return { rows: [], errors };
   }
 
-  const need = ["description", "mfgDate", "batchNo", "quantity", "expiry"];
-  const missing = need.filter((k) => colMap[k] === undefined);
-  if (missing.length) {
-    errors.push(`Missing column(s): ${missing.join(", ")}. Required: Description, MFG Date, Batch No., Quantity, Expiry.`);
+  const required = ["description", "quantity"];
+  const missingRequired = required.filter((k) => colMap[k] === undefined);
+  if (missingRequired.length) {
+    errors.push(
+      `Missing required column(s): ${missingRequired.join(", ")}. Need a row with headers for Description and Quantity (plus optional MFG Date, Batch, Expiry).`
+    );
     return { rows: [], errors };
+  }
+
+  const optionalKeys = ["mfgDate", "batchNo", "expiry"];
+  const missingOptional = optionalKeys.filter((k) => colMap[k] === undefined);
+  missingOptional.forEach((k) => {
+    colMap[k] = null;
+  });
+  if (missingOptional.length) {
+    errors.push(
+      `Optional column(s) not found (${missingOptional.join(", ")}). MFG Date, Batch, and/or Expiry will be blank where missing.`
+    );
   }
 
   const rows = [];
@@ -110,12 +131,13 @@ export function parseFgOpeningStockWorkbookArrayBuffer(buffer) {
       return String(v).trim();
     };
 
+    const col = (idx) => (idx == null ? "" : row[idx]);
     rows.push({
       description: String(desc).trim(),
-      mfgDate: formatCell(row[colMap.mfgDate]),
-      batchNo: String(row[colMap.batchNo] ?? "").trim(),
+      mfgDate: colMap.mfgDate == null ? "" : formatCell(col(colMap.mfgDate)),
+      batchNo: colMap.batchNo == null ? "" : String(col(colMap.batchNo) ?? "").trim(),
       quantity: Math.round(qtyNum),
-      expiry: formatCell(row[colMap.expiry]),
+      expiry: colMap.expiry == null ? "" : formatCell(col(colMap.expiry)),
     });
   }
 

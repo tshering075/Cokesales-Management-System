@@ -166,10 +166,20 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
       <Table
         stickyHeader
         size={isMobile ? "small" : "medium"}
-        sx={{ minWidth: { xs: 650, sm: 900, md: 1000 } }}
+        sx={{
+          minWidth: { xs: 650, sm: 900, md: 1000 },
+          borderCollapse: "collapse",
+          "& .MuiTableCell-root": {
+            border: "1px solid",
+            borderColor: "divider",
+          },
+          "& .MuiTableHead tr:nth-of-type(1) .MuiTableCell-root": {
+            borderColor: alpha(theme.palette.primary.contrastText, 0.45),
+          },
+        }}
       >
         <TableHead sx={{ position: "sticky", top: 0, zIndex: 10, bgcolor: "background.paper" }}>
-          <TableRow sx={{ "& .MuiTableCell-root": { borderBottom: "none" } }}>
+          <TableRow>
             <TableCell
               sx={{
                 fontWeight: "bold",
@@ -240,7 +250,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               Balance
             </TableCell>
           </TableRow>
-          <TableRow sx={{ "& .MuiTableCell-root": { borderBottom: "none", borderTop: "none" } }}>
+          <TableRow>
             <TableCell
               sx={subBand({
                 position: "sticky",
@@ -348,7 +358,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               Water
             </TableCell>
           </TableRow>
-          <TableRow sx={{ "& .MuiTableCell-root": { borderTop: "none" } }}>
+          <TableRow>
             <TableCell
               sx={subBand({
                 position: "sticky",

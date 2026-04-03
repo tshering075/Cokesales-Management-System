@@ -40,6 +40,10 @@ function formatWhen(iso) {
 export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
   const theme = useTheme();
   const fileRef = useRef(null);
+  /** Parent passes inline `onNotify` → must not put it in useCallback/deps or every toast re-renders re-fetch and wipe uploaded rows. */
+  const onNotifyRef = useRef(onNotify);
+  onNotifyRef.current = onNotify;
+
   const [rows, setRows] = useState([]);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [updatedBy, setUpdatedBy] = useState("");
@@ -61,7 +65,7 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
         setUpdatedBy("");
       }
     } catch (e) {
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "error",
         title: "Could not load FG stock",
         message: e?.message || "Check your connection and Supabase settings.",
@@ -69,11 +73,12 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
     } finally {
       setLoading(false);
     }
-  }, [onNotify]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     loadCloud();
+    // Only when dialog opens — loadCloud is stable (empty deps)
   }, [open, loadCloud]);
 
   const handleFile = async (e) => {
@@ -84,7 +89,7 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
       const buf = await f.arrayBuffer();
       const { rows: parsed, errors } = parseFgOpeningStockWorkbookArrayBuffer(buf);
       if (errors.length && !parsed.length) {
-        onNotify?.({
+        onNotifyRef.current?.({
           severity: "error",
           title: "Import failed",
           message: errors.join(" "),
@@ -92,20 +97,20 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
         return;
       }
       if (errors.length) {
-        onNotify?.({
+        onNotifyRef.current?.({
           severity: "warning",
           title: "Imported with warnings",
           message: errors.join(" "),
         });
       }
       setRows(parsed);
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "success",
         title: "File loaded",
         message: `${parsed.length} row(s) ready. Save to publish to distributors.`,
       });
     } catch (err) {
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "error",
         title: "Could not read file",
         message: err?.message || "Try a valid .xlsx file.",
@@ -115,7 +120,7 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
 
   const handleSave = async () => {
     if (!supabase) {
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "error",
         title: "Not connected",
         message: "Supabase is not configured; opening stock cannot be saved.",
@@ -123,7 +128,7 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
       return;
     }
     if (!rows.length) {
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "warning",
         title: "Nothing to save",
         message: "Upload an Excel file first.",
@@ -143,13 +148,13 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
       setUpdatedAt(saved.updatedAt);
       setUpdatedBy(saved.updatedBy || email);
       onSaved?.(saved);
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "success",
         title: "Opening stock updated",
         message: `Saved ${saved.rows.length} row(s). Distributors will see new availability beside SKUs.`,
       });
     } catch (err) {
-      onNotify?.({
+      onNotifyRef.current?.({
         severity: "error",
         title: "Save failed",
         message: err?.message || "Could not save to the database.",
@@ -249,17 +254,30 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
           alignItems: "center",
         }}
       >
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden onChange={handleFile} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          style={{ display: "none" }}
+          tabIndex={-1}
+          aria-hidden
+          onChange={handleFile}
+        />
         <Button
+          type="button"
           variant="contained"
           color="primary"
           startIcon={<CloudUploadIcon />}
-          onClick={() => fileRef.current?.click()}
-          disabled={loading || saving}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileRef.current?.click();
+          }}
+          disabled={saving}
         >
           Upload Excel
         </Button>
-        <Button variant="contained" color="error" onClick={handleSave} disabled={loading || saving || !rows.length}>
+        <Button type="button" variant="contained" color="error" onClick={handleSave} disabled={loading || saving || !rows.length}>
           Save & publish
         </Button>
         <Typography variant="caption" color="text.secondary" sx={{ flex: "1 1 200px", minWidth: 0 }}>
@@ -280,7 +298,20 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
             maxHeight: { xs: "calc(100vh - 220px)", sm: "calc(100vh - 200px)" },
           }}
         >
-          <Table size="small" stickyHeader>
+          <Table
+            size="small"
+            stickyHeader
+            sx={{
+              borderCollapse: "collapse",
+              "& .MuiTableCell-root": {
+                border: "1px solid",
+                borderColor: "divider",
+              },
+              "& .MuiTableHead .MuiTableCell-root": {
+                borderColor: alpha(theme.palette.primary.contrastText, 0.4),
+              },
+            }}
+          >
             <TableHead>
               <TableRow>
                 {headCell("Description")}
