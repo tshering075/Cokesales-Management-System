@@ -108,11 +108,46 @@ export function excelNormIndicatesCanPackaging(excelNorm) {
   return false;
 }
 
-/** PET SKUs ignore can-only FG rows; CAN SKUs only use can-marked FG rows. */
+/** True when CAN/TIN/SLEEK clearly refers to the product pack (not "CAN plant", "Mexican", etc.). */
+function excelExplicitCanProductPack(excelNorm) {
+  if (!excelNorm) return false;
+  if (/\bSLEEK\b|\bTIN\b/i.test(excelNorm)) return true;
+  if (/\bALU(MINIUM)?\s+CAN\b/i.test(excelNorm)) return true;
+  if (/\b\d+(?:\.\d+)?\s*(?:ML|L)\b.*\bCAN\b|\bCAN\b.*\b\d+(?:\.\d+)?\s*(?:ML|L)\b/i.test(excelNorm)) return true;
+  return false;
+}
+
+/** Minimal Charge / Thums signal for packaging (see excelHintsCharge). */
+function excelHintsChargeLoose(excelNorm) {
+  if (!excelNorm) return false;
+  if (/DISCHARGE|SUPERCHARGE|RECHARGE/i.test(excelNorm)) return false;
+  return /\bCHARGE\b|\bCHRG\b/i.test(excelNorm) || /THUMS|THUMSUP|TU\b/i.test(excelNorm);
+}
+
+/**
+ * PET SKUs ignore can-only FG rows; CAN SKUs only use can-marked FG rows.
+ * Kinley / Charge PET lines often include the letters "CAN" in plant or location text — do not treat that as a tin pack.
+ */
 export function packagingMatchesSkuToExcel(skuName, excelNorm) {
   const skuCan = calculatorSkuIsCanFormat(skuName);
   const exCan = excelNormIndicatesCanPackaging(excelNorm);
+  const skuStr = String(skuName || "");
+  const exStr = String(excelNorm || "");
+
   if (skuCan) return exCan;
+
+  if (/KINLEY/i.test(skuStr) && /\bKINLEY\b/i.test(exStr)) {
+    if (!exCan) return true;
+    if (!excelExplicitCanProductPack(exStr)) return true;
+    return false;
+  }
+
+  if (/\bCHARGE\b|\bCHRG\b/i.test(normalizeForStockMatch(skuStr)) && excelHintsChargeLoose(exStr)) {
+    if (!exCan) return true;
+    if (!excelExplicitCanProductPack(exStr)) return true;
+    return false;
+  }
+
   return !exCan;
 }
 
