@@ -99,6 +99,7 @@ import {
   getSalesPerformanceLastUpdated,
   saveSalesPerformanceLastUpdated,
   getFgOpeningStock,
+  subscribeFgOpeningStock,
 } from "../services/supabaseService";
 import { 
   sendOrderEmail, 
@@ -257,6 +258,9 @@ function AdminDashboard({ onLogout }) {
 
   // Check if Supabase is configured
   const isSupabaseConfigured = supabase !== null;
+
+  const productRatesRef = useRef(productRates);
+  productRatesRef.current = productRates;
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -939,30 +943,43 @@ function AdminDashboard({ onLogout }) {
     loadRates();
   }, [isSupabaseConfigured]);
 
+  // Opening stock in admin calculator = same FG rows as FG Stocks dialog (Supabase). Show zeros immediately, then hydrate.
   useEffect(() => {
-    if (!showCalculator || !supabase || !productRates) {
+    if (!showCalculator || !productRates) {
       setAdminFgStockBySku(undefined);
       return;
     }
+    const names = getAllCalculatorSkuNames(productRates);
+    setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, []));
+
+    if (!isSupabaseConfigured) return;
+
     let cancelled = false;
+    const applyFgRows = (data) => {
+      if (cancelled) return;
+      const n = getAllCalculatorSkuNames(productRatesRef.current);
+      const rows = Array.isArray(data?.rows) ? data.rows : [];
+      setAdminFgStockBySku(buildFgStockOpeningAllSkus(n, rows));
+    };
+
     (async () => {
       try {
         const data = await getFgOpeningStock();
-        if (cancelled) return;
-        const names = getAllCalculatorSkuNames(productRates);
-        const rows = Array.isArray(data?.rows) ? data.rows : [];
-        setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, rows));
+        applyFgRows(data);
       } catch {
-        if (!cancelled) {
-          const names = getAllCalculatorSkuNames(productRates);
-          setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, []));
-        }
+        applyFgRows(null);
       }
     })();
+
+    const unsub = subscribeFgOpeningStock((payload) => {
+      applyFgRows(payload);
+    });
+
     return () => {
       cancelled = true;
+      unsub();
     };
-  }, [showCalculator, productRates, fgStockDataVersion]);
+  }, [showCalculator, productRates, fgStockDataVersion, isSupabaseConfigured]);
 
   // Load orders from Supabase or localStorage
   useEffect(() => {

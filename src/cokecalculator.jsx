@@ -450,8 +450,9 @@ function CokeCalculator({
 
   const fgStockLineForSku = (skuName) => {
     if (fgStockBySku == null || typeof fgStockBySku !== "object") return null;
-    if (!Object.prototype.hasOwnProperty.call(fgStockBySku, skuName)) return null;
-    const v = Math.max(0, Math.round(Number(fgStockBySku[skuName])));
+    const raw = fgStockBySku[skuName];
+    const num = Number(raw);
+    const v = Math.max(0, Math.round(Number.isFinite(num) ? num : 0));
     return `${fgStockCaptionPrefix}: ${v.toLocaleString()} cs`;
   };
 
