@@ -9,30 +9,21 @@ import {
   TableRow,
   TableCell,
   Chip,
+  Paper,
   useTheme,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import PeopleIcon from "@mui/icons-material/People";
 
-/**
- * PerformanceTable Component
- * Displays the distributor performance table with targets, achieved, and balance
- */
-function usePerformanceTableColors() {
-  const theme = useTheme();
-  return useMemo(() => {
-    const isDark = theme.palette.mode === "dark";
-    return {
-      header: theme.palette.primary.main,
-      headerContrast: theme.palette.primary.contrastText,
-      headerDivider: alpha(theme.palette.primary.contrastText, 0.35),
-      subPink: isDark ? alpha(theme.palette.primary.main, 0.38) : "#ffcdd2",
-      subCsd: isDark ? alpha(theme.palette.warning.main, 0.24) : "#fff3e0",
-      subWater: isDark ? alpha(theme.palette.info.main, 0.3) : "#e3f2fd",
-      bodySticky: theme.palette.background.paper,
-      totalRow: isDark ? alpha(theme.palette.common.white, 0.08) : "#f5f5f5",
-    };
-  }, [theme]);
+function bodyStripeBg(theme, rowIdx) {
+  const isDark = theme.palette.mode === "dark";
+  return rowIdx % 2 === 0
+    ? alpha(theme.palette.primary.main, isDark ? 0.14 : 0.05)
+    : alpha(theme.palette.secondary.main, isDark ? 0.12 : 0.07);
+}
+
+function hoverRowBg(theme) {
+  return alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.1);
 }
 
 /** Bold numerals for target / achieved / balance columns */
@@ -44,7 +35,32 @@ const figureSx = {
 };
 
 function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) {
-  const PT = usePerformanceTableColors();
+  const theme = useTheme();
+
+  const headerPrimary = useMemo(
+    () => ({
+      bg: theme.palette.primary.main,
+      fg: theme.palette.primary.contrastText,
+      divider: alpha(theme.palette.primary.contrastText, 0.35),
+    }),
+    [theme]
+  );
+
+  const headerSecondary = useMemo(
+    () => ({
+      bg: "secondary.main",
+      fg: theme.palette.getContrastText(theme.palette.secondary.main),
+      borderTop: 1,
+      borderColor: alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.08),
+    }),
+    [theme]
+  );
+
+  const totalRowBg = useMemo(
+    () =>
+      alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.2 : 0.08),
+    [theme]
+  );
 
   const normalizeRegionKey = (region) => {
     const map = { South: "Southern", West: "Western", East: "Eastern" };
@@ -53,13 +69,11 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
 
   const toNumber = (value) => Number(value || 0);
 
-  // Filter distributors by region
   const resolvedRegion = normalizeRegionKey(selectedRegion);
   const filteredDistributors = distributors.filter(
     (d) => selectedRegion === "All" || d.region === resolvedRegion
   );
 
-  // Calculate totals
   const totals = filteredDistributors.reduce(
     (acc, d) => ({
       targetCSD_PC: acc.targetCSD_PC + toNumber(d.target?.CSD_PC),
@@ -114,18 +128,31 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
     );
   }
 
+  const row1Top = { xs: 28, sm: 36 };
+  const row2Top = { xs: 56, sm: 72 };
+
+  const subBand = (extra = {}) => ({
+    fontWeight: "bold",
+    bgcolor: headerSecondary.bg,
+    color: headerSecondary.fg,
+    ...extra,
+  });
+
   return (
     <TableContainer
       ref={tableRef}
+      component={Paper}
+      elevation={theme.palette.mode === "dark" ? 4 : 2}
       sx={{
         width: "100%",
         maxHeight: { xs: "calc(100vh - 350px)", sm: "70vh" },
-        border: "1px solid",
+        border: 1,
         borderColor: "divider",
-        borderRadius: 1,
+        borderRadius: 2,
         overflow: "auto",
         minHeight: { xs: "300px", sm: "400px" },
         position: "relative",
+        WebkitOverflowScrolling: "touch",
         "&::-webkit-scrollbar": {
           height: "8px",
           width: "8px",
@@ -141,13 +168,13 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
         size={isMobile ? "small" : "medium"}
         sx={{ minWidth: { xs: 650, sm: 900, md: 1000 } }}
       >
-        <TableHead sx={{ position: "sticky", top: 0, zIndex: 10, bgcolor: PT.bodySticky }}>
+        <TableHead sx={{ position: "sticky", top: 0, zIndex: 10, bgcolor: "background.paper" }}>
           <TableRow sx={{ "& .MuiTableCell-root": { borderBottom: "none" } }}>
             <TableCell
               sx={{
                 fontWeight: "bold",
-                bgcolor: PT.header,
-                color: PT.headerContrast,
+                bgcolor: headerPrimary.bg,
+                color: headerPrimary.fg,
                 position: "sticky",
                 top: 0,
                 left: 0,
@@ -164,8 +191,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               colSpan={4}
               sx={{
                 fontWeight: "bold",
-                bgcolor: PT.header,
-                color: PT.headerContrast,
+                bgcolor: headerPrimary.bg,
+                color: headerPrimary.fg,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
@@ -180,8 +207,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               colSpan={4}
               sx={{
                 fontWeight: "bold",
-                bgcolor: PT.header,
-                color: PT.headerContrast,
+                bgcolor: headerPrimary.bg,
+                color: headerPrimary.fg,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
@@ -189,7 +216,7 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
                 top: 0,
                 zIndex: 15,
                 borderLeft: "2px solid",
-                borderLeftColor: PT.headerDivider,
+                borderLeftColor: headerPrimary.divider,
               }}
             >
               Achieved
@@ -198,8 +225,8 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               colSpan={4}
               sx={{
                 fontWeight: "bold",
-                bgcolor: PT.header,
-                color: PT.headerContrast,
+                bgcolor: headerPrimary.bg,
+                color: headerPrimary.fg,
                 textAlign: "center",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 0.5, sm: 0.75 },
@@ -207,460 +234,361 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
                 top: 0,
                 zIndex: 15,
                 borderLeft: "2px solid",
-                borderLeftColor: PT.headerDivider,
+                borderLeftColor: headerPrimary.divider,
               }}
             >
               Balance
             </TableCell>
           </TableRow>
-          <TableRow
-            sx={{
-              "& .MuiTableCell-root": { borderBottom: "none", borderTop: "none" },
-            }}
-          >
+          <TableRow sx={{ "& .MuiTableCell-root": { borderBottom: "none", borderTop: "none" } }}>
             <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
+              sx={subBand({
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 left: 0,
                 zIndex: 20,
                 minWidth: { xs: 100, sm: 150 },
                 py: { xs: 0.5, sm: 0.75 },
-              }}
-            ></TableCell>
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
+            />
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subCsd,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-              }}
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               CSD
             </TableCell>
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subWater,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-              }}
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               Water
             </TableCell>
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subCsd,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-                borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
-              }}
+                borderLeft: "2px solid",
+                borderLeftColor: "divider",
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               CSD
             </TableCell>
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subWater,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-                borderRight: "2px solid rgba(0, 0, 0, 0.2)",
-              }}
+                borderRight: "2px solid",
+                borderRightColor: "divider",
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               Water
             </TableCell>
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subCsd,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-              }}
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               CSD
             </TableCell>
             <TableCell
               colSpan={2}
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subWater,
+              sx={subBand({
                 textAlign: "center",
                 fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 py: { xs: 0.5, sm: 0.75 },
                 position: "sticky",
-                top: { xs: 28, sm: 36 },
+                top: row1Top,
                 zIndex: 15,
-              }}
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
             >
               Water
             </TableCell>
           </TableRow>
           <TableRow sx={{ "& .MuiTableCell-root": { borderTop: "none" } }}>
             <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
+              sx={subBand({
                 position: "sticky",
-                top: { xs: 56, sm: 72 },
+                top: row2Top,
                 left: 0,
                 zIndex: 20,
                 minWidth: { xs: 100, sm: 150 },
                 py: { xs: 0.5, sm: 0.75 },
-              }}
-            ></TableCell>
-            {/* Target Headers */}
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              UC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              UC
-            </TableCell>
-            {/* Achieved Headers */}
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-                borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              UC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-                borderRight: "none",
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-                borderLeft: "none",
-                borderRight: "2px solid rgba(0, 0, 0, 0.2)",
-              }}
-            >
-              UC
-            </TableCell>
-            {/* Balance Headers */}
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              UC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              PC
-            </TableCell>
-            <TableCell
-              sx={{
-                fontWeight: "bold",
-                bgcolor: PT.subPink,
-                textAlign: "center",
-                fontSize: { xs: "0.6rem", sm: "0.75rem" },
-                py: { xs: 0.5, sm: 0.75 },
-                position: "sticky",
-                top: { xs: 56, sm: 72 },
-                zIndex: 15,
-              }}
-            >
-              UC
-            </TableCell>
+                borderTop: headerSecondary.borderTop,
+                borderColor: headerSecondary.borderColor,
+              })}
+            />
+            {[
+              "PC",
+              "UC",
+              "PC",
+              "UC",
+              "PC",
+              "UC",
+              "PC",
+              "UC",
+              "PC",
+              "UC",
+              "PC",
+              "UC",
+            ].map((label, i) => (
+              <TableCell
+                key={`h-${i}`}
+                sx={subBand({
+                  textAlign: "center",
+                  fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                  py: { xs: 0.5, sm: 0.75 },
+                  position: "sticky",
+                  top: row2Top,
+                  zIndex: 15,
+                  borderLeft: i === 4 ? "2px solid" : undefined,
+                  borderLeftColor: i === 4 ? "divider" : undefined,
+                  borderRight: i === 7 ? "2px solid" : undefined,
+                  borderRightColor: i === 7 ? "divider" : undefined,
+                  borderTop: headerSecondary.borderTop,
+                  borderColor: headerSecondary.borderColor,
+                })}
+              >
+                {label}
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
-          {filteredDistributors.map((distributor) => (
-            <TableRow key={distributor.code || distributor.name} hover>
-              <TableCell
+          {filteredDistributors.map((distributor, rowIdx) => {
+            const stripe = bodyStripeBg(theme, rowIdx);
+            return (
+              <TableRow
+                key={distributor.code || distributor.name}
+                hover
                 sx={{
-                  fontWeight: 600,
-                  position: "sticky",
-                  left: 0,
-                  bgcolor: PT.bodySticky,
-                  zIndex: 9,
-                minWidth: { xs: 90, sm: 140 },
-                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                  py: { xs: 1, sm: 1.5 },
+                  transition: "background-color 0.15s ease",
+                  bgcolor: stripe,
+                  "&:hover": { bgcolor: hoverRowBg(theme) },
                 }}
               >
-                {distributor.name}
-                {distributor.region && (
-                  <Chip
-                    label={distributor.region}
-                    size="small"
-                    sx={{
-                      ml: { xs: 0.5, sm: 1 },
-                      height: { xs: 18, sm: 20 },
-                      fontSize: { xs: "0.6rem", sm: "0.7rem" },
-                    }}
-                    color="default"
-                  />
-                )}
-              </TableCell>
-              {/* Target - CSD */}
-              <TableCell sx={figureSx}>{Math.round(distributor.target?.CSD_PC || 0)}</TableCell>
-              <TableCell sx={figureSx}>{Math.round(distributor.target?.CSD_UC || 0)}</TableCell>
-              {/* Target - Water */}
-              <TableCell sx={figureSx}>{Math.round(distributor.target?.Water_PC || 0)}</TableCell>
-              <TableCell sx={figureSx}>{Math.round(distributor.target?.Water_UC || 0)}</TableCell>
-              {/* Achieved - CSD */}
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.achieved?.CSD_PC || 0) > 0 ? "#2e7d32" : "text.primary",
-                  borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
-                }}
-              >
-                {Math.round(distributor.achieved?.CSD_PC || 0)}
-              </TableCell>
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.achieved?.CSD_UC || 0) > 0 ? "#2e7d32" : "text.primary",
-                }}
-              >
-                {Math.round(distributor.achieved?.CSD_UC || 0)}
-              </TableCell>
-              {/* Achieved - Water */}
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.achieved?.Water_PC || 0) > 0 ? "#2e7d32" : "text.primary",
-                  borderRight: "none",
-                }}
-              >
-                {Math.round(distributor.achieved?.Water_PC || 0)}
-              </TableCell>
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.achieved?.Water_UC || 0) > 0 ? "#2e7d32" : "text.primary",
-                  borderLeft: "none",
-                  borderRight: "2px solid rgba(0, 0, 0, 0.2)",
-                }}
-              >
-                {Math.round(distributor.achieved?.Water_UC || 0)}
-              </TableCell>
-              {/* Balance - CSD */}
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.balance?.CSD_PC || 0) >= 0 ? "text.primary" : "#d32f2f",
-                }}
-              >
-                {Math.round(distributor.balance?.CSD_PC || 0)}
-              </TableCell>
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.balance?.CSD_UC || 0) >= 0 ? "text.primary" : "#d32f2f",
-                }}
-              >
-                {Math.round(distributor.balance?.CSD_UC || 0)}
-              </TableCell>
-              {/* Balance - Water */}
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.balance?.Water_PC || 0) >= 0 ? "text.primary" : "#d32f2f",
-                }}
-              >
-                {Math.round(distributor.balance?.Water_PC || 0)}
-              </TableCell>
-              <TableCell
-                sx={{
-                  ...figureSx,
-                  color: (distributor.balance?.Water_UC || 0) >= 0 ? "text.primary" : "#d32f2f",
-                }}
-              >
-                {Math.round(distributor.balance?.Water_UC || 0)}
-              </TableCell>
-            </TableRow>
-          ))}
-          {/* Total Row */}
-          <TableRow sx={{ bgcolor: PT.totalRow, "& td": { fontWeight: 700, borderTop: "2px solid", borderColor: "divider" } }}>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    position: "sticky",
+                    left: 0,
+                    bgcolor: stripe,
+                    zIndex: 9,
+                    minWidth: { xs: 90, sm: 140 },
+                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    py: { xs: 1, sm: 1.5 },
+                    color: "text.primary",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {distributor.name}
+                  {distributor.region && (
+                    <Chip
+                      label={distributor.region}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        ml: { xs: 0.5, sm: 1 },
+                        height: { xs: 18, sm: 20 },
+                        fontSize: { xs: "0.6rem", sm: "0.7rem" },
+                        borderColor: "divider",
+                      }}
+                    />
+                  )}
+                </TableCell>
+                <TableCell sx={{ ...figureSx, bgcolor: stripe, color: "text.primary", borderTop: 1, borderColor: "divider" }}>
+                  {Math.round(distributor.target?.CSD_PC || 0)}
+                </TableCell>
+                <TableCell sx={{ ...figureSx, bgcolor: stripe, color: "text.primary", borderTop: 1, borderColor: "divider" }}>
+                  {Math.round(distributor.target?.CSD_UC || 0)}
+                </TableCell>
+                <TableCell sx={{ ...figureSx, bgcolor: stripe, color: "text.primary", borderTop: 1, borderColor: "divider" }}>
+                  {Math.round(distributor.target?.Water_PC || 0)}
+                </TableCell>
+                <TableCell sx={{ ...figureSx, bgcolor: stripe, color: "text.primary", borderTop: 1, borderColor: "divider" }}>
+                  {Math.round(distributor.target?.Water_UC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.achieved?.CSD_PC || 0) > 0 ? "success.main" : "text.primary",
+                    borderLeft: "2px solid",
+                    borderColor: "divider",
+                    borderTop: 1,
+                  }}
+                >
+                  {Math.round(distributor.achieved?.CSD_PC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.achieved?.CSD_UC || 0) > 0 ? "success.main" : "text.primary",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.achieved?.CSD_UC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.achieved?.Water_PC || 0) > 0 ? "success.main" : "text.primary",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.achieved?.Water_PC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.achieved?.Water_UC || 0) > 0 ? "success.main" : "text.primary",
+                    borderLeft: "none",
+                    borderRight: "2px solid",
+                    borderColor: "divider",
+                    borderTop: 1,
+                  }}
+                >
+                  {Math.round(distributor.achieved?.Water_UC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.balance?.CSD_PC || 0) >= 0 ? "text.primary" : "error.main",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.balance?.CSD_PC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.balance?.CSD_UC || 0) >= 0 ? "text.primary" : "error.main",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.balance?.CSD_UC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.balance?.Water_PC || 0) >= 0 ? "text.primary" : "error.main",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.balance?.Water_PC || 0)}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    ...figureSx,
+                    bgcolor: stripe,
+                    color: (distributor.balance?.Water_UC || 0) >= 0 ? "text.primary" : "error.main",
+                    borderTop: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {Math.round(distributor.balance?.Water_UC || 0)}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          <TableRow
+            sx={{
+              bgcolor: totalRowBg,
+              "& td": { fontWeight: 700, borderTop: "2px solid", borderColor: "divider" },
+            }}
+          >
             <TableCell
               sx={{
                 fontWeight: 700,
                 position: "sticky",
                 left: 0,
-                bgcolor: PT.totalRow,
+                bgcolor: totalRowBg,
                 zIndex: 9,
                 minWidth: { xs: 110, sm: 180 },
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                color: "text.primary",
               }}
             >
               TOTAL
             </TableCell>
-            {/* Target - CSD */}
-            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
+            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 }, bgcolor: totalRowBg, color: "text.primary" }}>
               {Math.round(totals.targetCSD_PC)}
             </TableCell>
-            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
+            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 }, bgcolor: totalRowBg, color: "text.primary" }}>
               {Math.round(totals.targetCSD_UC)}
             </TableCell>
-            {/* Target - Water */}
-            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
+            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 }, bgcolor: totalRowBg, color: "text.primary" }}>
               {Math.round(totals.targetWater_PC)}
             </TableCell>
-            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 } }}>
+            <TableCell sx={{ textAlign: "center", fontWeight: 700, fontSize: { xs: "0.7rem", sm: "0.875rem" }, py: { xs: 1, sm: 1.5 }, bgcolor: totalRowBg, color: "text.primary" }}>
               {Math.round(totals.targetWater_UC)}
             </TableCell>
-            {/* Achieved - CSD */}
             <TableCell
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedCSD_PC > 0 ? "#2e7d32" : "text.primary",
+                color: totals.achievedCSD_PC > 0 ? "success.main" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
-                borderLeft: "2px solid rgba(0, 0, 0, 0.2)",
+                bgcolor: totalRowBg,
+                borderLeft: "2px solid",
+                borderColor: "divider",
               }}
             >
               {Math.round(totals.achievedCSD_PC)}
@@ -669,22 +597,22 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedCSD_UC > 0 ? "#2e7d32" : "text.primary",
+                color: totals.achievedCSD_UC > 0 ? "success.main" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.achievedCSD_UC)}
             </TableCell>
-            {/* Achieved - Water */}
             <TableCell
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedWater_PC > 0 ? "#2e7d32" : "text.primary",
+                color: totals.achievedWater_PC > 0 ? "success.main" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
-                borderRight: "none",
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.achievedWater_PC)}
@@ -693,23 +621,24 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.achievedWater_UC > 0 ? "#2e7d32" : "text.primary",
+                color: totals.achievedWater_UC > 0 ? "success.main" : "text.primary",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
-                borderLeft: "none",
-                borderRight: "2px solid rgba(0, 0, 0, 0.2)",
+                bgcolor: totalRowBg,
+                borderRight: "2px solid",
+                borderColor: "divider",
               }}
             >
               {Math.round(totals.achievedWater_UC)}
             </TableCell>
-            {/* Balance - CSD */}
             <TableCell
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceCSD_PC >= 0 ? "text.primary" : "#d32f2f",
+                color: totals.balanceCSD_PC >= 0 ? "text.primary" : "error.main",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.balanceCSD_PC)}
@@ -718,21 +647,22 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceCSD_UC >= 0 ? "text.primary" : "#d32f2f",
+                color: totals.balanceCSD_UC >= 0 ? "text.primary" : "error.main",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.balanceCSD_UC)}
             </TableCell>
-            {/* Balance - Water */}
             <TableCell
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceWater_PC >= 0 ? "text.primary" : "#d32f2f",
+                color: totals.balanceWater_PC >= 0 ? "text.primary" : "error.main",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.balanceWater_PC)}
@@ -741,9 +671,10 @@ function PerformanceTable({ distributors, selectedRegion, isMobile, tableRef }) 
               sx={{
                 textAlign: "center",
                 fontWeight: 700,
-                color: totals.balanceWater_UC >= 0 ? "text.primary" : "#d32f2f",
+                color: totals.balanceWater_UC >= 0 ? "text.primary" : "error.main",
                 fontSize: { xs: "0.7rem", sm: "0.875rem" },
                 py: { xs: 1, sm: 1.5 },
+                bgcolor: totalRowBg,
               }}
             >
               {Math.round(totals.balanceWater_UC)}

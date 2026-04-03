@@ -65,7 +65,8 @@ function CokeCalculator({
   fixedOrderNumber = null,
   placeOrderButtonText = "Place Order",
   submitOrderButtonText = "Submit Order",
-  editContext = null
+  editContext = null,
+  fgStockBySku = {},
 }) {
   const skus = useMemo(() => {
     const skuRates = productRates?.skuRates || {};
@@ -444,6 +445,13 @@ function CokeCalculator({
     .filter(r => skus.find(s => s.name === r.sku)?.category === "Water")
     .reduce((sum, r) => sum + (r.totalUC || 0), 0);
 
+  const openingStockCaption = (skuName) => {
+    const n = fgStockBySku?.[skuName];
+    if (n == null || !Number.isFinite(Number(n))) return null;
+    const v = Math.round(Number(n));
+    return `Opening stock: ${v.toLocaleString()} cs`;
+  };
+
   const getInputStyle = (item) => {
     const isDark = theme.palette.mode === "dark";
     const textColor = theme.palette.text.primary;
@@ -526,27 +534,37 @@ function CokeCalculator({
               boxSizing: "border-box"
             }}>
               {csdProducts.map((item) => (
-                <TextField
-                  key={item.name}
-                  label={item.name}
-                  type="number"
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: 0, style: { ...getInputStyle(item).input } }}
-                  value={inputs[item.name] || ""}
-                  placeholder="Enter Cases"
-                  onChange={(e) => handleChange(item.name, e.target.value)}
-                  size={isMobile ? "small" : "medium"}
-                  sx={{
-                    "& .MuiInputLabel-root": { fontWeight: "bold" },
-                    "& .MuiOutlinedInput-root": {
-                      transition: "all 0.2s",
-                      "&:hover": {
-                        transform: "translateY(-2px)",
-                        boxShadow: 2
+                <Box key={item.name}>
+                  <TextField
+                    label={item.name}
+                    type="number"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: 0, style: { ...getInputStyle(item).input } }}
+                    value={inputs[item.name] || ""}
+                    placeholder="Enter Cases"
+                    onChange={(e) => handleChange(item.name, e.target.value)}
+                    size={isMobile ? "small" : "medium"}
+                    fullWidth
+                    sx={{
+                      "& .MuiInputLabel-root": { fontWeight: "bold" },
+                      "& .MuiOutlinedInput-root": {
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          transform: "translateY(-2px)",
+                          boxShadow: 2
+                        }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                  {openingStockCaption(item.name) && (
+                    <Typography
+                      variant="caption"
+                      sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                    >
+                      {openingStockCaption(item.name)}
+                    </Typography>
+                  )}
+                </Box>
               ))}
             </Box>
           </Box>
@@ -639,32 +657,42 @@ function CokeCalculator({
                   boxSizing: "border-box"
                 }}>
                   {selectedCans.map((can) => (
-                    <TextField
-                      key={can}
-                      label={`${can} Cases`}
-                      type="number"
-                      InputLabelProps={{ shrink: true }}
-                      inputProps={{
-                        min: 0,
-                        style: {
-                          ...getInputStyle(skus.find((s) => s.name === can) || { name: "CAN 300ml", category: "CAN" })
-                            .input,
-                        },
-                      }}
-                      value={inputs[can] || ""}
-                      placeholder="Enter Cases"
-                      onChange={(e) => handleChange(can, e.target.value)}
-                      size={isMobile ? "small" : "medium"}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          transition: "all 0.2s",
-                          "&:hover": {
-                            transform: "translateY(-2px)",
-                            boxShadow: 2
+                    <Box key={can}>
+                      <TextField
+                        label={`${can} Cases`}
+                        type="number"
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{
+                          min: 0,
+                          style: {
+                            ...getInputStyle(skus.find((s) => s.name === can) || { name: "CAN 300ml", category: "CAN" })
+                              .input,
+                          },
+                        }}
+                        value={inputs[can] || ""}
+                        placeholder="Enter Cases"
+                        onChange={(e) => handleChange(can, e.target.value)}
+                        size={isMobile ? "small" : "medium"}
+                        fullWidth
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            transition: "all 0.2s",
+                            "&:hover": {
+                              transform: "translateY(-2px)",
+                              boxShadow: 2
+                            }
                           }
-                        }
-                      }}
-                    />
+                        }}
+                      />
+                      {openingStockCaption(can) && (
+                        <Typography
+                          variant="caption"
+                          sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                        >
+                          {openingStockCaption(can)}
+                        </Typography>
+                      )}
+                    </Box>
                   ))}
                 </Box>
               )}
@@ -692,27 +720,37 @@ function CokeCalculator({
               boxSizing: "border-box"
             }}>
               {waterProducts.map((item) => (
-                <TextField
-                  key={item.name}
-                  label={item.name}
-                  type="number"
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: 0, style: { ...getInputStyle(item).input } }}
-                  value={inputs[item.name] || ""}
-                  placeholder="Enter Cases"
-                  onChange={(e) => handleChange(item.name, e.target.value)}
-                  size={isMobile ? "small" : "medium"}
-                  sx={{
-                    "& .MuiInputLabel-root": { fontWeight: "bold" },
-                    "& .MuiOutlinedInput-root": {
-                      transition: "all 0.2s",
-                      "&:hover": {
-                        transform: "translateY(-2px)",
-                        boxShadow: 2
+                <Box key={item.name}>
+                  <TextField
+                    label={item.name}
+                    type="number"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: 0, style: { ...getInputStyle(item).input } }}
+                    value={inputs[item.name] || ""}
+                    placeholder="Enter Cases"
+                    onChange={(e) => handleChange(item.name, e.target.value)}
+                    size={isMobile ? "small" : "medium"}
+                    fullWidth
+                    sx={{
+                      "& .MuiInputLabel-root": { fontWeight: "bold" },
+                      "& .MuiOutlinedInput-root": {
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          transform: "translateY(-2px)",
+                          boxShadow: 2
+                        }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                  {openingStockCaption(item.name) && (
+                    <Typography
+                      variant="caption"
+                      sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                    >
+                      {openingStockCaption(item.name)}
+                    </Typography>
+                  )}
+                </Box>
               ))}
             </Box>
           </Box>

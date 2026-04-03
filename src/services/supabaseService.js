@@ -3060,6 +3060,130 @@ export async function saveSalesPerformanceLastUpdated(atIso) {
   }
 }
 
+// ==================== FG OPENING STOCK (app_config) ====================
+
+const FG_OPENING_STOCK_ID = 'fg_opening_stock';
+
+function parseFgOpeningStockPayload(row) {
+  if (!row) return null;
+  const candidates = [row.clientId, row.apiKey, row.gmail_client_id, row.gmail_api_key];
+  for (const raw of candidates) {
+    if (!raw || typeof raw !== 'string') continue;
+    try {
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.rows)) {
+        return {
+          rows: p.rows,
+          updatedAt: p.updatedAt ? String(p.updatedAt) : null,
+          updatedBy: p.updatedBy != null ? String(p.updatedBy) : '',
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+/**
+ * @returns {Promise<{ rows: Array, updatedAt: string|null, updatedBy: string } | null>}
+ */
+export async function getFgOpeningStock() {
+  try {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .eq('id', FG_OPENING_STOCK_ID)
+      .limit(1);
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching FG opening stock:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) return null;
+    return parseFgOpeningStockPayload(data[0]);
+  } catch (error) {
+    console.error('Error fetching FG opening stock:', error);
+    return null;
+  }
+}
+
+/**
+ * @param {{ rows: Array, updatedBy?: string }} payload
+ */
+export async function saveFgOpeningStock(payload) {
+  try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const updatedBy = payload?.updatedBy != null ? String(payload.updatedBy) : '';
+    const updatedAt = new Date().toISOString();
+    const body = JSON.stringify({ rows, updatedAt, updatedBy });
+
+    const { error } = await supabase
+      .from('app_config')
+      .upsert(
+        {
+          id: FG_OPENING_STOCK_ID,
+          clientId: body,
+          apiKey: body,
+          updated_at: updatedAt,
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) throw error;
+    return { rows, updatedAt, updatedBy };
+  } catch (error) {
+    console.error('Error saving FG opening stock:', error);
+    throw error;
+  }
+}
+
+/**
+ * Realtime updates when `app_config` row `fg_opening_stock` changes (enable replication on `app_config` in Supabase).
+ * @param {(data: { rows: Array, updatedAt: string|null, updatedBy: string } | null) => void} onData
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeFgOpeningStock(onData) {
+  if (!supabase || typeof onData !== 'function') {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel(`fg_opening_stock_${Date.now()}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'app_config',
+        filter: `id=eq.${FG_OPENING_STOCK_ID}`,
+      },
+      async () => {
+        try {
+          const data = await getFgOpeningStock();
+          onData(data);
+        } catch (e) {
+          console.warn('FG opening stock refresh after realtime event failed:', e);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    try {
+      supabase.removeChannel(channel);
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
 // Utility function to convert timestamp to date
 export function timestampToDate(timestamp) {
   if (!timestamp) return null;

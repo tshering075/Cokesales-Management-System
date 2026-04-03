@@ -69,7 +69,11 @@ import {
   supabase,
   getProductRates,
   getGlobalTargetPeriod,
+  getFgOpeningStock,
+  subscribeFgOpeningStock,
 } from "../services/supabaseService";
+import { buildFgStockMapForSkus } from "../utils/fgStockSkuMatch";
+import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import {
   ensureDashboardBaselineIfMissing,
@@ -173,6 +177,50 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const [targetPeriodRev, setTargetPeriodRev] = useState(0);
   const stockLiftingFingerprintRef = useRef(null);
   const [salesRefreshNoticeOpen, setSalesRefreshNoticeOpen] = useState(false);
+  const [fgOpeningStockRecord, setFgOpeningStockRecord] = useState(null);
+  const lastFgUpdatedAtRef = useRef(null);
+
+  const fgStockBySku = useMemo(() => {
+    if (!fgOpeningStockRecord?.rows?.length) return {};
+    const names = getAllCalculatorSkuNames(productRates);
+    return buildFgStockMapForSkus(names, fgOpeningStockRecord.rows);
+  }, [fgOpeningStockRecord, productRates]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    const apply = (data) => {
+      if (cancelled) return;
+      setFgOpeningStockRecord(data || null);
+      const nextAt = data?.updatedAt || null;
+      if (nextAt) {
+        if (lastFgUpdatedAtRef.current && lastFgUpdatedAtRef.current !== nextAt) {
+          setToast({
+            open: true,
+            title: "Opening stock updated",
+            message:
+              "FG availability beside each SKU in the calculator now reflects the latest upload from your admin.",
+            severity: "success",
+            duration: 6500,
+          });
+        }
+        lastFgUpdatedAtRef.current = nextAt;
+      }
+    };
+    (async () => {
+      try {
+        const data = await getFgOpeningStock();
+        apply(data);
+      } catch (e) {
+        console.warn("FG opening stock load failed:", e);
+      }
+    })();
+    const unsub = subscribeFgOpeningStock((payload) => apply(payload));
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [isSupabaseConfigured]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -2174,6 +2222,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             schemes={activeSchemes}
             onPlaceOrder={handlePlaceOrder}
             productRates={productRates}
+            fgStockBySku={fgStockBySku}
             initialInputs={calculatorInitialInputs}
             fixedOrderNumber={editingOrder?.orderNumber || null}
             placeOrderButtonText={editingOrder ? "Update Order" : "Place Order"}

@@ -50,6 +50,7 @@ import GmailSettingsDialog from "../components/GmailSettingsDialog";
 import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
+import FgStocksDialog from "../components/FgStocksDialog";
 import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
@@ -57,7 +58,10 @@ import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import CokeCalculator from "../cokecalculator";
+import { buildFgStockMapForSkus } from "../utils/fgStockSkuMatch";
+import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 // Import extracted components
 import InfoCards from "./AdminDashboard/components/InfoCards";
@@ -94,6 +98,7 @@ import {
   getGlobalTargetPeriod,
   getSalesPerformanceLastUpdated,
   saveSalesPerformanceLastUpdated,
+  getFgOpeningStock,
 } from "../services/supabaseService";
 import { 
   sendOrderEmail, 
@@ -147,6 +152,9 @@ function AdminDashboard({ onLogout }) {
   const [schemeDiscountOpen, setSchemeDiscountOpen] = useState(false);
   const [rateMasterOpen, setRateMasterOpen] = useState(false);
   const [physicalStockAdminOpen, setPhysicalStockAdminOpen] = useState(false);
+  const [fgStocksOpen, setFgStocksOpen] = useState(false);
+  const [fgStockDataVersion, setFgStockDataVersion] = useState(0);
+  const [adminFgStockBySku, setAdminFgStockBySku] = useState({});
   const [productRates, setProductRates] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(null); // Order ID being sent
   const [emailToast, setEmailToast] = useState({
@@ -930,6 +938,31 @@ function AdminDashboard({ onLogout }) {
     };
     loadRates();
   }, [isSupabaseConfigured]);
+
+  useEffect(() => {
+    if (!showCalculator || !supabase || !productRates) {
+      setAdminFgStockBySku({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getFgOpeningStock();
+        if (cancelled) return;
+        if (!data?.rows?.length) {
+          setAdminFgStockBySku({});
+          return;
+        }
+        const names = getAllCalculatorSkuNames(productRates);
+        setAdminFgStockBySku(buildFgStockMapForSkus(names, data.rows));
+      } catch {
+        if (!cancelled) setAdminFgStockBySku({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showCalculator, productRates, fgStockDataVersion]);
 
   // Load orders from Supabase or localStorage
   useEffect(() => {
@@ -2066,6 +2099,7 @@ function AdminDashboard({ onLogout }) {
       if (savedView === "scheme_discount") setSchemeDiscountOpen(true);
       if (savedView === "rate_master") setRateMasterOpen(true);
       if (savedView === "physical_stock") setPhysicalStockAdminOpen(true);
+      if (savedView === "fg_stocks") setFgStocksOpen(true);
       if (savedView === "distributors") setDistributorsOpen(true);
       if (savedView === "reports") setReportsOpen(true);
       if (savedView === "activity") setActivityOpen(true);
@@ -3796,6 +3830,15 @@ function AdminDashboard({ onLogout }) {
                     setSidebarOpen(isMobile);
                   },
                 },
+                {
+                  text: "FG stocks",
+                  icon: <Inventory2Icon />,
+                  action: () => {
+                    setFgStocksOpen(true);
+                    setAdminCurrentView("fg_stocks");
+                    setSidebarOpen(isMobile);
+                  },
+                },
                 { text: "Distributors", icon: <PeopleIcon />, action: () => { setDistributorsOpen(true); setAdminCurrentView("distributors"); setSidebarOpen(isMobile); } },
                 { text: "Reports", icon: <BarChartIcon />, action: () => { setReportsOpen(true); setAdminCurrentView("reports"); setSidebarOpen(isMobile); } },
                 { text: "Activity", icon: <HistoryIcon />, action: () => { setActivityOpen(true); setAdminCurrentView("activity"); setSidebarOpen(isMobile); } },
@@ -4189,6 +4232,18 @@ function AdminDashboard({ onLogout }) {
           onOpened={handlePhysicalStockAdminDialogOpened}
         />
 
+        <FgStocksDialog
+          open={fgStocksOpen}
+          onClose={() => {
+            setFgStocksOpen(false);
+            setAdminCurrentView("dashboard");
+          }}
+          onSaved={() => setFgStockDataVersion((n) => n + 1)}
+          onNotify={(n) =>
+            showEmailToast(n.message, n.severity || "info", n.duration || 5200, n.title || "")
+          }
+        />
+
         <OrderPreviewDialog
           open={previewOpen}
           order={previewOrder}
@@ -4219,7 +4274,7 @@ function AdminDashboard({ onLogout }) {
           disableAutoFocus={false}
         >
           <Box sx={{ p: 2 }}>
-            <CokeCalculator productRates={productRates} />
+            <CokeCalculator productRates={productRates} fgStockBySku={adminFgStockBySku} />
             <DialogActions>
               <Button
                 variant="contained"
