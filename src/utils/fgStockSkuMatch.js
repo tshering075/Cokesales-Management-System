@@ -44,11 +44,17 @@ export function normalizeForStockMatch(s) {
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
+  x = x.replace(/[\u2013\u2014\u2212]+/g, " ");
   x = x.replace(/[_-]+/g, " ");
   // "CHARGE300ML" / "KINLEY500ML" — \bCHARGE\b fails (E and 3 are both "word" chars). Split before volumes.
   x = x.replace(/([A-Z])(?=(\d+(?:\.\d+)?)\s*(?:ML|L)\b)/gi, "$1 ");
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*LTR\b/gi, (_, n) => `${n}L`);
+  x = x.replace(/\b(\d+(?:\.\d+)?)\s*LT\b/gi, (_, n) => `${n}L`);
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*(?:LITRE|LITER|LTRS?)\b/gi, (_, n) => `${n}L`);
+  x = x.replace(/\b(\d+)\s*CL\b/gi, (_, n) => {
+    const ml = parseInt(n, 10) * 10;
+    return `${ml}ML`;
+  });
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   x = x.replace(/\b1\.25\s*L\b/gi, "1.25L");
   x = x.replace(/\b1\s*L\b/gi, "1L");
@@ -206,10 +212,66 @@ function excelKinleyWaterHint(excelNorm) {
 /** Excel line is clearly Thums Charge / Charge even if spacing collapsed. */
 function excelHintsCharge(excelNorm) {
   if (!excelNorm) return false;
+  if (/DISCHARGE|SUPERCHARGE|RECHARGE/i.test(excelNorm)) return false;
   if (/\bCHARGE\b|\bCHRG\b/i.test(excelNorm)) return true;
+  if (/CHARGE|CHRG/i.test(excelNorm) && /THUMS|THUMSUP|TU\b/i.test(excelNorm)) return true;
   if (/\bTHUMS\b.*\bCHARGE\b|\bCHARGE\b.*\bTHUMS\b/i.test(excelNorm)) return true;
   if (/THUMSUP.*CHARGE|CHARGE.*THUMSUP/i.test(excelNorm.replace(/\s+/g, " "))) return true;
   return false;
+}
+
+/** Every ML volume literal in text (handles multi-volume SAP strings; ignores tiny noise). */
+function allPackMlInText(norm) {
+  const out = [];
+  const re = /\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi;
+  let m;
+  while ((m = re.exec(norm)) !== null) {
+    const n = parseFloat(m[1]);
+    if (!Number.isFinite(n)) continue;
+    const u = String(m[2]).toUpperCase();
+    const ml = u === "L" ? Math.round(n * 1000) : Math.round(n);
+    if (ml >= 50 && ml <= 6000) out.push(ml);
+  }
+  return out;
+}
+
+/**
+ * True if FG text refers to the same pack size as the SKU (many files omit "ML" or use CL/LT).
+ */
+function volumeMatchesPack(excelNorm, skuMl) {
+  if (skuMl == null || !Number.isFinite(skuMl)) return false;
+  const mentions = allPackMlInText(excelNorm);
+  if (mentions.includes(skuMl)) return true;
+  const primary = parseSizeToMl(excelNorm);
+  if (primary != null) return primary === skuMl;
+  const re = new RegExp(`\\b${skuMl}\\b`);
+  if (re.test(excelNorm)) return true;
+  if (skuMl === 1000 && /\b1000\b/.test(excelNorm)) return true;
+  return false;
+}
+
+function sumNormMapWhere(normMap, test) {
+  let sum = 0;
+  for (const [excelK, qty] of normMap) {
+    if (!Number.isFinite(qty) || qty < 0) continue;
+    if (test(excelK, qty)) sum += qty;
+  }
+  return sum;
+}
+
+function sumRowsWhere(rows, test) {
+  if (!Array.isArray(rows) || rows.length === 0) return 0;
+  let sum = 0;
+  for (const r of rows) {
+    const q = fgRowQuantity(r);
+    if (!Number.isFinite(q) || q < 0) continue;
+    const desc = fgRowDescription(r);
+    if (!desc) continue;
+    const ex = normalizeForStockMatch(desc);
+    if (!ex) continue;
+    if (test(ex, q)) sum += q;
+  }
+  return sum;
 }
 
 /** Fingerprints to try for file lookup (CAN lines in calculator often omit "CAN" on the Excel side). */
@@ -230,7 +292,7 @@ function skuFingerprintsForFileLookup(skuName) {
  * Opening cases for one calculator SKU: exact fingerprint match to aggregated file rows first (aligned with admin totals),
  * else a single best fuzzy bucket (no summing multiple buckets — avoids double-count).
  */
-export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
+export function resolveOpeningQtyForSku(skuName, fpMap, normMap, rows) {
   if (!skuName || !fpMap || !normMap) return null;
   for (const fp of skuFingerprintsForFileLookup(skuName)) {
     if (fpMap.has(fp)) return fpMap.get(fp);
@@ -252,37 +314,39 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
   }
   if (bestSc >= 2 && bestQty != null) return bestQty;
 
+  const skuMl = parseSizeToMl(skuN) ?? parseSizeToMl(skuNFuzzy);
+  const rowList = Array.isArray(rows) ? rows : [];
+
+  if (skuMl != null && hasToken(skuN, /\bCHARGE\b|\bCHRG\b/i)) {
+    let s = sumNormMapWhere(normMap, (excelK) => volumeMatchesPack(excelK, skuMl) && excelHintsCharge(excelK));
+    if (s <= 0) s = sumRowsWhere(rowList, (ex) => volumeMatchesPack(ex, skuMl) && excelHintsCharge(ex));
+    if (s > 0) return s;
+  }
+
+  if (skuMl != null && hasToken(skuN, /\bKINLEY\b/i)) {
+    let s = sumNormMapWhere(
+      normMap,
+      (excelK) =>
+        volumeMatchesPack(excelK, skuMl) &&
+        (hasToken(excelK, /\bKINLEY\b/i) || excelKinleyWaterHint(excelK))
+    );
+    if (s <= 0) {
+      s = sumRowsWhere(
+        rowList,
+        (ex) =>
+          volumeMatchesPack(ex, skuMl) && (hasToken(ex, /\bKINLEY\b/i) || excelKinleyWaterHint(ex))
+      );
+    }
+    if (s > 0) return s;
+  }
+
   for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    const skuMl = parseSizeToMl(skuTry);
-    if (skuMl == null) continue;
+    const tryMl = parseSizeToMl(skuTry);
+    if (tryMl == null) continue;
     for (const [excelK, qty] of normMap) {
       const exMl = parseSizeToMl(excelK);
-      if (exMl == null || exMl !== skuMl) continue;
+      if (exMl == null || exMl !== tryMl) continue;
       if (!sharedCoreBrand(skuTry, excelK)) continue;
-      return qty;
-    }
-  }
-
-  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    if (!hasToken(skuTry, /\bKINLEY\b/i)) continue;
-    const skuMl = parseSizeToMl(skuTry);
-    if (skuMl == null) continue;
-    for (const [excelK, qty] of normMap) {
-      const exMl = parseSizeToMl(excelK);
-      if (exMl == null || exMl !== skuMl) continue;
-      if (!excelKinleyWaterHint(excelK)) continue;
-      return qty;
-    }
-  }
-
-  for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    if (!hasToken(skuTry, /\bCHARGE\b|\bCHRG\b/i)) continue;
-    const skuMl = parseSizeToMl(skuTry);
-    if (skuMl == null) continue;
-    for (const [excelK, qty] of normMap) {
-      const exMl = parseSizeToMl(excelK);
-      if (exMl == null || exMl !== skuMl) continue;
-      if (!excelHintsCharge(excelK)) continue;
       return qty;
     }
   }
@@ -302,7 +366,7 @@ export function buildFgStockMapForSkus(skuNames, rows) {
   const out = {};
   const names = Array.isArray(skuNames) ? skuNames : [];
   for (const name of names) {
-    const q = resolveOpeningQtyForSku(name, fpMap, normMap);
+    const q = resolveOpeningQtyForSku(name, fpMap, normMap, rows);
     if (q != null && Number.isFinite(q)) out[name] = Math.round(q);
   }
   return out;
@@ -323,7 +387,7 @@ export function buildFgStockOpeningAllSkus(skuNames, rows) {
   const fpMap = aggregateQuantitiesByFingerprint(rows);
   const normMap = aggregateQuantitiesByNormalizedDescription(rows);
   for (const name of names) {
-    const q = resolveOpeningQtyForSku(name, fpMap, normMap);
+    const q = resolveOpeningQtyForSku(name, fpMap, normMap, rows);
     out[name] = q != null && Number.isFinite(q) ? Math.round(q) : 0;
   }
   return out;
