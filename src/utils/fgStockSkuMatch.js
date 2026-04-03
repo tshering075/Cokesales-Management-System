@@ -6,16 +6,22 @@ export function normalizeForStockMatch(s) {
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
+  x = x.replace(/[_-]+/g, " ");
   x = x.replace(/\./g, "");
   x = x.replace(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   x = x.replace(/\b1\.25\s*L\b/gi, "1.25L");
   x = x.replace(/\b1\s*L\b/gi, "1L");
   x = x.replace(/\bML\b/g, "ML");
+  x = x.replace(/\bCOCO\s+COLA\b/gi, "COCA COLA");
+  x = x.replace(/\bTHUMSUP\b/gi, "THUMS UP");
+  x = x.replace(/\bCC\b/g, "COCA COLA");
+  x = x.replace(/\bKW\b/g, "KINLEY");
   x = x.replace(/\bCOKE\b/g, "COCA COLA");
   x = x.replace(/\bCOCA\s*COLA\b/g, "COCA COLA");
   x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
   x = x.replace(/\bTHUMS\s+UP\s+CHARGE\b/gi, "CHARGE");
   x = x.replace(/\bTHUMS\s+CHARGE\b/gi, "CHARGE");
+  x = x.replace(/\bTU\b/g, "THUMS UP");
   x = x.replace(/\bDIET\b/g, "DIET");
   x = x.replace(/\bZERO\b/g, "ZERO");
   return x.trim();
@@ -92,10 +98,9 @@ export function aggregateQuantitiesByFingerprint(rows) {
   return map;
 }
 
-function linesMatchForSku(skuNorm, skuSize, excelK) {
+function linesMatchForSku(skuNorm, excelK) {
   if (skuNorm === excelK) return true;
-  const exSize = extractSizeToken(excelK);
-  if (skuSize && exSize && skuSize !== exSize) return false;
+  if (sizesRejectPair(skuNorm, excelK)) return false;
 
   if (tokenOverlapScore(skuNorm, excelK) >= 2) return true;
 
@@ -159,11 +164,11 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
   if (bestSc >= 2 && bestQty != null) return bestQty;
 
   for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
-    const sizeTry = extractSizeToken(skuTry);
-    if (!sizeTry) continue;
+    const skuMl = parseSizeToMl(skuTry);
+    if (skuMl == null) continue;
     for (const [excelK, qty] of normMap) {
-      const exSize = extractSizeToken(excelK);
-      if (!exSize || exSize !== sizeTry) continue;
+      const exMl = parseSizeToMl(excelK);
+      if (exMl == null || exMl !== skuMl) continue;
       if (!sharedCoreBrand(skuTry, excelK)) continue;
       return qty;
     }
