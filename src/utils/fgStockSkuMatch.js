@@ -129,7 +129,6 @@ export function resolveOpeningQtyForSku(skuName, fpMap, normMap) {
 
   const skuN = normalizeForStockMatch(skuName);
   const skuNFuzzy = skuN.replace(/\bCAN\b/g, " ").replace(/\s+/g, " ").trim();
-  const skuSize = extractSizeToken(skuN);
   let bestQty = null;
   let bestSc = -1;
   for (const skuTry of [skuN, skuNFuzzy].filter((s, i, a) => s && a.indexOf(s) === i)) {
