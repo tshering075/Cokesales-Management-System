@@ -7,13 +7,23 @@ export function normalizeForStockMatch(s) {
     .replace(/\s+/g, " ")
     .trim();
   x = x.replace(/\./g, "");
+  x = x.replace(/\b(\d+(?:\.\d+)?)\s*(ML|L)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   x = x.replace(/\b1\.25\s*L\b/gi, "1.25L");
   x = x.replace(/\b1\s*L\b/gi, "1L");
   x = x.replace(/\bML\b/g, "ML");
   x = x.replace(/\bCOKE\b/g, "COCA COLA");
   x = x.replace(/\bCOCA\s*COLA\b/g, "COCA COLA");
   x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
+  x = x.replace(/\bDIET\b/g, "DIET");
+  x = x.replace(/\bZERO\b/g, "ZERO");
   return x.trim();
+}
+
+/** e.g. "500ML", "1.25L" — used to avoid matching 300ml SKU to 500ml stock lines */
+export function extractSizeToken(normalized) {
+  const n = String(normalized || "");
+  const m = n.match(/\b(\d+(?:\.\d+)?)(ML|L)\b/);
+  return m ? `${m[1]}${m[2]}` : null;
 }
 
 function tokens(s) {
@@ -22,7 +32,7 @@ function tokens(s) {
     .filter((t) => t.length > 1);
 }
 
-function tokenOverlapScore(skuNorm, excelNorm) {
+export function tokenOverlapScore(skuNorm, excelNorm) {
   const A = new Set(tokens(skuNorm));
   const B = new Set(tokens(excelNorm));
   if (A.size === 0 || B.size === 0) return 0;
@@ -34,7 +44,7 @@ function tokenOverlapScore(skuNorm, excelNorm) {
 }
 
 /**
- * Sum quantity per normalized description (multiple batches → one availability number per product line).
+ * Sum quantity per normalized description (multiple batches / rows with same text → one bucket).
  */
 export function aggregateQuantitiesByNormalizedDescription(rows) {
   const map = new Map();
@@ -54,32 +64,36 @@ export function aggregateQuantitiesByNormalizedDescription(rows) {
   return map;
 }
 
+function linesMatchForSku(skuNorm, skuSize, excelK) {
+  if (skuNorm === excelK) return true;
+  const exSize = extractSizeToken(excelK);
+  if (skuSize && exSize && skuSize !== exSize) return false;
+
+  if (tokenOverlapScore(skuNorm, excelK) >= 2) return true;
+
+  if (skuNorm.includes(excelK) || excelK.includes(skuNorm)) {
+    return Math.min(skuNorm.length, excelK.length) >= 6;
+  }
+  return false;
+}
+
 /**
- * Best-effort match from aggregated opening-stock map to a calculator SKU name.
+ * Sum opening qty from every Excel aggregate key that matches this calculator SKU
+ * (same product, different batch rows collapse into one key; variant spellings may be multiple keys).
  */
-export function resolveStockForSkuLine(skuName, aggregateMap) {
+export function sumOpeningQtyForSku(skuName, aggregateMap) {
   if (!skuName || !aggregateMap || aggregateMap.size === 0) return null;
   const skuN = normalizeForStockMatch(skuName);
-  if (aggregateMap.has(skuN)) return aggregateMap.get(skuN);
+  const skuSize = extractSizeToken(skuN);
 
-  let bestQty = null;
-  let bestSc = 0;
+  let sum = 0;
+  let matched = false;
   for (const [excelK, qty] of aggregateMap) {
-    const sc = tokenOverlapScore(skuN, excelK);
-    if (sc >= 2 && sc > bestSc) {
-      bestSc = sc;
-      bestQty = qty;
-    }
+    if (!linesMatchForSku(skuN, skuSize, excelK)) continue;
+    sum += qty;
+    matched = true;
   }
-  if (bestQty != null) return bestQty;
-
-  for (const [excelK, qty] of aggregateMap) {
-    if (skuN.includes(excelK) || excelK.includes(skuN)) {
-      const minLen = Math.min(skuN.length, excelK.length);
-      if (minLen >= 6) return qty;
-    }
-  }
-  return null;
+  return matched ? sum : null;
 }
 
 /**
@@ -92,7 +106,7 @@ export function buildFgStockMapForSkus(skuNames, rows) {
   const out = {};
   const names = Array.isArray(skuNames) ? skuNames : [];
   for (const name of names) {
-    const q = resolveStockForSkuLine(name, agg);
+    const q = sumOpeningQtyForSku(name, agg);
     if (q != null && Number.isFinite(q)) out[name] = Math.round(q);
   }
   return out;

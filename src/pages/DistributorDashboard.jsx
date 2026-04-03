@@ -74,6 +74,7 @@ import {
 } from "../services/supabaseService";
 import { buildFgStockMapForSkus } from "../utils/fgStockSkuMatch";
 import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
+import { sumReservedCasesBySku } from "../utils/fgStockOrderReservations";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import {
   ensureDashboardBaselineIfMissing,
@@ -179,12 +180,6 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const [salesRefreshNoticeOpen, setSalesRefreshNoticeOpen] = useState(false);
   const [fgOpeningStockRecord, setFgOpeningStockRecord] = useState(null);
   const lastFgUpdatedAtRef = useRef(null);
-
-  const fgStockBySku = useMemo(() => {
-    if (!fgOpeningStockRecord?.rows?.length) return {};
-    const names = getAllCalculatorSkuNames(productRates);
-    return buildFgStockMapForSkus(names, fgOpeningStockRecord.rows);
-  }, [fgOpeningStockRecord, productRates]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -579,6 +574,25 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     if (order?.id) return order.id;
     return `${order?.timestamp || ""}_${order?.distributorCode || distributorCode || ""}`;
   }, [distributorCode]);
+
+  /** Per-SKU cases: opening file aggregate minus pending/sent/approved orders (rejected excluded; canceled absent). While editing an order, that order is excluded from reservations. */
+  const fgStockBySku = useMemo(() => {
+    if (!fgOpeningStockRecord?.rows?.length) return undefined;
+    const names = getAllCalculatorSkuNames(productRates);
+    const base = buildFgStockMapForSkus(names, fgOpeningStockRecord.rows);
+    const excludeKey = editingOrder ? getOrderKey(editingOrder) : null;
+    const reserved = sumReservedCasesBySku(orders, getOrderStatus, {
+      excludeOrderKey: excludeKey,
+      getOrderKey,
+    });
+    const out = {};
+    for (const name of names) {
+      const b = Number(base[name]) || 0;
+      const r = Number(reserved[name]) || 0;
+      out[name] = Math.max(0, Math.round(b - r));
+    }
+    return out;
+  }, [fgOpeningStockRecord, productRates, orders, getOrderStatus, getOrderKey, editingOrder]);
 
   const refreshDistributorOrders = useCallback(async () => {
     try {

@@ -66,7 +66,10 @@ function CokeCalculator({
   placeOrderButtonText = "Place Order",
   submitOrderButtonText = "Submit Order",
   editContext = null,
-  fgStockBySku = {},
+  /** When set, per-SKU hints under each field (object keyed by SKU name). Distributor: net availability; admin: gross from file. */
+  fgStockBySku,
+  /** Label before the case count, e.g. "Available" (distributor) or "Opening" (admin). */
+  fgStockCaptionPrefix = "Available",
 }) {
   const skus = useMemo(() => {
     const skuRates = productRates?.skuRates || {};
@@ -445,12 +448,14 @@ function CokeCalculator({
     .filter(r => skus.find(s => s.name === r.sku)?.category === "Water")
     .reduce((sum, r) => sum + (r.totalUC || 0), 0);
 
-  const openingStockCaption = (skuName) => {
-    const n = fgStockBySku?.[skuName];
-    if (n == null || !Number.isFinite(Number(n))) return null;
-    const v = Math.round(Number(n));
-    return `Opening stock: ${v.toLocaleString()} cs`;
+  const fgStockLineForSku = (skuName) => {
+    if (fgStockBySku == null || typeof fgStockBySku !== "object") return null;
+    if (!Object.prototype.hasOwnProperty.call(fgStockBySku, skuName)) return null;
+    const v = Math.max(0, Math.round(Number(fgStockBySku[skuName])));
+    return `${fgStockCaptionPrefix}: ${v.toLocaleString()} cs`;
   };
+
+  const fgStockHintsOn = fgStockBySku != null && typeof fgStockBySku === "object";
 
   const getInputStyle = (item) => {
     const isDark = theme.palette.mode === "dark";
@@ -511,6 +516,15 @@ function CokeCalculator({
             <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 400, fontSize: { xs: "0.8rem", sm: "0.9rem" }, px: { xs: 1, sm: 0 } }}>
               Enter the number of cases for each product to calculate totals (PC, UC, and weight in tons)
             </Typography>
+            {fgStockHintsOn && distributorCode && fgStockCaptionPrefix === "Available" && (
+              <Typography
+                variant="caption"
+                sx={{ display: "block", color: "text.secondary", mt: 1, px: { xs: 1, sm: 0 }, maxWidth: 720, mx: "auto", lineHeight: 1.5 }}
+              >
+                <strong>Available</strong> = opening stock from your admin (all batches summed per SKU) minus cases already on your{" "}
+                <strong>pending</strong> or <strong>approved</strong> orders. Rejected orders do not reduce availability; canceled orders are removed automatically.
+              </Typography>
+            )}
           </Box>
 
           {/* CSD Products Section */}
@@ -556,12 +570,12 @@ function CokeCalculator({
                       }
                     }}
                   />
-                  {openingStockCaption(item.name) && (
+                  {fgStockLineForSku(item.name) && (
                     <Typography
                       variant="caption"
                       sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
                     >
-                      {openingStockCaption(item.name)}
+                      {fgStockLineForSku(item.name)}
                     </Typography>
                   )}
                 </Box>
@@ -684,12 +698,12 @@ function CokeCalculator({
                           }
                         }}
                       />
-                      {openingStockCaption(can) && (
+                      {fgStockLineForSku(can) && (
                         <Typography
                           variant="caption"
                           sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
                         >
-                          {openingStockCaption(can)}
+                          {fgStockLineForSku(can)}
                         </Typography>
                       )}
                     </Box>
@@ -742,12 +756,12 @@ function CokeCalculator({
                       }
                     }}
                   />
-                  {openingStockCaption(item.name) && (
+                  {fgStockLineForSku(item.name) && (
                     <Typography
                       variant="caption"
                       sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
                     >
-                      {openingStockCaption(item.name)}
+                      {fgStockLineForSku(item.name)}
                     </Typography>
                   )}
                 </Box>

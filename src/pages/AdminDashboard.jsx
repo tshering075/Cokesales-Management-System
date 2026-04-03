@@ -154,7 +154,7 @@ function AdminDashboard({ onLogout }) {
   const [physicalStockAdminOpen, setPhysicalStockAdminOpen] = useState(false);
   const [fgStocksOpen, setFgStocksOpen] = useState(false);
   const [fgStockDataVersion, setFgStockDataVersion] = useState(0);
-  const [adminFgStockBySku, setAdminFgStockBySku] = useState({});
+  const [adminFgStockBySku, setAdminFgStockBySku] = useState(undefined);
   const [productRates, setProductRates] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(null); // Order ID being sent
   const [emailToast, setEmailToast] = useState({
@@ -941,7 +941,7 @@ function AdminDashboard({ onLogout }) {
 
   useEffect(() => {
     if (!showCalculator || !supabase || !productRates) {
-      setAdminFgStockBySku({});
+      setAdminFgStockBySku(undefined);
       return;
     }
     let cancelled = false;
@@ -950,13 +950,13 @@ function AdminDashboard({ onLogout }) {
         const data = await getFgOpeningStock();
         if (cancelled) return;
         if (!data?.rows?.length) {
-          setAdminFgStockBySku({});
+          setAdminFgStockBySku(undefined);
           return;
         }
         const names = getAllCalculatorSkuNames(productRates);
         setAdminFgStockBySku(buildFgStockMapForSkus(names, data.rows));
       } catch {
-        if (!cancelled) setAdminFgStockBySku({});
+        if (!cancelled) setAdminFgStockBySku(undefined);
       }
     })();
     return () => {
@@ -4274,7 +4274,11 @@ function AdminDashboard({ onLogout }) {
           disableAutoFocus={false}
         >
           <Box sx={{ p: 2 }}>
-            <CokeCalculator productRates={productRates} fgStockBySku={adminFgStockBySku} />
+            <CokeCalculator
+              productRates={productRates}
+              fgStockBySku={adminFgStockBySku}
+              fgStockCaptionPrefix="Opening"
+            />
             <DialogActions>
               <Button
                 variant="contained"
