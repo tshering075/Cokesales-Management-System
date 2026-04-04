@@ -46,29 +46,29 @@ import CancelIcon from "@mui/icons-material/Cancel";
 // Product SKUs grouped by category and size
 const PRODUCT_SKUS = {
   "CSD 300ml": [
-    "Coca Cola 300ml",
-    "Fanta 300ml",
-    "Sprite 300ml",
-    "Charge 300ml",
+    "COKE 300 ML",
+    "FANTA 300 ML",
+    "SPRITE 300 ML",
+    "CHARGED 300 ML",
   ],
   "CSD 500ml": [
-    "Coca Cola 500ml",
-    "Fanta 500ml",
-    "Sprite 500ml",
+    "COKE 500 ML",
+    "FANTA 500 ML",
+    "SPRITE 500 ML",
   ],
   "CSD 1.25L": [
-    "Coca Cola 1.25L",
-    "Fanta 1.25L",
-    "Sprite 1.25L",
+    "COKE 1.25 L",
+    "FANTA 1.25 L",
+    "SPRITE 1.25 L",
   ],
   "Water 200ml": [
-    "Kinley 200ml",
+    "KINLEY WATER 200 ML",
   ],
   "Water 500ml": [
-    "Kinley 500ml",
+    "KINLEY WATER 500 ML",
   ],
   "Water 1L": [
-    "Kinley 1L",
+    "KINLEY WATER 1 L",
   ],
 };
 

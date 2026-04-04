@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Card, Typography, useTheme } from "@mui/material";
+import { Box, Card, Chip, Typography, useTheme } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -33,6 +33,7 @@ function formatPeriodDate(ymd) {
 function InfoCards({ balance, targetPeriod }) {
   const theme = useTheme();
   const remainingDays = targetPeriod?.end ? getDaysRemaining(targetPeriod.end) : 0;
+  const ucAchieved = balance?.targetUcAchieved === true;
 
   const cardSx = {
     p: { xs: 2, sm: 2.5 },
@@ -88,6 +89,17 @@ function InfoCards({ balance, targetPeriod }) {
           <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
             Target Balance
           </Typography>
+        </Box>
+        <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+            Status (UC):
+          </Typography>
+          <Chip
+            size="small"
+            label={ucAchieved ? "Achieved" : "Not achieved"}
+            color={ucAchieved ? "success" : "warning"}
+            sx={{ fontWeight: 700 }}
+          />
         </Box>
         <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
           <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>

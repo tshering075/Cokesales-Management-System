@@ -1,9 +1,36 @@
 /**
- * Twice-weekly target / stock-lift reminders (Monday & Thursday, local time).
- * Uses localStorage so each slot fires at most once per distributor per calendar week.
+ * Stock-lift / target balance reminders.
+ * Daily (local calendar day): once per distributor per day when the dashboard loads.
+ * Legacy twice-weekly helpers remain for compatibility.
  */
 
+const STORAGE_PREFIX_DAILY = "coke_stock_lift_daily_reminder_v1";
 const STORAGE_PREFIX = "coke_target_tw_reminder_v1";
+
+export function getLocalDateKeyYmd(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Claim at most one stock-lift reminder per distributor per local calendar day.
+ * @param {string} distributorCode
+ * @returns {{ ymd: string } | null}
+ */
+export function tryClaimDailyStockLiftReminder(distributorCode) {
+  if (!distributorCode || typeof distributorCode !== "string") return null;
+  const ymd = getLocalDateKeyYmd();
+  const key = `${STORAGE_PREFIX_DAILY}_${distributorCode}_${ymd}`;
+  try {
+    if (localStorage.getItem(key)) return null;
+    localStorage.setItem(key, String(Date.now()));
+    return { ymd };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * ISO week id for local calendar date, e.g. 2025-W11
@@ -60,16 +87,28 @@ export function buildTargetBalanceReminderMessage({ remainingDays, periodEndYmd,
   const lines = (rows || []).map((row) => {
     const balPC = (Number(row.targetPC) || 0) - (Number(row.achievedPC) || 0);
     const balUC = (Number(row.targetUC) || 0) - (Number(row.achievedUC) || 0);
-    return `${row.category}: ${balPC.toLocaleString()} PC & ${Math.round(balUC).toLocaleString()} UC left`;
+    const pcLabel =
+      balPC > 0
+        ? `${balPC.toLocaleString()} PC to lift`
+        : balPC < 0
+          ? `${Math.abs(balPC).toLocaleString()} PC ahead`
+          : "PC on target";
+    const ucLabel =
+      balUC > 0
+        ? `${Math.round(balUC).toLocaleString()} UC to lift`
+        : balUC < 0
+          ? `${Math.round(Math.abs(balUC)).toLocaleString()} UC ahead`
+          : "UC on target";
+    return `${row.category}: ${pcLabel}, ${ucLabel}`;
   });
 
-  const endPart = periodEndYmd ? ` Period ends ${periodEndYmd}.` : "";
+  const endPart = periodEndYmd ? ` Current period ends ${periodEndYmd}.` : "";
   const daysPart =
     remainingDays > 0
-      ? `${remainingDays} day${remainingDays === 1 ? "" : "s"} left in the target period.${endPart}`
-      : `Target period has ended or is on the last day.${endPart}`;
+      ? `You have ${remainingDays} day${remainingDays === 1 ? "" : "s"} left in the target period.${endPart}`
+      : `The target period has ended or you are on the last day.${endPart}`;
 
-  return `${daysPart} Balance to lift: ${lines.join(" · ")} Keep lifting stock before the period closes.`;
+  return `${daysPart} Stock-lift vs target: ${lines.join(" · ")}. Record lifts regularly so your Target Balance and achievement status stay accurate.`;
 }
 
 export function getTargetReminderNotificationIconUrl() {

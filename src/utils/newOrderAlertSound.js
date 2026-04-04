@@ -96,3 +96,32 @@ export function playSalesDataRefreshChime() {
     console.warn("playSalesDataRefreshChime:", e);
   }
 }
+
+/** Short celebratory bell (ascending chimes) when combined UC target is achieved. */
+export function playTargetAchievedBell() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    const ding = (freq, t0, dur = 0.3, vol = 0.11) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    };
+    ding(523.25, now, 0.26, 0.12);
+    ding(659.25, now + 0.3, 0.26, 0.1);
+    ding(783.99, now + 0.6, 0.34, 0.095);
+    ctx.resume?.().catch(() => {});
+  } catch (e) {
+    console.warn("playTargetAchievedBell:", e);
+  }
+}

@@ -2,15 +2,15 @@ import { DEFAULT_SKUS, DEFAULT_SKU_NAMES, customProductLineName } from "../const
 
 /** Same list as CokeCalculator built-in CAN lines (for FG stock matching). */
 export const BUILT_IN_CAN_PRODUCTS = [
-  "Coke 300ml CAN",
-  "Diet Coke 300ml CAN",
-  "Coke Zero 300ml CAN",
-  "Fanta 300ml CAN",
-  "Sprite 300ml CAN",
-  "Limca 300ml CAN",
-  "Thums Up 300ml CAN",
-  "Schweppes Tonic Water CAN",
-  "Schweppes Soda Water CAN",
+  "COKE CAN 300 ML",
+  "FANTA CAN 300 ML",
+  "SPRITE CAN 300 ML",
+  "DIET COKE CAN 300 ML",
+  "COKE ZERO 300 ML",
+  "LIMCA CAN 300 ML",
+  "THUMS UP CAN 300 ML",
+  "SCHWEPPES CAN TONIC WATER",
+  "SCHWEPPES CAN SODA WATER",
 ];
 
 /**

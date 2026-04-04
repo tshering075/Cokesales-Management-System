@@ -54,7 +54,8 @@ import FgStocksDialog from "../components/FgStocksDialog";
 import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
-import { playNewOrderIncomingAlert } from "../utils/newOrderAlertSound";
+import { playNewOrderIncomingAlert, playTargetAchievedBell } from "../utils/newOrderAlertSound";
+import { isCombinedTargetAchievedUC } from "../utils/targetAchievement";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
@@ -878,6 +879,8 @@ function AdminDashboard({ onLogout }) {
   const previousOrderIdsRef = useRef(new Set());
   const approvalSnapshotRef = useRef({});
   const approvalNotifyInitRef = useRef(false);
+  /** Tracks UC target achievement per region + period so we notify once on transition to achieved. */
+  const adminUcAchievementNotifyRef = useRef({ scope: "", prevAchieved: false });
   const [schemes, setSchemes] = useState([]); // All schemes and discounts
   
   // Load schemes from Firestore
@@ -2300,11 +2303,18 @@ function AdminDashboard({ onLogout }) {
     });
     
     // Calculate balance (target - achieved)
+    const targetUcAchieved = isCombinedTargetAchievedUC(
+      totalTargetCSD_UC,
+      totalAchievedCSD_UC,
+      totalTargetWater_UC,
+      totalAchievedWater_UC
+    );
     return {
       csdPC: Math.round(totalTargetCSD_PC - totalAchievedCSD_PC),
       csdUC: Math.round(totalTargetCSD_UC - totalAchievedCSD_UC),
       waterPC: Math.round(totalTargetWater_PC - totalAchievedWater_PC),
-      waterUC: Math.round(totalTargetWater_UC - totalAchievedWater_UC)
+      waterUC: Math.round(totalTargetWater_UC - totalAchievedWater_UC),
+      targetUcAchieved,
     };
   }, [filteredDistributorsFromPerformance]);
 
@@ -3201,6 +3211,47 @@ function AdminDashboard({ onLogout }) {
     previousOrderIdsRef.current = idsNow;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allOrders]);
+
+  // Combined UC target achieved (region totals): bell + toast + in-app + browser notification once per scope when crossing to achieved
+  useEffect(() => {
+    const achieved = calculateBalanceFromDistributors.targetUcAchieved === true;
+    const scope = `${selectedRegion}|${targetPeriod?.end || ""}`;
+    const r = adminUcAchievementNotifyRef.current;
+    if (r.scope !== scope) {
+      r.scope = scope;
+      r.prevAchieved = achieved;
+      return;
+    }
+    if (r.prevAchieved === false && achieved === true) {
+      playTargetAchievedBell();
+      const regionLabel = selectedRegion === "All" ? "all regions" : `region ${selectedRegion}`;
+      const body = `CSD and Kinley water UC targets are met for ${regionLabel} for the current period (or CSD UC above target covers the Kinley water UC shortfall per policy).`;
+      pushNotification(body, "success");
+      showEmailToast(body, "success", 9500, "Target achieved");
+      (async () => {
+        if (typeof window === "undefined" || !("Notification" in window)) return;
+        try {
+          const iconUrl = getTargetReminderNotificationIconUrl();
+          if (Notification.permission === "granted") {
+            new Notification("Target achieved", { body, icon: iconUrl, tag: "coke-target-achieved-admin" });
+          } else if (Notification.permission === "default") {
+            const p = await Notification.requestPermission();
+            if (p === "granted") {
+              new Notification("Target achieved", { body, icon: iconUrl, tag: "coke-target-achieved-admin" });
+            }
+          }
+        } catch (e) {
+          console.warn("Target achieved browser notification failed:", e);
+        }
+      })();
+    }
+    r.prevAchieved = achieved;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    calculateBalanceFromDistributors.targetUcAchieved,
+    selectedRegion,
+    targetPeriod?.end,
+  ]);
 
   // Order status changes from Supabase refresh or local actions: notify + chime when an order becomes approved
   useEffect(() => {

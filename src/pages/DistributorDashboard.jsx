@@ -19,6 +19,7 @@ import {
   Paper,
   Button,
   Badge,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -46,11 +47,12 @@ import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
 import {
-  tryClaimTwiceWeeklyTargetReminder,
+  tryClaimDailyStockLiftReminder,
   buildTargetBalanceReminderMessage,
   getTargetReminderNotificationIconUrl,
 } from "../utils/targetReminder";
-import { playOrderSubmittedNotifyChime, playSalesDataRefreshChime } from "../utils/newOrderAlertSound";
+import { playOrderSubmittedNotifyChime, playSalesDataRefreshChime, playTargetAchievedBell } from "../utils/newOrderAlertSound";
+import { isCombinedTargetAchievedUC } from "../utils/targetAchievement";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 import { 
   getDistributorByCode, 
@@ -175,6 +177,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const notificationsInitializedRef = useRef(false);
   const previousOrderStatusesRef = useRef({});
   const previousTargetAchievedRef = useRef(null);
+  const distributorUcAchievementNotifyRef = useRef({ scope: "", prevAchieved: false });
   const [targetPeriodRev, setTargetPeriodRev] = useState(0);
   const stockLiftingFingerprintRef = useRef(null);
   const [salesRefreshNoticeOpen, setSalesRefreshNoticeOpen] = useState(false);
@@ -506,6 +509,17 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     return { CSD_PC, CSD_UC, Water_PC, Water_UC };
   }, [isSupabaseConfigured, stockLiftingRecords, achievedData]);
 
+  const targetUcAchieved = useMemo(
+    () =>
+      isCombinedTargetAchievedUC(
+        targetData.CSD_UC,
+        progressAchievedData.CSD_UC,
+        targetData.Water_UC,
+        progressAchievedData.Water_UC
+      ),
+    [targetData, progressAchievedData]
+  );
+
   const pendingOrdersCount = useMemo(
     () =>
       orders.filter((o) => {
@@ -753,10 +767,10 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     }
   }, [targetData, achievedData, pushNotification]);
 
-  /** Twice weekly (Mon & Thu): device notification + in-app notice for target balance & days left */
+  /** Once per local day: reminder to record stock lifts and review target balance */
   useEffect(() => {
     if (!distributorCode || !distributor) return;
-    const claimed = tryClaimTwiceWeeklyTargetReminder(distributorCode);
+    const claimed = tryClaimDailyStockLiftReminder(distributorCode);
     if (!claimed) return;
 
     const period = getTargetPeriod();
@@ -785,23 +799,26 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       rows,
     });
 
-    pushNotification(message, "info", "Target & stock reminder");
+    pushNotification(message, "info", "Daily stock-lift reminder");
 
     (async () => {
       if (typeof window === "undefined" || !("Notification" in window)) return;
       try {
         const iconUrl = getTargetReminderNotificationIconUrl();
+        const title = "Daily stock-lift reminder";
         if (Notification.permission === "granted") {
-          new Notification("Target & stock reminder", {
+          new Notification(title, {
             body: message,
             icon: iconUrl,
+            tag: "coke-daily-stock-lift",
           });
         } else if (Notification.permission === "default") {
           const p = await Notification.requestPermission();
           if (p === "granted") {
-            new Notification("Target & stock reminder", {
+            new Notification(title, {
               body: message,
               icon: iconUrl,
+              tag: "coke-daily-stock-lift",
             });
           }
         }
@@ -810,6 +827,43 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       }
     })();
   }, [distributorCode, distributor, targetData, progressAchievedData, targetPeriodRev, pushNotification]);
+
+  /** UC combined target crossed to achieved: bell + toast + in-app + browser (once per period after baseline) */
+  useEffect(() => {
+    if (!distributorCode) return;
+    const period = getTargetPeriod();
+    const scope = `${distributorCode}|${period?.end || ""}`;
+    const r = distributorUcAchievementNotifyRef.current;
+    if (r.scope !== scope) {
+      r.scope = scope;
+      r.prevAchieved = targetUcAchieved;
+      return;
+    }
+    if (r.prevAchieved === false && targetUcAchieved === true) {
+      playTargetAchievedBell();
+      const body =
+        "Your CSD and Kinley water UC targets are met for this period (or your CSD UC above target covers the Kinley water UC shortfall per policy).";
+      pushNotification(body, "success", "Target achieved");
+      showToast(body, "success", 9500, "Target achieved");
+      (async () => {
+        if (typeof window === "undefined" || !("Notification" in window)) return;
+        try {
+          const iconUrl = getTargetReminderNotificationIconUrl();
+          if (Notification.permission === "granted") {
+            new Notification("Target achieved", { body, icon: iconUrl, tag: "coke-target-achieved-dist" });
+          } else if (Notification.permission === "default") {
+            const p = await Notification.requestPermission();
+            if (p === "granted") {
+              new Notification("Target achieved", { body, icon: iconUrl, tag: "coke-target-achieved-dist" });
+            }
+          }
+        } catch (e) {
+          console.warn("Target achieved browser notification failed:", e);
+        }
+      })();
+    }
+    r.prevAchieved = targetUcAchieved;
+  }, [distributorCode, targetUcAchieved, targetPeriodRev, pushNotification, showToast]);
 
   // Load orders from Supabase or localStorage
   useEffect(() => {
@@ -1720,6 +1774,17 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 Target Balance
               </Typography>
             </Box>
+            <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                Status (UC):
+              </Typography>
+              <Chip
+                size="small"
+                label={targetUcAchieved ? "Achieved" : "Not achieved"}
+                color={targetUcAchieved ? "success" : "warning"}
+                sx={{ fontWeight: 700 }}
+              />
+            </Box>
             <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
               {/* CSD Balance */}
               <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
@@ -2108,7 +2173,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           Notifications
         </DialogTitle>
         <Typography variant="body2" color="text.secondary" sx={{ px: 3, pb: 1.5 }}>
-          Order status, target changes, twice-weekly target reminders (Mondays & Thursdays when you open the app), and other updates.
+          Order status, target changes, a daily stock-lift reminder when you open the app, and other updates.
         </Typography>
         <DialogContent
           dividers

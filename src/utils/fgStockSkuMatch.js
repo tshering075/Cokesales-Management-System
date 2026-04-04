@@ -1,3 +1,5 @@
+import { skuNameLooksLikeBuiltInCanLine } from "../constants/productSkus";
+
 /**
  * Read description text from an FG row (admin / Supabase may use different keys).
  */
@@ -37,7 +39,7 @@ function scrubStockLabel(s) {
 }
 
 /**
- * Normalize labels from Excel (e.g. "COKE 500 ML") and calculator SKUs ("Coca Cola 500ml") for matching.
+ * Normalize labels from Excel (e.g. "COKE 500 ML") and calculator SKUs ("COKE 300 ML") for matching.
  */
 export function normalizeForStockMatch(s) {
   let x = scrubStockLabel(s)
@@ -77,6 +79,9 @@ export function normalizeForStockMatch(s) {
   x = x.replace(/\bTU\b/g, "THUMS UP");
   x = x.replace(/\bTHUMS\s*UP\b/g, "THUMS UP");
   x = x.replace(/\bCHRG\b/g, "CHARGE");
+  x = x.replace(/\bCHARGED\b/g, "CHARGE");
+  x = x.replace(/\bLIMCA\b/gi, "LIMCA");
+  x = x.replace(/\bSCHWEPPES\b/gi, "SCHWEPPES");
   // Kinley / PDW labels common in bottler FG extracts
   x = x.replace(/\bCPDW\b/g, "KINLEY");
   x = x.replace(/\bPDW\b/g, "KINLEY");
@@ -94,7 +99,7 @@ export function stockMatchFingerprint(s) {
 
 /** Calculator SKU is a CAN line — must not use PET/RB FG rows (and vice versa). */
 export function calculatorSkuIsCanFormat(skuName) {
-  return /\bCAN\b/i.test(String(skuName || ""));
+  return skuNameLooksLikeBuiltInCanLine(skuName);
 }
 
 /** Normalized FG description is a can / tin / sleek pack (not PET-only). */
@@ -336,7 +341,7 @@ function sumRowsWhere(rows, test) {
 
 /**
  * Fingerprints to try for file lookup.
- * CAN calculator SKUs must NOT strip CAN — otherwise they share PET/RB stock (same fingerprint as Coca Cola 300ml).
+ * CAN calculator SKUs must NOT strip CAN — otherwise they share PET/RB stock (same fingerprint as COKE 300 ML).
  * PET SKUs may try a CAN-stripped variant only to match FG that forgot the word CAN (legacy); packaging filter still blocks can-only rows.
  */
 function skuFingerprintsForFileLookup(skuName) {

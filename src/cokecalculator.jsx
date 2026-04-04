@@ -38,19 +38,25 @@ import {
 import CheckIcon from "@mui/icons-material/Check";
 import { getNextOrderNumber, getCurrentOrderNumber } from "./utils/orderNumber";
 import AppSnackbar from "./components/AppSnackbar";
-import { DEFAULT_SKUS, UC_DIVISOR, DEFAULT_SKU_NAMES, customProductLineName } from "./constants/productSkus";
+import {
+  DEFAULT_SKUS,
+  UC_DIVISOR,
+  DEFAULT_SKU_NAMES,
+  customProductLineName,
+  skuNameLooksLikeBuiltInCanLine,
+} from "./constants/productSkus";
 
-/** Built-in CAN lines (multi-select); custom CAN products from admin are appended in `selectableCanSkus`. */
+/** Built-in CAN lines (multi-select); Sprite can uses distinct name from PET SPRITE 300 ML. */
 const BUILT_IN_CAN_PRODUCTS = [
-  "Coke 300ml CAN",
-  "Diet Coke 300ml CAN",
-  "Coke Zero 300ml CAN",
-  "Fanta 300ml CAN",
-  "Sprite 300ml CAN",
-  "Limca 300ml CAN",
-  "Thums Up 300ml CAN",
-  "Schweppes Tonic Water CAN",
-  "Schweppes Soda Water CAN",
+  "COKE CAN 300 ML",
+  "FANTA CAN 300 ML",
+  "SPRITE CAN 300 ML",
+  "DIET COKE CAN 300 ML",
+  "COKE ZERO 300 ML",
+  "LIMCA CAN 300 ML",
+  "THUMS UP CAN 300 ML",
+  "SCHWEPPES CAN TONIC WATER",
+  "SCHWEPPES CAN SODA WATER",
 ];
 
 const DEFAULT_CAN_RATE = 750;
@@ -476,17 +482,7 @@ function CokeCalculator({
     };
     const tint = (light, darkBg) => (isDark ? darkBg : light);
 
-    if (item.name.startsWith("Coca Cola"))
-      return { input: { ...baseStyle, background: tint("#fdecea", alpha(theme.palette.error.main, 0.22)) } };
-    if (item.name.startsWith("Fanta"))
-      return { input: { ...baseStyle, background: tint("#fff7e6", alpha(theme.palette.warning.main, 0.2)) } };
-    if (item.name.startsWith("Sprite"))
-      return { input: { ...baseStyle, background: tint("#eafaf1", alpha(theme.palette.success.main, 0.2)) } };
-    if (item.name.startsWith("Kinley"))
-      return { input: { ...baseStyle, background: tint("#e6f2ff", alpha(theme.palette.info.main, 0.22)) } };
-    if (item.name.startsWith("Charge"))
-      return { input: { ...baseStyle, background: tint("#ffeaea", alpha(theme.palette.error.main, 0.16)) } };
-    if (item.category === "CAN" || item.name.startsWith("CAN"))
+    if (skuNameLooksLikeBuiltInCanLine(item.name) || item.category === "CAN")
       return {
         input: {
           ...baseStyle,
@@ -496,13 +492,23 @@ function CokeCalculator({
           WebkitBackgroundClip: "padding-box",
         },
       };
+    if (item.name.startsWith("COKE"))
+      return { input: { ...baseStyle, background: tint("#fdecea", alpha(theme.palette.error.main, 0.22)) } };
+    if (item.name.startsWith("FANTA"))
+      return { input: { ...baseStyle, background: tint("#fff7e6", alpha(theme.palette.warning.main, 0.2)) } };
+    if (item.name.startsWith("SPRITE"))
+      return { input: { ...baseStyle, background: tint("#eafaf1", alpha(theme.palette.success.main, 0.2)) } };
+    if (item.name.startsWith("KINLEY"))
+      return { input: { ...baseStyle, background: tint("#e6f2ff", alpha(theme.palette.info.main, 0.22)) } };
+    if (item.name.startsWith("CHARGED"))
+      return { input: { ...baseStyle, background: tint("#ffeaea", alpha(theme.palette.error.main, 0.16)) } };
     if (item.isCustom)
       return { input: { ...baseStyle, background: tint("#f3e5f5", alpha("#ce93d8", 0.22)) } };
     return { input: { ...baseStyle, background: tint("#fffde7", alpha(theme.palette.secondary.light, 0.12)) } };
   };
 
   // Group SKUs by category
-  const csdProducts = skus.filter(item => item.category === "CSD" && item.name !== "CAN 300ml");
+  const csdProducts = skus.filter((item) => item.category === "CSD" && item.name !== "CAN 300 ML");
   const waterProducts = skus.filter(item => item.category === "Water");
 
   return (
@@ -680,7 +686,7 @@ function CokeCalculator({
                         inputProps={{
                           min: 0,
                           style: {
-                            ...getInputStyle(skus.find((s) => s.name === can) || { name: "CAN 300ml", category: "CAN" })
+                            ...getInputStyle(skus.find((s) => s.name === can) || { name: "CAN 300 ML", category: "CAN" })
                               .input,
                           },
                         }}
