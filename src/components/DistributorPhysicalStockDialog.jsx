@@ -217,7 +217,8 @@ export default function DistributorPhysicalStockDialog({
       PaperProps={{
         elevation: 0,
         sx: {
-          bgcolor: "#f0f4f8",
+          bgcolor: "background.default",
+          color: "text.primary",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -306,8 +307,9 @@ export default function DistributorPhysicalStockDialog({
             size="small"
             sx={{
               fontWeight: 700,
-              bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === "dark" ? 0.22 : 0.12),
-              color: "info.light",
+              bgcolor: (t) => (t.palette.mode === "dark" ? t.palette.info.dark : t.palette.info.main),
+              color: (t) =>
+                t.palette.getContrastText(t.palette.mode === "dark" ? t.palette.info.dark : t.palette.info.main),
             }}
           />
           {dirty ? <Chip label="Unsaved changes" size="small" color="warning" variant="outlined" /> : null}

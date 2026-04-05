@@ -3066,23 +3066,31 @@ const FG_OPENING_STOCK_ID = 'fg_opening_stock';
 
 function parseFgOpeningStockPayload(row) {
   if (!row) return null;
-  const candidates = [row.clientId, row.apiKey, row.gmail_client_id, row.gmail_api_key];
+  const candidates = [row.apiKey, row.clientId, row.gmail_client_id, row.gmail_api_key];
+  let best = null;
+  let bestTime = -1;
   for (const raw of candidates) {
     if (!raw || typeof raw !== 'string') continue;
     try {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.rows)) {
-        return {
-          rows: p.rows,
-          updatedAt: p.updatedAt ? String(p.updatedAt) : null,
-          updatedBy: p.updatedBy != null ? String(p.updatedBy) : '',
-        };
+        const t = p.updatedAt ? Date.parse(String(p.updatedAt)) : 0;
+        const score = Number.isFinite(t) ? t : 0;
+        const len = p.rows.length;
+        if (score > bestTime || (score === bestTime && len > (best?.rows?.length ?? -1))) {
+          bestTime = score;
+          best = {
+            rows: p.rows,
+            updatedAt: p.updatedAt ? String(p.updatedAt) : null,
+            updatedBy: p.updatedBy != null ? String(p.updatedBy) : '',
+          };
+        }
       }
     } catch {
       /* ignore */
     }
   }
-  return null;
+  return best;
 }
 
 /**
@@ -3124,17 +3132,33 @@ export async function saveFgOpeningStock(payload) {
     const updatedAt = new Date().toISOString();
     const body = JSON.stringify({ rows, updatedAt, updatedBy });
 
-    const { error } = await supabase
-      .from('app_config')
-      .upsert(
-        {
-          id: FG_OPENING_STOCK_ID,
-          clientId: body,
-          apiKey: body,
-          updated_at: updatedAt,
-        },
-        { onConflict: 'id' }
-      );
+    /** Remove existing row so this upload fully replaces prior FG data (fallback to upsert if delete is blocked). */
+    const { error: delErr } = await supabase.from('app_config').delete().eq('id', FG_OPENING_STOCK_ID);
+    if (delErr) {
+      console.warn('FG opening stock pre-save delete:', delErr);
+    }
+
+    let { error } = await supabase.from('app_config').insert({
+      id: FG_OPENING_STOCK_ID,
+      clientId: body,
+      apiKey: body,
+      updated_at: updatedAt,
+    });
+
+    if (error) {
+      const up = await supabase
+        .from('app_config')
+        .upsert(
+          {
+            id: FG_OPENING_STOCK_ID,
+            clientId: body,
+            apiKey: body,
+            updated_at: updatedAt,
+          },
+          { onConflict: 'id' }
+        );
+      error = up.error;
+    }
 
     if (error) throw error;
     return { rows, updatedAt, updatedBy };

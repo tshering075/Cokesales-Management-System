@@ -107,7 +107,7 @@ export default function FgStocksDialog({ open, onClose, onSaved, onNotify }) {
       onNotifyRef.current?.({
         severity: "success",
         title: "File loaded",
-        message: `${parsed.length} row(s) ready. Save to publish to distributors.`,
+        message: `Replaced preview with ${parsed.length} row(s) from this file only. Save to publish and overwrite the previous opening stock in the cloud.`,
       });
     } catch (err) {
       onNotifyRef.current?.({

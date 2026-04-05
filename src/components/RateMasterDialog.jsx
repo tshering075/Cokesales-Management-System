@@ -45,7 +45,14 @@ import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import PasswordDialog from "./PasswordDialog";
 import { saveProductRates } from "../services/supabaseService";
 import AppSnackbar from "./AppSnackbar";
-import { DEFAULT_SKUS, DEFAULT_SKU_NAMES, UC_DIVISOR, customProductLineName } from "../constants/productSkus";
+import {
+  DEFAULT_SKUS,
+  DEFAULT_SKU_NAMES,
+  UC_DIVISOR,
+  customProductLineName,
+  skuNameLooksLikeBuiltInCanLine,
+} from "../constants/productSkus";
+import { BUILT_IN_CAN_PRODUCTS } from "../utils/calculatorSkuNames";
 import { writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
 import { tableSubHeaderBandBg } from "../theme/contrastSurfaces";
 
@@ -58,54 +65,63 @@ const CATEGORY_COLORS = {
   Custom: "#6A1B9A",
 };
 
+function builtInPetCsdNames(matchName) {
+  return DEFAULT_SKUS.filter(
+    (s) => s.category === "CSD" && !skuNameLooksLikeBuiltInCanLine(s.name) && matchName(s.name)
+  ).map((s) => s.name);
+}
+
+/** Keeps Product & Rate Master labels in sync with `DEFAULT_SKUS` + calculator CAN catalogue. */
 const RATE_GROUPS = [
   {
     key: "csd_300ml",
     label: "CSD 300ml",
     category: "CSD",
-    members: ["COKE 300 ML", "FANTA 300 ML", "SPRITE 300 ML", "CHARGED 300 ML"],
+    members: builtInPetCsdNames((name) => /\b300\s+ML\b/i.test(name)),
     defaultRate: 480,
   },
   {
     key: "csd_500ml",
     label: "CSD 500ml",
     category: "CSD",
-    members: ["COKE 500 ML", "FANTA 500 ML", "SPRITE 500 ML"],
+    members: builtInPetCsdNames((name) => /\b500\s+ML\b/i.test(name)),
     defaultRate: 625,
   },
   {
     key: "csd_1_25l",
     label: "CSD 1.25L",
     category: "CSD",
-    members: ["COKE 1.25 L", "FANTA 1.25 L", "SPRITE 1.25 L"],
+    members: builtInPetCsdNames((name) => /\b1\.25\s+L\b/i.test(name)),
     defaultRate: 640,
   },
   {
     key: "water_200ml",
     label: "Water 200ml",
     category: "Water",
-    members: ["KINLEY WATER 200 ML"],
+    members: DEFAULT_SKUS.filter((s) => s.category === "Water" && /\b200\b/.test(s.name)).map((s) => s.name),
     defaultRate: 95,
   },
   {
     key: "water_500ml",
     label: "Water 500ml",
     category: "Water",
-    members: ["KINLEY WATER 500 ML"],
+    members: DEFAULT_SKUS.filter((s) => s.category === "Water" && /\b500\b/.test(s.name)).map((s) => s.name),
     defaultRate: 135,
   },
   {
     key: "water_1l",
     label: "Water 1 Ltr",
     category: "Water",
-    members: ["KINLEY WATER 1 L"],
+    members: DEFAULT_SKUS.filter(
+      (s) => s.category === "Water" && /\b1(\.0)?\s+L\b/i.test(s.name) && !/\b1\.25\b/.test(s.name)
+    ).map((s) => s.name),
     defaultRate: 115,
   },
   {
     key: "can_300ml",
-    label: "CAN 300 ML",
+    label: "CAN / sleek (built-in lines)",
     category: "CAN",
-    members: ["CAN 300 ML"],
+    members: [...BUILT_IN_CAN_PRODUCTS],
     defaultRate: 750,
   },
 ];
@@ -338,6 +354,16 @@ export default function RateMasterDialog({ open, onClose, productRates, onRatesU
       rates.forEach((group) => {
         group.members.forEach((skuName) => {
           const defaultSku = DEFAULT_SKUS.find((s) => s.name === skuName);
+          if (group.category === "CAN" && BUILT_IN_CAN_PRODUCTS.includes(skuName)) {
+            skuRates[skuName] = {
+              rate: group.rate,
+              kgPerCase: defaultSku?.kgPerCase ?? 8.28,
+              ...(defaultSku?.ucMultiplier != null && typeof defaultSku.ucMultiplier === "number"
+                ? { ucMultiplier: defaultSku.ucMultiplier }
+                : {}),
+            };
+            return;
+          }
           if (!defaultSku) return;
           const entry = { rate: group.rate, kgPerCase: defaultSku.kgPerCase };
           if (defaultSku.ucMultiplier != null && typeof defaultSku.ucMultiplier === "number") {

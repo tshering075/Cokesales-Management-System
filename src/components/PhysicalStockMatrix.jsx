@@ -123,6 +123,8 @@ const LOT_CARD_META = [
 
 /** Readable card stack for phones / narrow tablets (replaces wide matrix). */
 function PhysicalStockCardLayout({ rows, readOnly, onLotChange, inputSx, boldDataValues }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const fieldLabelSx = { fontSize: "0.7rem", fontWeight: 700, color: "text.secondary", mb: 0.35, display: "block" };
   const inputFull = useMemo(
     () => ({
@@ -150,23 +152,33 @@ function PhysicalStockCardLayout({ rows, readOnly, onLotChange, inputSx, boldDat
           }}
         >
           <Box
-            sx={{
-              px: 2,
-              py: 1.25,
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 1,
-              bgcolor: "warning.light",
-              backgroundImage: "linear-gradient(135deg, rgba(255, 213, 79, 0.35) 0%, rgba(255, 241, 118, 0.5) 100%)",
-              borderBottom: "1px solid",
-              borderColor: "divider",
-            }}
+          sx={{
+            px: 2,
+            py: 1.25,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            bgcolor: isDark ? alpha(theme.palette.warning.main, 0.2) : "warning.light",
+            backgroundImage: isDark
+              ? "none"
+              : "linear-gradient(135deg, rgba(255, 213, 79, 0.35) 0%, rgba(255, 241, 118, 0.5) 100%)",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
           >
             <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
-              <Chip label={row.category} size="small" sx={{ fontWeight: 800, bgcolor: "rgba(229, 57, 53, 0.12)", color: "error.dark" }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "0.02em" }}>
+              <Chip
+                label={row.category}
+                size="small"
+                sx={{
+                  fontWeight: 800,
+                  bgcolor: alpha(theme.palette.error.main, isDark ? 0.28 : 0.12),
+                  color: isDark ? theme.palette.error.light : theme.palette.error.dark,
+                }}
+              />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "0.02em", color: "text.primary" }}>
                 {row.sku}
               </Typography>
             </Box>
@@ -202,10 +214,15 @@ function PhysicalStockCardLayout({ rows, readOnly, onLotChange, inputSx, boldDat
                   sx={{
                     px: 2,
                     py: 1.75,
-                    bgcolor: lotIndex === 0 ? "rgba(0, 131, 143, 0.06)" : lotIndex === 1 ? "rgba(0, 131, 143, 0.035)" : "rgba(0, 131, 143, 0.09)",
+                    bgcolor:
+                      lotIndex === 0
+                        ? alpha(theme.palette.primary.main, isDark ? 0.16 : 0.06)
+                        : lotIndex === 1
+                          ? alpha(theme.palette.primary.main, isDark ? 0.1 : 0.035)
+                          : alpha(theme.palette.primary.main, isDark ? 0.2 : 0.09),
                   }}
                 >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.dark", mb: 0.25 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.main", mb: 0.25 }}>
                     {meta.title}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
@@ -309,6 +326,7 @@ export default function PhysicalStockMatrix({
   boldDataValues = false,
 }) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const isFs = variant === "fullscreen";
   /* Below ~1200px the table usually overflows horizontally — freeze leading columns. */
   const freezeLeadingCols = useMediaQuery(theme.breakpoints.down("lg"));
@@ -331,13 +349,20 @@ export default function PhysicalStockMatrix({
   const headSx = useMemo(
     () => ({
       ...cellSx,
-      bgcolor: isFs ? "#006064" : "#00bcd4",
-      color: "#fff",
+      bgcolor: isFs ? theme.palette.primary.dark : theme.palette.info.dark,
+      color: isFs ? theme.palette.primary.contrastText : theme.palette.info.contrastText,
       fontWeight: 700,
       textAlign: "center",
       fontSize: isFs ? "0.72rem" : undefined,
     }),
-    [cellSx, isFs]
+    [
+      cellSx,
+      isFs,
+      theme.palette.primary.dark,
+      theme.palette.info.dark,
+      theme.palette.primary.contrastText,
+      theme.palette.info.contrastText,
+    ]
   );
 
   const tableMaxHeight =
@@ -399,24 +424,23 @@ export default function PhysicalStockMatrix({
     [rows, onRowsChange]
   );
 
-  const lotHeadBg = useMemo(
-    () =>
-      isFs
-        ? ["#0d7377", "#006064", "#004d52"]
-        : ["#26c6da", "#00acc1", "#0097a7"],
-    [isFs]
-  );
+  const lotHeadBg = useMemo(() => {
+    if (isDark) {
+      return [theme.palette.primary.light, theme.palette.primary.main, theme.palette.primary.dark];
+    }
+    return isFs ? ["#0d7377", "#006064", "#004d52"] : ["#26c6da", "#00acc1", "#0097a7"];
+  }, [isDark, isFs, theme.palette.primary.dark, theme.palette.primary.light, theme.palette.primary.main]);
 
   const lotBodyBand = useMemo(
-    () =>
-      isFs
-        ? ["rgba(0, 96, 100, 0.09)", "rgba(0, 96, 100, 0.045)", "rgba(0, 96, 100, 0.12)"]
-        : ["rgba(0, 188, 212, 0.1)", "rgba(0, 188, 212, 0.055)", "rgba(0, 188, 212, 0.13)"],
-    [isFs]
+    () => [
+      alpha(theme.palette.primary.main, isDark ? (isFs ? 0.14 : 0.12) : isFs ? 0.09 : 0.1),
+      alpha(theme.palette.primary.main, isDark ? (isFs ? 0.08 : 0.07) : isFs ? 0.045 : 0.055),
+      alpha(theme.palette.primary.main, isDark ? (isFs ? 0.18 : 0.16) : isFs ? 0.12 : 0.13),
+    ],
+    [isFs, isDark, theme.palette.primary.main]
   );
 
-  const headTeal = isFs ? "#006064" : "#00bcd4";
-  const isDark = theme.palette.mode === "dark";
+  const headTeal = isFs ? theme.palette.primary.dark : theme.palette.info.dark;
   const catBodyBg = isDark
     ? alpha(theme.palette.warning.main, isFs ? 0.22 : 0.18)
     : isFs
@@ -694,6 +718,8 @@ function toDateInput(v) {
 }
 
 export function PhysicalStockFifoNote() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   return (
     <Alert
       icon={<InfoOutlinedIcon fontSize="inherit" />}
@@ -703,8 +729,9 @@ export function PhysicalStockFifoNote() {
         mb: 2,
         borderRadius: 2,
         alignItems: "flex-start",
-        bgcolor: "rgba(0, 131, 143, 0.06)",
-        borderColor: "rgba(0, 131, 143, 0.35)",
+        bgcolor: alpha(theme.palette.info.main, isDark ? 0.16 : 0.06),
+        borderColor: alpha(theme.palette.info.main, isDark ? 0.5 : 0.35),
+        color: "text.primary",
         "& .MuiAlert-message": { width: "100%" },
       }}
     >
