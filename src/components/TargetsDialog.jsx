@@ -49,6 +49,13 @@ import {
   Avatar,
 } from "@mui/material";
 
+/** Achieved PC/UC from sales can be floating-point; show whole units with grouping. */
+function formatAchievedMetric(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString();
+}
+
 /**
  * Props:
  * - open, onClose
@@ -740,9 +747,11 @@ export default function TargetsDialog({
                   Total Achieved UC
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: "bold", color: "success.dark" }}>
-                  {filtered.reduce((sum, d) => {
-                    return sum + (d.achieved?.CSD_UC || 0) + (d.achieved?.Water_UC || 0);
-                  }, 0).toLocaleString()}
+                  {formatAchievedMetric(
+                    filtered.reduce((sum, d) => {
+                      return sum + (Number(d.achieved?.CSD_UC) || 0) + (Number(d.achieved?.Water_UC) || 0);
+                    }, 0)
+                  )}
                 </Typography>
               </Paper>
             </Box>
@@ -1086,10 +1095,18 @@ export default function TargetsDialog({
                     </TableCell>
 
                     {/* Achieved - CSD PC, CSD UC, Water PC, Water UC */}
-                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.CSD_PC ?? 0}</TableCell>
-                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.CSD_UC ?? 0}</TableCell>
-                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.Water_PC ?? 0}</TableCell>
-                    <TableCell align="center" sx={{ color: "text.primary" }}>{d.achieved?.Water_UC ?? 0}</TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
+                      {formatAchievedMetric(d.achieved?.CSD_PC)}
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
+                      {formatAchievedMetric(d.achieved?.CSD_UC)}
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
+                      {formatAchievedMetric(d.achieved?.Water_PC)}
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: "text.primary" }}>
+                      {formatAchievedMetric(d.achieved?.Water_UC)}
+                    </TableCell>
 
                     {/* Balance - CSD PC, CSD UC, Water PC, Water UC */}
                     <TableCell align="center" sx={{ 
