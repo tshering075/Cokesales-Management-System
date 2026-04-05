@@ -77,3 +77,26 @@ export function markAdminPhysicalStockNotificationsSeen(distributors) {
     seenMaxUpdatedAt: max && max.trim() !== "" ? max : new Date().toISOString(),
   });
 }
+
+/** ISO timestamp admin last acknowledged (for in-dialog “who updated” banner). */
+export function getAdminPhysicalStockLastSeenAt() {
+  return load().seenMaxUpdatedAt || "";
+}
+
+/**
+ * Distributors with physical_stock.updatedAt newer than `sinceIso` (string compare on ISO dates).
+ * @returns {Array<{ distributor: object, updatedAt: string }>} newest first
+ */
+export function getPhysicalStockUpdatesSince(distributors, sinceIso) {
+  const seen = sinceIso || "";
+  const out = [];
+  for (const d of distributors || []) {
+    const raw = getRawPhysicalStockFromDistributor(d);
+    const u = raw?.updatedAt;
+    if (u != null && String(u).trim() !== "" && String(u) > seen) {
+      out.push({ distributor: d, updatedAt: String(u) });
+    }
+  }
+  out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  return out;
+}

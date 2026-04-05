@@ -13,18 +13,28 @@ import {
   Slide,
   Paper,
   Chip,
+  Alert,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
+import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
+import SortByAlphaIcon from "@mui/icons-material/SortByAlpha";
+import UpdateIcon from "@mui/icons-material/Update";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import PhysicalStockMatrix, { PhysicalStockFifoNote } from "./PhysicalStockMatrix";
 import {
   normalizePhysicalStockPayload,
   getRawPhysicalStockFromDistributor,
   rowTotal,
 } from "../utils/physicalStockTemplate";
-import { alpha } from "@mui/material/styles";
+import { getAdminPhysicalStockLastSeenAt, getPhysicalStockUpdatesSince } from "../utils/adminPhysicalStockSignals";
+import { alpha, useTheme } from "@mui/material/styles";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -41,9 +51,17 @@ function formatWhen(iso) {
   }
 }
 
+function distributorRowKey(d) {
+  return String(d?.code ?? d?.id ?? d?.name ?? "").trim() || d?.name || "—";
+}
+
 export default function PhysicalStockAdminDialog({ open, onClose, distributors, onOpened }) {
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [sortBy, setSortBy] = useState("name");
+  const [recentUpdates, setRecentUpdates] = useState([]);
+  const openSessionRef = useRef(false);
 
   const sorted = useMemo(() => {
     const list = Array.isArray(distributors) ? [...distributors] : [];
@@ -62,22 +80,62 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
     );
   }, [sorted, query]);
 
+  const displayed = useMemo(() => {
+    const arr = [...filtered];
+    const rawOf = (d) => getRawPhysicalStockFromDistributor(d);
+    if (sortBy === "updated") {
+      arr.sort((a, b) => {
+        const ua = rawOf(a)?.updatedAt || "";
+        const ub = rawOf(b)?.updatedAt || "";
+        if (ua !== ub) return ub.localeCompare(ua);
+        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+      });
+    } else if (sortBy === "stock") {
+      arr.sort((a, b) => {
+        const ha = rawOf(a) ? 1 : 0;
+        const hb = rawOf(b) ? 1 : 0;
+        if (ha !== hb) return hb - ha;
+        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+      });
+    } else {
+      arr.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+    }
+    return arr;
+  }, [filtered, sortBy]);
+
   const withDataCount = useMemo(
     () => sorted.filter((d) => !!getRawPhysicalStockFromDistributor(d)).length,
     [sorted]
   );
 
+  const recentUpdaterKeys = useMemo(() => {
+    const s = new Set();
+    for (const { distributor: d } of recentUpdates) {
+      const k = distributorRowKey(d);
+      if (k && k !== "—") s.add(k);
+    }
+    return s;
+  }, [recentUpdates]);
+
+  useEffect(() => {
+    if (!open) {
+      openSessionRef.current = false;
+      setRecentUpdates([]);
+      return;
+    }
+    if (openSessionRef.current) return;
+    if (!Array.isArray(distributors) || distributors.length === 0) return;
+
+    const since = getAdminPhysicalStockLastSeenAt();
+    const list = getPhysicalStockUpdatesSince(distributors, since);
+    setRecentUpdates(list);
+    onOpened?.();
+    openSessionRef.current = true;
+  }, [open, distributors, onOpened]);
+
   const handleAccordion = (code) => (_, isExp) => {
     setExpanded(isExp ? code : false);
   };
-
-  const prevOpenRef = useRef(false);
-  useEffect(() => {
-    if (open && !prevOpenRef.current) {
-      onOpened?.();
-    }
-    prevOpenRef.current = open;
-  }, [open, onOpened]);
 
   return (
     <Dialog
@@ -149,21 +207,48 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           bgcolor: "background.paper",
         }}
       >
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Search by name, code, or region"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" color="action" />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-        />
+        <Stack spacing={1.5}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Search by name, code, or region"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+          />
+          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mr: 0.5 }}>
+              Sort
+            </Typography>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={sortBy}
+              onChange={(_, v) => v && setSortBy(v)}
+              aria-label="Sort distributors"
+            >
+              <ToggleButton value="name" aria-label="By name">
+                <SortByAlphaIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                Name
+              </ToggleButton>
+              <ToggleButton value="updated" aria-label="By last update">
+                <UpdateIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                Last update
+              </ToggleButton>
+              <ToggleButton value="stock" aria-label="With stock first">
+                <Inventory2OutlinedIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                With stock first
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Stack>
       </Paper>
 
       <Box
@@ -175,22 +260,80 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           py: 2,
         }}
       >
+        {recentUpdates.length > 0 ? (
+          <Alert
+            icon={<NotificationsActiveOutlinedIcon fontSize="inherit" />}
+            severity="success"
+            variant="outlined"
+            sx={{
+              mb: 2,
+              borderRadius: 2,
+              alignItems: "flex-start",
+              bgcolor: alpha(theme.palette.success.main, theme.palette.mode === "dark" ? 0.12 : 0.06),
+              borderColor: alpha(theme.palette.success.main, 0.45),
+              "& .MuiAlert-message": { width: "100%" },
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
+              New since you last opened this screen ({recentUpdates.length})
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, lineHeight: 1.5 }}>
+              These distributors saved physical stock after your last review. Rows below are highlighted with a green edge.
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" gap={0.75} useFlexGap>
+              {recentUpdates.map(({ distributor: d, updatedAt }) => (
+                <Chip
+                  key={`${distributorRowKey(d)}-${updatedAt}`}
+                  size="small"
+                  label={`${d.name || d.code || "—"} · ${formatWhen(updatedAt)}`}
+                  color="success"
+                  variant="filled"
+                  sx={{ fontWeight: 600 }}
+                />
+              ))}
+            </Stack>
+          </Alert>
+        ) : null}
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.5,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.08 : 0.04),
+            borderColor: alpha(theme.palette.info.main, 0.25),
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>
+            How to read
+          </Typography>
+          <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.55 }}>
+            Expand a distributor to see FIFO lots (Lot 1 = dispatch first). Numbers are cases per SKU. Use{" "}
+            <strong>Last update</strong> to review who filed most recently.
+          </Typography>
+        </Paper>
+
         <PhysicalStockFifoNote />
-        {filtered.length === 0 ? (
+
+        {displayed.length === 0 ? (
           <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 2, bgcolor: "background.paper" }}>
             <Typography color="text.secondary">No distributors match your search.</Typography>
           </Paper>
         ) : (
-          filtered.map((d) => {
+          displayed.map((d) => {
             const raw = getRawPhysicalStockFromDistributor(d);
             const norm = normalizePhysicalStockPayload(raw || {});
             const grandTotal = norm.rows.reduce((s, r) => s + rowTotal(r), 0);
             const code = d.code || d.id || "";
+            const rowKey = distributorRowKey(d);
+            const expandKey = code || rowKey || d.name;
+            const isRecent = recentUpdaterKeys.has(rowKey);
             return (
               <Accordion
-                key={code || d.name}
-                expanded={expanded === code}
-                onChange={handleAccordion(code)}
+                key={rowKey || d.name}
+                expanded={expanded === expandKey}
+                onChange={handleAccordion(expandKey)}
                 disableGutters
                 sx={{
                   mb: 1.5,
@@ -198,6 +341,8 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                   overflow: "hidden",
                   border: "1px solid",
                   borderColor: "divider",
+                  borderLeft: isRecent ? "4px solid" : "1px solid",
+                  borderLeftColor: isRecent ? "success.main" : "divider",
                   bgcolor: "background.paper",
                   color: "text.primary",
                   boxShadow: (t) => `0 1px 3px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.06)}`,
@@ -207,34 +352,93 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
-                    px: 2,
-                    py: 1,
+                    px: { xs: 1.5, sm: 2 },
+                    py: 1.25,
                     "&:hover": { bgcolor: "action.hover" },
                   }}
                 >
-                  <Box sx={{ display: "flex", flexDirection: "column", width: "100%", pr: 1, gap: 0.75 }}>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: "1rem", color: "text.primary" }}>{d.name || "—"}</Typography>
-                      <Chip label={code || "—"} size="small" variant="outlined" />
+                  <Box sx={{ display: "flex", flexDirection: "column", width: "100%", pr: 1, gap: 1 }}>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "minmax(0,1.4fr) auto auto auto" },
+                        gap: { xs: 1, sm: 1.5 },
+                        alignItems: "center",
+                        width: "100%",
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: "1rem", color: "text.primary", lineHeight: 1.3 }}>
+                          {d.name || "—"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                          Code <strong>{code || "—"}</strong>
+                          {d.region ? (
+                            <>
+                              {" · "}
+                              Region <strong>{d.region}</strong>
+                            </>
+                          ) : null}
+                        </Typography>
+                      </Box>
+                      {d.region ? (
+                        <Chip
+                          label={d.region}
+                          size="small"
+                          sx={{
+                            display: { xs: "none", sm: "inline-flex" },
+                            fontWeight: 700,
+                            justifySelf: "end",
+                            bgcolor: alpha(theme.palette.secondary.main, theme.palette.mode === "dark" ? 0.25 : 0.12),
+                          }}
+                        />
+                      ) : (
+                        <span />
+                      )}
                       {raw ? (
                         <Chip
                           label={`${grandTotal.toLocaleString()} units`}
                           size="small"
                           sx={{
                             fontWeight: 700,
-                            bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === "dark" ? 0.22 : 0.12),
-                            color: "text.primary",
+                            justifySelf: { xs: "start", sm: "end" },
+                            bgcolor: theme.palette.mode === "dark" ? theme.palette.info.dark : theme.palette.info.main,
+                            color: theme.palette.getContrastText(
+                              theme.palette.mode === "dark" ? theme.palette.info.dark : theme.palette.info.main
+                            ),
                           }}
                         />
                       ) : (
-                        <Chip label="No data" size="small" color="default" variant="outlined" />
+                        <Chip label="No data" size="small" variant="outlined" sx={{ justifySelf: { xs: "start", sm: "end" } }} />
+                      )}
+                      {isRecent ? (
+                        <Chip
+                          label="Updated"
+                          size="small"
+                          color="success"
+                          sx={{ display: { xs: "none", md: "inline-flex" }, fontWeight: 800, justifySelf: "end" }}
+                        />
+                      ) : (
+                        <span />
                       )}
                     </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                      Report date: <strong>{norm.reportDate || "—"}</strong>
-                      {" · "}
-                      Updated: {formatWhen(norm.updatedAt)}
-                    </Typography>
+                    <Divider flexItem sx={{ borderColor: "divider" }} />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 2,
+                        typography: "caption",
+                        color: "text.secondary",
+                      }}
+                    >
+                      <span>
+                        Report date: <strong style={{ color: theme.palette.text.primary }}>{norm.reportDate || "—"}</strong>
+                      </span>
+                      <span>
+                        Last saved: <strong style={{ color: theme.palette.text.primary }}>{formatWhen(norm.updatedAt)}</strong>
+                      </span>
+                    </Box>
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails
@@ -242,8 +446,9 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                     pt: 0,
                     px: { xs: 0.5, sm: 1.5 },
                     pb: 2,
-                    bgcolor: (t) => alpha(t.palette.action.hover, t.palette.mode === "dark" ? 0.5 : 1),
-                    color: "text.primary",
+                    bgcolor: "action.hover",
+                    borderTop: "1px solid",
+                    borderColor: "divider",
                   }}
                 >
                   {!raw ? (
@@ -254,8 +459,9 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                     <PhysicalStockMatrix
                       rows={norm.rows}
                       readOnly
-                      variant="fullscreen"
-                      maxHeight="min(52vh, 440px)"
+                      variant="default"
+                      maxHeight="min(58vh, 520px)"
+                      boldDataValues
                     />
                   )}
                 </AccordionDetails>
