@@ -87,15 +87,6 @@ export default function StockLiftingRecordsTable({
       : "0 -6px 16px rgba(0,0,0,0.12)"
     : "none";
 
-  const footerCellSx = {
-    ...cellSx,
-    fontWeight: 800,
-    color: totalsFooterColor,
-    bgcolor: totalsFooterBg,
-    borderBottom: "none",
-    borderTop: `2px solid ${totalsFooterBorder}`,
-  };
-
   const headBg = theme.palette.primary.main;
   const headFg = theme.palette.primary.contrastText;
   const subBg = theme.palette.secondary.main;
@@ -138,6 +129,15 @@ export default function StockLiftingRecordsTable({
     verticalAlign: "middle",
     boxSizing: "border-box",
     color: "text.primary",
+  };
+
+  const footerCellSx = {
+    ...cellSx,
+    fontWeight: 800,
+    color: totalsFooterColor,
+    bgcolor: totalsFooterBg,
+    borderBottom: "none",
+    borderTop: `2px solid ${totalsFooterBorder}`,
   };
 
   /** PC / UC: same alignment as sub-headers + tabular figures for a straight digit column */
