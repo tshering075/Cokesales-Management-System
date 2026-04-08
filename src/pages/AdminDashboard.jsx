@@ -50,6 +50,7 @@ import GmailSettingsDialog from "../components/GmailSettingsDialog";
 import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
+import AdminStockLiftingRecordsDialog from "../components/AdminStockLiftingRecordsDialog";
 import FgStocksDialog from "../components/FgStocksDialog";
 import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
@@ -60,6 +61,7 @@ import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+import TableChartIcon from "@mui/icons-material/TableChart";
 import CokeCalculator from "../cokecalculator";
 import { buildFgStockOpeningAllSkus } from "../utils/fgStockSkuMatch";
 import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
@@ -155,6 +157,7 @@ function AdminDashboard({ onLogout }) {
   const [rateMasterOpen, setRateMasterOpen] = useState(false);
   const [physicalStockAdminOpen, setPhysicalStockAdminOpen] = useState(false);
   const [fgStocksOpen, setFgStocksOpen] = useState(false);
+  const [stockLiftingRecordsOpen, setStockLiftingRecordsOpen] = useState(false);
   const [fgStockDataVersion, setFgStockDataVersion] = useState(0);
   const [adminFgStockBySku, setAdminFgStockBySku] = useState(undefined);
   const [productRates, setProductRates] = useState(null);
@@ -2120,6 +2123,7 @@ function AdminDashboard({ onLogout }) {
       if (savedView === "rate_master") setRateMasterOpen(true);
       if (savedView === "physical_stock") setPhysicalStockAdminOpen(true);
       if (savedView === "fg_stocks") setFgStocksOpen(true);
+      if (savedView === "stock_lifting_records") setStockLiftingRecordsOpen(true);
       if (savedView === "distributors") setDistributorsOpen(true);
       if (savedView === "reports") setReportsOpen(true);
       if (savedView === "activity") setActivityOpen(true);
@@ -3907,6 +3911,15 @@ function AdminDashboard({ onLogout }) {
                     setSidebarOpen(isMobile);
                   },
                 },
+                {
+                  text: "Stock lifting records",
+                  icon: <TableChartIcon />,
+                  action: () => {
+                    setStockLiftingRecordsOpen(true);
+                    setAdminCurrentView("stock_lifting_records");
+                    setSidebarOpen(isMobile);
+                  },
+                },
                 { text: "Distributors", icon: <PeopleIcon />, action: () => { setDistributorsOpen(true); setAdminCurrentView("distributors"); setSidebarOpen(isMobile); } },
                 { text: "Reports", icon: <BarChartIcon />, action: () => { setReportsOpen(true); setAdminCurrentView("reports"); setSidebarOpen(isMobile); } },
                 { text: "Activity", icon: <HistoryIcon />, action: () => { setActivityOpen(true); setAdminCurrentView("activity"); setSidebarOpen(isMobile); } },
@@ -4310,6 +4323,17 @@ function AdminDashboard({ onLogout }) {
           onNotify={(n) =>
             showEmailToast(n.message, n.severity || "info", n.duration || 5200, n.title || "")
           }
+        />
+
+        <AdminStockLiftingRecordsDialog
+          open={stockLiftingRecordsOpen}
+          onClose={() => {
+            setStockLiftingRecordsOpen(false);
+            setAdminCurrentView("dashboard");
+          }}
+          distributors={distributors}
+          allSalesData={allSalesData}
+          targetPeriod={targetPeriod}
         />
 
         <OrderPreviewDialog

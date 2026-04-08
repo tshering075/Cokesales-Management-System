@@ -51,10 +51,14 @@ export default function StockLiftingRecordsTable({
   showTotalsRow = true,
   /** "grouped" = two-row CSD / Water band; "flat" = one row with explicit CSD/W column titles (better in dialogs). */
   headerLayout = "grouped",
+  /** Adds a leading Distributor column (expects `record.distributorLabel`). Forces flat header layout. */
+  showDistributorColumn = false,
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isDark = theme.palette.mode === "dark";
+  const layout = showDistributorColumn ? "flat" : headerLayout;
+  const colCount = showDistributorColumn ? 6 : 5;
 
   const headBg = theme.palette.primary.main;
   const headFg = theme.palette.primary.contrastText;
@@ -146,15 +150,21 @@ export default function StockLiftingRecordsTable({
         }}
       >
         <colgroup>
-          <col style={{ width: isMobile ? "34%" : "30%" }} />
+          {showDistributorColumn ? (
+            <col style={{ width: isMobile ? "28%" : "22%" }} />
+          ) : null}
+          <col style={{ width: showDistributorColumn ? (isMobile ? "26%" : "24%") : isMobile ? "34%" : "30%" }} />
           <col style={{ width: isMobile ? "16.5%" : "17.5%" }} />
           <col style={{ width: isMobile ? "16.5%" : "17.5%" }} />
           <col style={{ width: isMobile ? "16.5%" : "17.5%" }} />
           <col style={{ width: isMobile ? "16.5%" : "17.5%" }} />
         </colgroup>
         <TableHead>
-          {headerLayout === "flat" ? (
+          {layout === "flat" ? (
             <TableRow>
+              {showDistributorColumn ? (
+                <TableCell sx={{ ...flatHeadSx, verticalAlign: "middle", minWidth: 100 }}>Distributor</TableCell>
+              ) : null}
               <TableCell sx={{ ...flatHeadSx, verticalAlign: "middle", minWidth: 120 }}>Lift date</TableCell>
               <TableCell sx={flatHeadSx}>
                 <Box component="span" sx={{ display: "block", fontWeight: 800 }}>CSD</Box>
@@ -228,7 +238,7 @@ export default function StockLiftingRecordsTable({
         <TableBody>
           {records.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
+              <TableCell colSpan={colCount} align="center" sx={{ py: 4, color: "text.secondary" }}>
                 <Box sx={{ maxWidth: 360, mx: "auto" }}>
                   <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                     No records yet
@@ -252,6 +262,13 @@ export default function StockLiftingRecordsTable({
                   },
                 }}
               >
+                {showDistributorColumn ? (
+                  <TableCell sx={{ ...cellSx, textAlign: "left", fontWeight: 600 }}>
+                    <Typography variant="body2" noWrap title={record.distributorLabel || ""}>
+                      {record.distributorLabel || "—"}
+                    </Typography>
+                  </TableCell>
+                ) : null}
                 <TableCell sx={cellSx}>{formatStockLiftDate(record)}</TableCell>
                 <TableCell sx={cellSx}>
                   <Box component="span" sx={numericCellInnerSx}>
@@ -286,6 +303,9 @@ export default function StockLiftingRecordsTable({
               }}
             >
               <TableCell sx={{ ...cellSx, fontWeight: 800 }}>Total</TableCell>
+              {showDistributorColumn ? (
+                <TableCell sx={{ ...cellSx, fontWeight: 800 }}>—</TableCell>
+              ) : null}
               <TableCell sx={cellSx}>
                 <Box component="span" sx={numericCellInnerSx}>
                   {Math.round(totalCsdPC).toLocaleString()}
