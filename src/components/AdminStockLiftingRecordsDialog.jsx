@@ -17,11 +17,13 @@ import {
   Chip,
   FormControlLabel,
   Checkbox,
+  Divider,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import TableChartIcon from "@mui/icons-material/TableChart";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import StockLiftingRecordsTable from "./StockLiftingRecordsTable";
 import { parseTargetPeriodBounds } from "../utils/targetPeriod";
 
@@ -162,7 +164,28 @@ export default function AdminStockLiftingRecordsDialog({
     search,
   ]);
 
+  const liftTotals = useMemo(() => {
+    let csdPC = 0;
+    let csdUC = 0;
+    let waterPC = 0;
+    let waterUC = 0;
+    for (const r of filteredRecords) {
+      csdPC += Number(r.csdPC) || 0;
+      csdUC += Number(r.csdUC) || 0;
+      waterPC += Number(r.waterPC) || 0;
+      waterUC += Number(r.waterUC) || 0;
+    }
+    return { csdPC, csdUC, waterPC, waterUC };
+  }, [filteredRecords]);
+
   const showDistributorColumn = distributorCode === "__all__";
+
+  const resetFilters = () => {
+    setRegionFilter("All");
+    setDistributorCode("__all__");
+    setSearch("");
+    setLimitToTargetPeriod(true);
+  };
 
   return (
     <Dialog
@@ -223,103 +246,119 @@ export default function AdminStockLiftingRecordsDialog({
       </Box>
 
       <Paper
-        elevation={0}
-        square
+        elevation={1}
         sx={{
           flexShrink: 0,
-          px: { xs: 1.5, sm: 2.5 },
-          py: 1.5,
-          borderBottom: "1px solid",
+          mx: { xs: 1.5, sm: 2 },
+          mt: 2,
+          mb: 0,
+          borderRadius: 2,
+          overflow: "hidden",
+          border: "1px solid",
           borderColor: "divider",
-          bgcolor: "background.paper",
         }}
       >
-        <Stack spacing={1.5}>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap>
-            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
-              <InputLabel id="admin-sl-region">Region</InputLabel>
-              <Select
-                labelId="admin-sl-region"
-                label="Region"
-                value={regionFilter}
-                onChange={(e) => {
-                  setRegionFilter(e.target.value);
-                  setDistributorCode("__all__");
-                }}
-              >
-                {REGION_OPTIONS.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {r}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 280 }, flex: { sm: "1 1 240px" } }}>
-              <InputLabel id="admin-sl-dist">Distributor</InputLabel>
-              <Select
-                labelId="admin-sl-dist"
-                label="Distributor"
-                value={distributorCode}
-                onChange={(e) => setDistributorCode(e.target.value)}
-              >
-                <MenuItem value="__all__">All in {regionFilter === "All" ? "all regions" : regionFilter}</MenuItem>
-                {distributorsInRegion.map((d) => {
-                  const c = String(d.code || "").trim();
-                  if (!c) return null;
-                  return (
-                    <MenuItem key={c} value={c}>
-                      {d.name || c} ({c})
+        <Box sx={{ px: { xs: 1.5, sm: 2 }, py: 1.75 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.02, mb: 1.25 }}>
+            Filters
+          </Typography>
+          <Stack spacing={1.5}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap alignItems={{ sm: "flex-start" }}>
+              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
+                <InputLabel id="admin-sl-region">Region</InputLabel>
+                <Select
+                  labelId="admin-sl-region"
+                  label="Region"
+                  value={regionFilter}
+                  onChange={(e) => {
+                    setRegionFilter(e.target.value);
+                    setDistributorCode("__all__");
+                  }}
+                >
+                  {REGION_OPTIONS.map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {r}
                     </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              placeholder="Search name or code"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              sx={{ flex: { sm: "1 1 200px" }, minWidth: { xs: "100%", sm: 180 } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Stack>
-          <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1} useFlexGap>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={limitToTargetPeriod}
-                  onChange={(e) => setLimitToTargetPeriod(e.target.checked)}
-                  disabled={!targetPeriod?.start || !targetPeriod?.end}
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 280 }, flex: { sm: "1 1 240px" } }}>
+                <InputLabel id="admin-sl-dist">Distributor</InputLabel>
+                <Select
+                  labelId="admin-sl-dist"
+                  label="Distributor"
+                  value={distributorCode}
+                  onChange={(e) => setDistributorCode(e.target.value)}
+                >
+                  <MenuItem value="__all__">All in {regionFilter === "All" ? "all regions" : regionFilter}</MenuItem>
+                  {distributorsInRegion.map((d) => {
+                    const c = String(d.code || "").trim();
+                    if (!c) return null;
+                    return (
+                      <MenuItem key={c} value={c}>
+                        {d.name || c} ({c})
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+              <TextField
+                size="small"
+                placeholder="Search name or code"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{ flex: { sm: "1 1 200px" }, minWidth: { xs: "100%", sm: 180 } }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<RestartAltIcon />}
+                onClick={resetFilters}
+                sx={{ minWidth: { xs: "100%", sm: "auto" }, alignSelf: { sm: "stretch" }, fontWeight: 700, borderRadius: 2 }}
+              >
+                Reset
+              </Button>
+            </Stack>
+            <Divider flexItem sx={{ borderColor: "divider" }} />
+            <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1} useFlexGap>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={limitToTargetPeriod}
+                    onChange={(e) => setLimitToTargetPeriod(e.target.checked)}
+                    disabled={!targetPeriod?.start || !targetPeriod?.end}
+                  />
+                }
+                label="Limit to target period"
+              />
+              {targetPeriod?.start && targetPeriod?.end ? (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`${targetPeriod.start} → ${targetPeriod.end}`}
+                  sx={{ fontWeight: 600 }}
                 />
-              }
-              label="Limit to target period"
-            />
-            {targetPeriod?.start && targetPeriod?.end ? (
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  Set target period under Targets to enable date filtering.
+                </Typography>
+              )}
               <Chip
                 size="small"
-                variant="outlined"
-                label={`${targetPeriod.start} → ${targetPeriod.end}`}
-                sx={{ fontWeight: 600 }}
+                color="primary"
+                label={`${filteredRecords.length} row${filteredRecords.length !== 1 ? "s" : ""}`}
+                sx={{ fontWeight: 700 }}
               />
-            ) : (
-              <Typography variant="caption" color="text.secondary">
-                Set target period under Targets to enable date filtering.
-              </Typography>
-            )}
-            <Chip
-              size="small"
-              color="primary"
-              label={`${filteredRecords.length} row${filteredRecords.length !== 1 ? "s" : ""}`}
-              sx={{ fontWeight: 700 }}
-            />
+            </Stack>
           </Stack>
-        </Stack>
+        </Box>
       </Paper>
 
       <Box
@@ -327,14 +366,14 @@ export default function AdminStockLiftingRecordsDialog({
           flex: 1,
           minHeight: 0,
           overflow: "auto",
-          px: { xs: 1, sm: 2 },
+          px: { xs: 1.5, sm: 2 },
           py: 2,
         }}
       >
         <Paper
           variant="outlined"
           sx={{
-            p: 1.5,
+            p: { xs: 1.25, sm: 1.5 },
             mb: 2,
             borderRadius: 2,
             bgcolor: alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.1 : 0.04),
@@ -348,15 +387,71 @@ export default function AdminStockLiftingRecordsDialog({
           </Typography>
         </Paper>
 
+        {filteredRecords.length > 0 ? (
+          <Paper
+            variant="outlined"
+            elevation={0}
+            sx={{
+              p: { xs: 1.25, sm: 1.5 },
+              mb: 2,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.12 : 0.06),
+              borderColor: alpha(theme.palette.primary.main, 0.35),
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.06, display: "block", mb: 1 }}>
+              Totals for visible rows
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(4, 1fr)" },
+                gap: { xs: 1, sm: 1.5 },
+              }}
+            >
+              {[
+                { label: "CSD PC", value: liftTotals.csdPC },
+                { label: "CSD UC", value: liftTotals.csdUC },
+                { label: "Water PC", value: liftTotals.waterPC },
+                { label: "Water UC", value: liftTotals.waterUC },
+              ].map(({ label, value }) => (
+                <Box
+                  key={label}
+                  sx={{
+                    borderRadius: 1.5,
+                    px: 1.25,
+                    py: 1,
+                    bgcolor: "background.paper",
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: "block" }}>
+                    {label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}>
+                    {Math.round(value).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        ) : null}
+
         {(!allSalesData || allSalesData.length === 0) && (
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             No sales / lifting data loaded yet. Upload sales Excel from the dashboard or check your Supabase connection.
           </Typography>
         )}
 
+        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+          Records
+        </Typography>
         <StockLiftingRecordsTable
           records={filteredRecords}
           stickyHeader
+          stickyTotals
+          totalsRowVariant="primary"
           maxHeight="min(62vh, 560px)"
           headerLayout="flat"
           showDistributorColumn={showDistributorColumn}
@@ -365,8 +460,7 @@ export default function AdminStockLiftingRecordsDialog({
       </Box>
 
       <Paper
-        elevation={12}
-        square
+        elevation={8}
         sx={{
           flexShrink: 0,
           px: { xs: 1.5, sm: 2.5 },
@@ -375,11 +469,14 @@ export default function AdminStockLiftingRecordsDialog({
           borderColor: "divider",
           display: "flex",
           justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 1,
           bgcolor: "background.paper",
+          borderRadius: 0,
         }}
       >
-        <Button onClick={onClose} variant="contained" color="error" size="large" sx={{ minWidth: 120, borderRadius: 2, fontWeight: 700 }}>
-          Close
+        <Button onClick={onClose} variant="contained" color="primary" size="large" sx={{ minWidth: 120, borderRadius: 2, fontWeight: 700 }}>
+          Done
         </Button>
       </Paper>
     </Dialog>

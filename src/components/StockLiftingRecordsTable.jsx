@@ -6,6 +6,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableFooter,
   Paper,
   Typography,
   Box,
@@ -53,12 +54,47 @@ export default function StockLiftingRecordsTable({
   headerLayout = "grouped",
   /** Adds a leading Distributor column (expects `record.distributorLabel`). Forces flat header layout. */
   showDistributorColumn = false,
+  /** Visual style for the totals row / sticky footer. */
+  totalsRowVariant = "error",
+  /** Keep totals visible at the bottom of the scroll area (inside TableContainer). */
+  stickyTotals = false,
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isDark = theme.palette.mode === "dark";
   const layout = showDistributorColumn ? "flat" : headerLayout;
   const colCount = showDistributorColumn ? 6 : 5;
+
+  let totalsFooterBg;
+  let totalsFooterBorder;
+  let totalsFooterColor;
+  if (totalsRowVariant === "primary") {
+    totalsFooterBg = alpha(theme.palette.primary.main, isDark ? 0.45 : 0.18);
+    totalsFooterBorder = theme.palette.primary.main;
+    totalsFooterColor = theme.palette.getContrastText(totalsFooterBg);
+  } else if (totalsRowVariant === "neutral") {
+    totalsFooterBg = alpha(theme.palette.grey[500], isDark ? 0.2 : 0.1);
+    totalsFooterBorder = theme.palette.divider;
+    totalsFooterColor = theme.palette.text.primary;
+  } else {
+    totalsFooterBg = alpha(theme.palette.error.main, isDark ? 0.2 : 0.12);
+    totalsFooterBorder = theme.palette.error.main;
+    totalsFooterColor = theme.palette.text.primary;
+  }
+  const totalsFooterShadow = stickyTotals
+    ? totalsRowVariant === "neutral"
+      ? "0 -6px 16px rgba(0,0,0,0.08)"
+      : "0 -6px 16px rgba(0,0,0,0.12)"
+    : "none";
+
+  const footerCellSx = {
+    ...cellSx,
+    fontWeight: 800,
+    color: totalsFooterColor,
+    bgcolor: totalsFooterBg,
+    borderBottom: "none",
+    borderTop: `2px solid ${totalsFooterBorder}`,
+  };
 
   const headBg = theme.palette.primary.main;
   const headFg = theme.palette.primary.contrastText;
@@ -293,42 +329,49 @@ export default function StockLiftingRecordsTable({
               </TableRow>
             ))
           )}
-          {showTotalsRow && records.length > 0 && (
-            <TableRow
-              sx={{
-                bgcolor: alpha(theme.palette.error.main, isDark ? 0.2 : 0.12),
-                borderTop: "2px solid",
-                borderColor: "error.main",
-                "& .MuiTableCell-root": { fontWeight: 800, color: "text.primary" },
-              }}
-            >
-              <TableCell sx={{ ...cellSx, fontWeight: 800 }}>Total</TableCell>
+        </TableBody>
+        {showTotalsRow && records.length > 0 ? (
+          <TableFooter
+            sx={{
+              bgcolor: totalsFooterBg,
+              ...(stickyTotals
+                ? {
+                    position: "sticky",
+                    bottom: 0,
+                    zIndex: 4,
+                    boxShadow: totalsFooterShadow,
+                  }
+                : {}),
+            }}
+          >
+            <TableRow>
               {showDistributorColumn ? (
-                <TableCell sx={{ ...cellSx, fontWeight: 800 }}>—</TableCell>
+                <TableCell sx={footerCellSx}>Total</TableCell>
               ) : null}
-              <TableCell sx={cellSx}>
-                <Box component="span" sx={numericCellInnerSx}>
+              <TableCell sx={footerCellSx}>{showDistributorColumn ? "—" : "Total"}</TableCell>
+              <TableCell sx={footerCellSx}>
+                <Box component="span" sx={{ ...numericCellInnerSx, color: "inherit" }}>
                   {Math.round(totalCsdPC).toLocaleString()}
                 </Box>
               </TableCell>
-              <TableCell sx={cellSx}>
-                <Box component="span" sx={numericCellInnerSx}>
+              <TableCell sx={footerCellSx}>
+                <Box component="span" sx={{ ...numericCellInnerSx, color: "inherit" }}>
                   {Math.round(totalCsdUC).toLocaleString()}
                 </Box>
               </TableCell>
-              <TableCell sx={cellSx}>
-                <Box component="span" sx={numericCellInnerSx}>
+              <TableCell sx={footerCellSx}>
+                <Box component="span" sx={{ ...numericCellInnerSx, color: "inherit" }}>
                   {Math.round(totalWaterPC).toLocaleString()}
                 </Box>
               </TableCell>
-              <TableCell sx={cellSx}>
-                <Box component="span" sx={numericCellInnerSx}>
+              <TableCell sx={footerCellSx}>
+                <Box component="span" sx={{ ...numericCellInnerSx, color: "inherit" }}>
                   {Math.round(totalWaterUC).toLocaleString()}
                 </Box>
               </TableCell>
             </TableRow>
-          )}
-        </TableBody>
+          </TableFooter>
+        ) : null}
       </Table>
     </TableContainer>
   );
