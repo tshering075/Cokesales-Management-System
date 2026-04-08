@@ -2179,17 +2179,17 @@ function AdminDashboard({ onLogout }) {
         if (!saleDate || saleDate < periodStart || saleDate > normalizedPeriodEnd) return;
       }
 
-      const partyName = readField(sale, ["distributorName", "distributor_name", "distributor", "name"], "");
-      let matched = findDistributorForPartyName(distributors, partyName);
-      let resolvedCode = matched?.code != null ? String(matched.code).trim() : null;
-      // Stock lifting and reports key off saved distributorCode; party text can differ slightly
-      // between rows (Excel merge/export). If name match fails, still count rows with a known code.
-      if (!resolvedCode) {
-        const rawCode = readField(sale, ["distributorCode", "distributor_code"], null);
-        const codeStr = rawCode != null && rawCode !== "" ? String(rawCode).trim() : "";
-        if (codeStr && distributors.some((d) => String(d.code ?? "").trim() === codeStr)) {
-          resolvedCode = codeStr;
-        }
+      const rawCode = readField(sale, ["distributorCode", "distributor_code"], null);
+      const codeStr = rawCode != null && rawCode !== "" ? String(rawCode).trim() : "";
+      let resolvedCode = null;
+      // Prefer explicit distributor code from uploaded sales rows.
+      // Name matching is fallback-only to avoid mis-attribution between similar names.
+      if (codeStr && distributors.some((d) => String(d.code ?? "").trim() === codeStr)) {
+        resolvedCode = codeStr;
+      } else {
+        const partyName = readField(sale, ["distributorName", "distributor_name", "distributor", "name"], "");
+        const matched = findDistributorForPartyName(distributors, partyName);
+        resolvedCode = matched?.code != null ? String(matched.code).trim() : null;
       }
 
       if (resolvedCode) {
