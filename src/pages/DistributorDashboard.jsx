@@ -952,13 +952,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       return () => unsubscribe();
     }
   }, [distributorCode, isSupabaseConfigured]);
-  const setDistributorCurrentView = (view) => {
+  const setDistributorCurrentView = useCallback((view) => {
     try {
       localStorage.setItem(DISTRIBUTOR_VIEW_STORAGE_KEY, view);
     } catch (error) {
       console.warn("Could not persist distributor current view:", error);
     }
-  };
+  }, [DISTRIBUTOR_VIEW_STORAGE_KEY]);
 
   const openDashboard = () => {
     if (distributorCode) {
@@ -1498,6 +1498,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     openProductRateDialog,
     openStockLiftingDialog,
     openPhysicalStockDialog,
+    setDistributorCurrentView,
   ]);
 
   useEffect(() => {
