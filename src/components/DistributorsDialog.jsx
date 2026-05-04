@@ -43,8 +43,6 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DownloadIcon from "@mui/icons-material/Download";
 import PeopleIcon from "@mui/icons-material/People";
 import Avatar from "@mui/material/Avatar";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { hashPasswordForStorage, isUsernameTaken, getDistributors } from "../utils/distributorAuth";
 import PasswordDialog from "./PasswordDialog";
 import AddDistributorDialog from "./AddDistributorDialog";
@@ -128,6 +126,44 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
       (d.credentials?.username || "").toLowerCase().includes(search)
     );
   });
+
+  const distributorHeaderCellSx = {
+    color: "#fff",
+    bgcolor: "#b71c1c",
+    fontWeight: 700,
+    fontSize: "0.95rem",
+    letterSpacing: 0.5,
+    borderBottom: "1px solid rgba(255,255,255,0.2)",
+  };
+
+  const distributorRowSx = (index) => {
+    const isDark = theme.palette.mode === "dark";
+    const rowBg = isDark
+      ? index % 2 === 0
+        ? alpha(theme.palette.common.white, 0.055)
+        : alpha(theme.palette.common.white, 0.025)
+      : tableStripeAt(theme, index);
+
+    return {
+      bgcolor: rowBg,
+      color: "text.primary",
+      transition: "background-color 0.2s, box-shadow 0.2s",
+      "& > td": {
+        bgcolor: "inherit",
+        borderBottom: "1px solid",
+        borderColor: isDark ? alpha(theme.palette.common.white, 0.08) : "divider",
+      },
+      "&.MuiTableRow-hover:hover": {
+        bgcolor: isDark ? alpha(theme.palette.warning.light, 0.18) : alpha(theme.palette.warning.main, 0.12),
+        boxShadow: isDark
+          ? `inset 3px 0 0 ${theme.palette.warning.light}`
+          : `inset 3px 0 0 ${theme.palette.warning.main}`,
+        "& > td": {
+          bgcolor: "inherit",
+        },
+      },
+    };
+  };
 
   const handlePasswordSuccess = () => {
     setIsAuthenticated(true);
@@ -493,6 +529,7 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
 
   // Parse Excel file for bulk distributor upload
   const parseDistributorExcel = async (file) => {
+    const XLSX = await import("xlsx");
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -666,7 +703,11 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
   };
 
   // Download distributor template
-  const downloadDistributorTemplate = () => {
+  const downloadDistributorTemplate = async () => {
+    const [XLSX, { saveAs }] = await Promise.all([
+      import("xlsx"),
+      import("file-saver"),
+    ]);
     // Create template data
     const templateData = [
       ["name", "code", "region", "phone", "address", "username", "password"],
@@ -1584,11 +1625,11 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                 </Box>
               </Box>
             </Box>
-            <TableContainer sx={{ maxHeight: { xs: "400px", sm: "600px" } }}>
+            <TableContainer sx={{ maxHeight: { xs: "400px", sm: "600px" }, bgcolor: "background.paper" }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow sx={{ background: "linear-gradient(135deg, #d61916 0%, #b71c1c 100%)" }}>
-                    <TableCell padding="checkbox" sx={{ color: "#fff", bgcolor: "transparent" }}>
+                    <TableCell padding="checkbox" sx={{ ...distributorHeaderCellSx, bgcolor: "#d61916" }}>
                       <Checkbox
                         sx={{ color: "#fff", "&.Mui-checked": { color: "#fff" } }}
                         indeterminate={
@@ -1600,13 +1641,13 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                         inputProps={{ "aria-label": "select all distributors" }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Name</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Code</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Region</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Address</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Username</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }}>Password</TableCell>
-                    <TableCell sx={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", letterSpacing: 0.5 }} align="center">Actions</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Name</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Code</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Region</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Address</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Username</TableCell>
+                    <TableCell sx={distributorHeaderCellSx}>Password</TableCell>
+                    <TableCell sx={distributorHeaderCellSx} align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1618,22 +1659,11 @@ export default function DistributorsDialog({ open, onClose, distributors = [], o
                     </TableRow>
                   ) : (
                     filteredList.map((d, i) => {
-                      const rowBg = tableStripeAt(theme, i);
                       return (
                       <TableRow 
                         key={d.code || d.name || i}
                         hover
-                        sx={{
-                          bgcolor: rowBg,
-                          color: "text.primary",
-                          "&:hover": { 
-                            bgcolor: (t) => alpha(t.palette.warning.main, t.palette.mode === "dark" ? 0.16 : 0.12),
-                            transform: "scale(1.01)",
-                            transition: "all 0.2s",
-                            boxShadow: (t) => `0 2px 8px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.35 : 0.1)}`,
-                          },
-                          transition: "all 0.2s"
-                        }}
+                        sx={distributorRowSx(i)}
                       >
                         <TableCell padding="checkbox" sx={{ color: "text.primary" }}>
                           <Checkbox

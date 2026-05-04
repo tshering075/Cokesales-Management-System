@@ -35,157 +35,143 @@ function InfoCards({ balance, targetPeriod }) {
   const remainingDays = targetPeriod?.end ? getDaysRemaining(targetPeriod.end) : 0;
   const ucAchieved = balance?.targetUcAchieved === true;
 
-  const cardSx = {
-    p: { xs: 2, sm: 2.5 },
-    borderRadius: 3,
-    transition: "transform 0.2s, box-shadow 0.2s",
-    height: "100%",
-    minHeight: "unset",
-    display: "flex",
-    flexDirection: "column",
-    boxSizing: "border-box",
-    border: theme.palette.mode === "dark" ? 1 : 0,
-    borderColor: "divider",
-    "&:hover": {
-      transform: { xs: "none", sm: "translateY(-4px)" },
-      boxShadow: 4,
-      zIndex: 1,
-    },
-  };
-
   return (
-    <Box
+    <Card
+      elevation={0}
       sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-        gap: { xs: 1.5, sm: 2 },
+        p: { xs: 2, sm: 2.5 },
         mb: { xs: 1.25, sm: 2 },
-        alignItems: "stretch",
+        borderRadius: 3,
+        background:
+          theme.palette.mode === "dark"
+            ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.1)} 48%, ${alpha(theme.palette.success.main, 0.12)} 100%)`
+            : "linear-gradient(135deg, #ffffff 0%, #e3f2fd 48%, #e8f5e9 100%)",
+        border: "1px solid",
+        borderColor: alpha(theme.palette.divider, theme.palette.mode === "dark" ? 0.8 : 0.9),
+        boxShadow: `0 16px 44px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.28 : 0.08)}`,
       }}
     >
-      <Card
-        elevation={2}
+      <Box
         sx={{
-          ...cardSx,
-          background:
-            theme.palette.mode === "dark"
-              ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.14)} 100%)`
-              : "linear-gradient(135deg, #fff 0%, #bbdefb 100%)",
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+          gap: { xs: 2, md: 3 },
+          alignItems: "stretch",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-          <Box
-            sx={{
-              p: { xs: 1, sm: 1.5 },
-              borderRadius: 2,
-              bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
-              mr: 1.5,
-            }}
-          >
-            <BarChartIcon
-              sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }}
+        <Box>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+            <Box
+              sx={{
+                p: { xs: 1, sm: 1.5 },
+                borderRadius: 2,
+                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
+                mr: 1.5,
+              }}
+            >
+              <BarChartIcon
+                sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }}
+              />
+            </Box>
+            <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+              Target Balance
+            </Typography>
+          </Box>
+          <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+              Status (UC):
+            </Typography>
+            <Chip
+              size="small"
+              label={ucAchieved ? "Achieved" : "Not achieved"}
+              color={ucAchieved ? "success" : "warning"}
+              sx={{ fontWeight: 700 }}
             />
           </Box>
-          <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-            Target Balance
-          </Typography>
-        </Box>
-        <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-            Status (UC):
-          </Typography>
-          <Chip
-            size="small"
-            label={ucAchieved ? "Achieved" : "Not achieved"}
-            color={ucAchieved ? "success" : "warning"}
-            sx={{ fontWeight: 700 }}
-          />
-        </Box>
-        <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
-          <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-              CSD
-            </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                PC:
+          <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
+            <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                CSD
               </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                  fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                }}
-              >
-                {balance?.csdPC?.toLocaleString() || 0}
-              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                  PC:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                  }}
+                >
+                  {balance?.csdPC?.toLocaleString() || 0}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                  UC:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                  }}
+                >
+                  {balance?.csdUC?.toLocaleString() || 0}
+                </Typography>
+              </Box>
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                UC:
+            <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                Water
               </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                  fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                }}
-              >
-                {balance?.csdUC?.toLocaleString() || 0}
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-              Water
-            </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                PC:
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                  fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                }}
-              >
-                {balance?.waterPC?.toLocaleString() || 0}
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                UC:
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                  fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                }}
-              >
-                {balance?.waterUC?.toLocaleString() || 0}
-              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                  PC:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                  }}
+                >
+                  {balance?.waterPC?.toLocaleString() || 0}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                  UC:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                  }}
+                >
+                  {balance?.waterUC?.toLocaleString() || 0}
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Box>
-      </Card>
 
-      <Card
-        elevation={2}
-        sx={{
-          ...cardSx,
-          background:
-            theme.palette.mode === "dark"
-              ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.success.main, 0.14)} 100%)`
-              : "linear-gradient(135deg, #fff 0%, #c8e6c9 100%)",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+        <Box
+          sx={{
+            borderLeft: { xs: 0, md: "1px solid" },
+            borderTop: { xs: "1px solid", md: 0 },
+            borderColor: "divider",
+            pl: { xs: 0, md: 3 },
+            pt: { xs: 2, md: 0 },
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
           <Box
             sx={{
               p: { xs: 1, sm: 1.5 },
@@ -240,8 +226,9 @@ function InfoCards({ balance, targetPeriod }) {
             </Typography>
           </Box>
         </Box>
-      </Card>
-    </Box>
+        </Box>
+      </Box>
+    </Card>
   );
 }
 

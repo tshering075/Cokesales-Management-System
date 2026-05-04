@@ -5,11 +5,6 @@ import {
   Toolbar,
   Typography,
   IconButton,
-  Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemButton,
   Table,
   TableBody,
   TableCell,
@@ -31,11 +26,9 @@ import {
   Tooltip,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { DRAWER_FOREGROUND } from "../theme/drawerContrast";
-import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
-import { BarChart as BarChartIcon, CalendarMonth, Close as CloseIcon, ListAlt as ListAltIcon, Inventory as InventoryIcon, Dashboard as DashboardIcon, Warehouse as WarehouseIcon } from "@mui/icons-material";
+import { BarChart as BarChartIcon, Calculate as CalculateIcon, CalendarMonth, Close as CloseIcon, ListAlt as ListAltIcon, Dashboard as DashboardIcon, Warehouse as WarehouseIcon } from "@mui/icons-material";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import CokeCalculator from "../cokecalculator";
 import OrdersDialog from "../components/OrdersDialog";
@@ -71,12 +64,7 @@ import {
   supabase,
   getProductRates,
   getGlobalTargetPeriod,
-  getFgOpeningStock,
-  subscribeFgOpeningStock,
 } from "../services/supabaseService";
-import { buildFgStockOpeningAllSkus } from "../utils/fgStockSkuMatch";
-import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
-import { sumReservedCasesBySku } from "../utils/fgStockOrderReservations";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import {
   ensureDashboardBaselineIfMissing,
@@ -87,10 +75,18 @@ import {
 } from "../utils/distributorSidebarSignals";
 import { getRawPhysicalStockFromDistributor } from "../utils/physicalStockTemplate";
 import { readProductRatesFromLocalStorage, writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
+import { DEFAULT_SKUS, DEFAULT_SKU_NAMES, customProductLineName } from "../constants/productSkus";
+import { BUILT_IN_CAN_PRODUCTS } from "../utils/calculatorSkuNames";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
+const DEFAULT_CAN_RATE = 750;
+const PRODUCT_RATE_CATEGORY_COLORS = {
+  CSD: "#E40521",
+  CAN: "#FF6F00",
+  Water: "#0288D1",
+};
 
 // Helper function to format dates
 function formatDate(dateString) {
@@ -131,16 +127,7 @@ function fingerprintStockLiftingRecords(records) {
 
 function DistributorDashboard({ distributorName = "Distributor", distributorCode, onLogout }) {
   const theme = useTheme();
-  const drawerPrimaryTypographyProps = {
-    sx: {
-      color: DRAWER_FOREGROUND,
-      fontWeight: 700,
-      fontSize: { xs: "0.82rem", sm: "0.9rem" },
-      lineHeight: 1.35,
-    },
-  };
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [orders, setOrders] = useState([]);
   const [cancelingOrderId, setCancelingOrderId] = useState(null);
@@ -181,44 +168,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const [targetPeriodRev, setTargetPeriodRev] = useState(0);
   const stockLiftingFingerprintRef = useRef(null);
   const [salesRefreshNoticeOpen, setSalesRefreshNoticeOpen] = useState(false);
-  const [fgOpeningStockRecord, setFgOpeningStockRecord] = useState(null);
-  const lastFgUpdatedAtRef = useRef(null);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    let cancelled = false;
-    const apply = (data) => {
-      if (cancelled) return;
-      setFgOpeningStockRecord(data || null);
-      const nextAt = data?.updatedAt || null;
-      if (nextAt) {
-        if (lastFgUpdatedAtRef.current && lastFgUpdatedAtRef.current !== nextAt) {
-          setToast({
-            open: true,
-            title: "Opening stock updated",
-            message:
-              "FG availability beside each SKU in the calculator now reflects the latest upload from your admin.",
-            severity: "success",
-            duration: 6500,
-          });
-        }
-        lastFgUpdatedAtRef.current = nextAt;
-      }
-    };
-    (async () => {
-      try {
-        const data = await getFgOpeningStock();
-        apply(data);
-      } catch (e) {
-        console.warn("FG opening stock load failed:", e);
-      }
-    })();
-    const unsub = subscribeFgOpeningStock((payload) => apply(payload));
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [isSupabaseConfigured]);
+  const dialogBackHistoryRef = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -529,6 +479,60 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     [orders]
   );
 
+  const productRateRows = useMemo(() => {
+    const skuRates = productRates?.skuRates || {};
+    const seen = new Set();
+
+    const rateFor = (name, fallback, isCan = false) => {
+      const savedRate = Number(skuRates?.[name]?.rate);
+      const canRate = Number(productRates?.canRate);
+      const fallbackRate = Number(fallback);
+      if (isCan && Number.isFinite(canRate)) return canRate;
+      if (Number.isFinite(savedRate)) return savedRate;
+      if (Number.isFinite(fallbackRate)) return fallbackRate;
+      return null;
+    };
+
+    const pushRow = (rows, { name, category, rate, source = "Standard" }) => {
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      rows.push({
+        name,
+        category: category === "Water" ? "Water" : category === "CAN" ? "CAN" : "CSD",
+        rate,
+        source,
+      });
+    };
+
+    const rows = [];
+    DEFAULT_SKUS.filter((sku) => sku.category === "CSD" && sku.name !== "CAN 300 ML").forEach((sku) => {
+      pushRow(rows, { name: sku.name, category: "CSD", rate: rateFor(sku.name, sku.rate) });
+    });
+
+    BUILT_IN_CAN_PRODUCTS.forEach((name) => {
+      pushRow(rows, { name, category: "CAN", rate: rateFor(name, DEFAULT_CAN_RATE, true) });
+    });
+
+    DEFAULT_SKUS.filter((sku) => sku.category === "Water").forEach((sku) => {
+      pushRow(rows, { name: sku.name, category: "Water", rate: rateFor(sku.name, sku.rate) });
+    });
+
+    const customProducts = Array.isArray(productRates?.customProducts) ? productRates.customProducts : [];
+    customProducts.forEach((product) => {
+      const lineName = customProductLineName(product?.name, product?.sku);
+      if (!lineName || DEFAULT_SKU_NAMES.has(lineName)) return;
+      const productRate = Number(product?.rate);
+      pushRow(rows, {
+        name: lineName,
+        category: product?.category,
+        rate: rateFor(lineName, Number.isFinite(productRate) ? productRate : null),
+        source: "Custom",
+      });
+    });
+
+    return rows;
+  }, [productRates]);
+
   const physicalStockPayload = useMemo(
     () => getRawPhysicalStockFromDistributor(distributor),
     [distributor]
@@ -588,25 +592,6 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     if (order?.id) return order.id;
     return `${order?.timestamp || ""}_${order?.distributorCode || distributorCode || ""}`;
   }, [distributorCode]);
-
-  /** Per-SKU cases: opening file aggregate minus pending/sent/approved orders (rejected excluded; canceled absent). While editing an order, that order is excluded from reservations. */
-  const fgStockBySku = useMemo(() => {
-    const names = getAllCalculatorSkuNames(productRates);
-    const rows = Array.isArray(fgOpeningStockRecord?.rows) ? fgOpeningStockRecord.rows : [];
-    const base = buildFgStockOpeningAllSkus(names, rows);
-    const excludeKey = editingOrder ? getOrderKey(editingOrder) : null;
-    const reserved = sumReservedCasesBySku(orders, getOrderStatus, {
-      excludeOrderKey: excludeKey,
-      getOrderKey,
-    });
-    const out = {};
-    for (const name of names) {
-      const b = Number(base[name]) || 0;
-      const r = Number(reserved[name]) || 0;
-      out[name] = Math.max(0, Math.round(b - r));
-    }
-    return out;
-  }, [fgOpeningStockRecord, productRates, orders, getOrderStatus, getOrderKey, editingOrder]);
 
   const refreshDistributorOrders = useCallback(async () => {
     try {
@@ -874,6 +859,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   useEffect(() => {
     if (!isSupabaseConfigured || !distributorCode) return;
     const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       refreshDistributorOrders();
     }, 5000);
     return () => clearInterval(id);
@@ -966,14 +952,43 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       return () => unsubscribe();
     }
   }, [distributorCode, isSupabaseConfigured]);
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-
   const setDistributorCurrentView = (view) => {
     try {
       localStorage.setItem(DISTRIBUTOR_VIEW_STORAGE_KEY, view);
     } catch (error) {
       console.warn("Could not persist distributor current view:", error);
     }
+  };
+
+  const openDashboard = () => {
+    if (distributorCode) {
+      markDashboardTargetSeen(distributorCode, targetData, progressAchievedData);
+      bumpSidebarBadges();
+    }
+    setDistributorCurrentView("dashboard");
+  };
+
+  const openNewOrder = () => {
+    setEditingOrder(null);
+    setCalculatorInitialInputs(null);
+    setShowCalculator(true);
+    setDistributorCurrentView("calculator");
+  };
+
+  const openOrdersList = () => {
+    setOpenOrdersListDialog(true);
+    setDistributorCurrentView("orders");
+  };
+
+  const openRateList = async () => {
+    setOpenProductRateDialog(true);
+    setDistributorCurrentView("product_rates");
+    await loadProductRates();
+  };
+
+  const openPhysicalStock = () => {
+    setOpenPhysicalStockDialog(true);
+    setDistributorCurrentView("physical_stock");
   };
 
   useEffect(() => {
@@ -1424,20 +1439,111 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
     setDistributorCurrentView("calculator");
   };
 
+  const anyDashboardDialogOpen =
+    notificationsOpen ||
+    salesRefreshNoticeOpen ||
+    showCalculator ||
+    openOrdersListDialog ||
+    openOrderCalculatedDialog ||
+    openProductRateDialog ||
+    openStockLiftingDialog ||
+    openPhysicalStockDialog;
+
+  const closeTopDashboardDialog = useCallback(() => {
+    if (salesRefreshNoticeOpen) {
+      setSalesRefreshNoticeOpen(false);
+      return;
+    }
+    if (notificationsOpen) {
+      setNotificationsOpen(false);
+      return;
+    }
+    if (openOrderCalculatedDialog) {
+      setOpenOrderCalculatedDialog(false);
+      setOrderForCalculatedTable(null);
+      return;
+    }
+    if (showCalculator) {
+      setShowCalculator(false);
+      setEditingOrder(null);
+      setCalculatorInitialInputs(null);
+      setDistributorCurrentView("dashboard");
+      return;
+    }
+    if (openOrdersListDialog) {
+      setOpenOrdersListDialog(false);
+      setDistributorCurrentView("dashboard");
+      return;
+    }
+    if (openProductRateDialog) {
+      setOpenProductRateDialog(false);
+      setDistributorCurrentView("dashboard");
+      return;
+    }
+    if (openStockLiftingDialog) {
+      setOpenStockLiftingDialog(false);
+      setDistributorCurrentView("dashboard");
+      return;
+    }
+    if (openPhysicalStockDialog) {
+      setOpenPhysicalStockDialog(false);
+      setDistributorCurrentView("dashboard");
+    }
+  }, [
+    salesRefreshNoticeOpen,
+    notificationsOpen,
+    openOrderCalculatedDialog,
+    showCalculator,
+    openOrdersListDialog,
+    openProductRateDialog,
+    openStockLiftingDialog,
+    openPhysicalStockDialog,
+  ]);
+
+  useEffect(() => {
+    if (!anyDashboardDialogOpen || dialogBackHistoryRef.current || typeof window === "undefined") return;
+    window.history.pushState({ cokeDashboardDialog: true }, "", window.location.href);
+    dialogBackHistoryRef.current = true;
+  }, [anyDashboardDialogOpen]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!dialogBackHistoryRef.current) return;
+      dialogBackHistoryRef.current = false;
+      closeTopDashboardDialog();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeTopDashboardDialog]);
+
+  const dashboardSurfaceBg =
+    theme.palette.mode === "dark"
+      ? `radial-gradient(circle at top left, ${alpha(theme.palette.primary.main, 0.16)}, transparent 30%), linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.22)} 0%, ${theme.palette.background.default} 44%)`
+      : `radial-gradient(circle at top left, ${alpha(theme.palette.primary.main, 0.08)}, transparent 30%), linear-gradient(180deg, #fff 0%, ${alpha(theme.palette.grey[50], 0.98)} 46%, #fff 100%)`;
+
   return (
-    <Box sx={{ display: "flex", height: "100vh" }}>
+    <Box sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}>
       {/* Top AppBar */}
-      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "primary.main" }}>
-        <Toolbar>
-          <IconButton color="inherit" onClick={toggleSidebar} aria-label="toggle menu">
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600, fontSize: { xs: "0.9rem", sm: "1rem" } }}>
-            {distributorName}
-          </Typography>
-          <Typography variant="body2" sx={{ mr: { xs: 1, sm: 2 }, fontSize: { xs: "0.75rem", sm: "0.875rem" }, display: { xs: "none", sm: "block" } }}>
-            {today.toLocaleDateString()}
-          </Typography>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          zIndex: 1201,
+          bgcolor: alpha(theme.palette.primary.main, 0.96),
+          backdropFilter: "blur(14px)",
+          borderBottom: `1px solid ${alpha(theme.palette.primary.contrastText, 0.12)}`,
+          boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.35 : 0.12)}`,
+        }}
+      >
+        <Toolbar sx={{ gap: 1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 850, fontSize: { xs: "0.95rem", sm: "1.05rem" }, lineHeight: 1.15 }}>
+              {distributorName}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.82, display: { xs: "none", sm: "block" }, fontWeight: 600 }}>
+              Distributor workspace · {today.toLocaleDateString()}
+            </Typography>
+          </Box>
           <DayNightThemeToggle />
           <Tooltip title="Notifications">
             <IconButton
@@ -1461,429 +1567,157 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar Drawer */}
-      <Drawer
-        variant="temporary"
-        open={sidebarOpen}
-        onClose={toggleSidebar}
+      {/* Main Content */}
+      <Box
+        component="main"
         sx={{
-          [`& .MuiDrawer-paper`]: {
-            width: { xs: 180, sm: 200 },
-            boxSizing: "border-box",
-            bgcolor: "secondary.main",
-            color: DRAWER_FOREGROUND,
-            display: "flex",
-            flexDirection: "column",
-          },
+          flexGrow: 1,
+          background: dashboardSurfaceBg,
+          p: { xs: 1.5, sm: 3 },
+          pb: { xs: 12, sm: 13 },
+          overflow: "auto",
         }}
       >
         <Toolbar />
-        <List sx={{ flex: 1, overflowY: "auto" }}>
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => {
-                if (distributorCode) {
-                  markDashboardTargetSeen(distributorCode, targetData, progressAchievedData);
-                  bumpSidebarBadges();
-                }
-                setDistributorCurrentView("dashboard");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                color: DRAWER_FOREGROUND,
-                borderRadius: 2,
-                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
-              }}
-            >
-              <Badge
-                variant="dot"
-                color="primary"
-                overlap="circular"
-                invisible={!sidebarBadges.dashboard}
-                sx={{
-                  mr: 2,
-                  color: "inherit",
-                  "& .MuiBadge-badge": {
-                    top: 6,
-                    right: 6,
-                    minWidth: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    border: "2px solid",
-                    borderColor: "secondary.dark",
-                  },
-                }}
-              >
-                <DashboardIcon sx={{ fontSize: 20, color: "inherit" }} />
-              </Badge>
-              <ListItemText primary="Dashboard" primaryTypographyProps={drawerPrimaryTypographyProps} />
-            </ListItemButton>
-          </ListItem>
 
-          {/* Orders List */}
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => {
-                setOpenOrdersListDialog(true);
-                setDistributorCurrentView("orders");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                color: DRAWER_FOREGROUND,
-                borderRadius: 2,
-                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
-              }}
-            >
-              <Badge
-                badgeContent={sidebarBadges.pendingOrders > 99 ? "99+" : sidebarBadges.pendingOrders}
-                color="error"
-                overlap="circular"
-                invisible={sidebarBadges.pendingOrders === 0}
-                sx={{
-                  mr: 2,
-                  color: "inherit",
-                  "& .MuiBadge-badge": {
-                    right: 4,
-                    top: 4,
-                    fontWeight: 800,
-                    border: "2px solid",
-                    borderColor: "secondary.dark",
-                  },
-                }}
-              >
-                <ListAltIcon sx={{ fontSize: 20, color: "inherit" }} />
-              </Badge>
-              <ListItemText
-                primary="Orders"
-                secondary={sidebarBadges.pendingOrders ? "Awaiting review" : null}
-                primaryTypographyProps={drawerPrimaryTypographyProps}
-                secondaryTypographyProps={
-                  sidebarBadges.pendingOrders
-                    ? {
-                        sx: {
-                          fontSize: "0.68rem",
-                          fontWeight: 600,
-                          color: theme.palette.error.dark,
-                          mt: 0.25,
-                        },
-                      }
-                    : undefined
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-
-          {/* Product Rate List */}
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => {
-                setOpenProductRateDialog(true);
-                setDistributorCurrentView("product_rates");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                color: DRAWER_FOREGROUND,
-                borderRadius: 2,
-                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
-              }}
-            >
-              <NuProductRateIcon
-                sx={{
-                  mr: 2,
-                  minWidth: 28,
-                  height: 28,
-                  fontSize: "0.8rem",
-                  borderRadius: "6px",
-                  bgcolor: "rgba(228, 5, 33, 0.14)",
-                  color: "#b71c1c",
-                }}
-              />
-              <ListItemText primary="Product Rate List" primaryTypographyProps={drawerPrimaryTypographyProps} />
-            </ListItemButton>
-          </ListItem>
-
-          {/* Stock Lifting Record */}
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => {
-                setOpenStockLiftingDialog(true);
-                setDistributorCurrentView("stock_lifting");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                color: DRAWER_FOREGROUND,
-                borderRadius: 2,
-                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
-              }}
-            >
-              <InventoryIcon sx={{ mr: 2, fontSize: 20, color: "inherit" }} />
-              <ListItemText primary="Stock Lifting Record" primaryTypographyProps={drawerPrimaryTypographyProps} />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => {
-                setOpenPhysicalStockDialog(true);
-                setDistributorCurrentView("physical_stock");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                color: DRAWER_FOREGROUND,
-                borderRadius: 2,
-                "&:hover": { bgcolor: alpha(theme.palette.common.black, 0.1) },
-              }}
-            >
-              <Badge
-                variant="dot"
-                color="secondary"
-                overlap="circular"
-                invisible={!sidebarBadges.physicalStock}
-                sx={{
-                  mr: 2,
-                  color: "inherit",
-                  "& .MuiBadge-badge": {
-                    top: 6,
-                    right: 6,
-                    minWidth: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    border: "2px solid",
-                    borderColor: "secondary.dark",
-                    bgcolor: "#6a1b9a",
-                  },
-                }}
-              >
-                <WarehouseIcon sx={{ fontSize: 20, color: "inherit" }} />
-              </Badge>
-              <ListItemText
-                primary="Physical Stock"
-                secondary={sidebarBadges.physicalStock ? "New update" : null}
-                primaryTypographyProps={drawerPrimaryTypographyProps}
-                secondaryTypographyProps={
-                  sidebarBadges.physicalStock
-                    ? {
-                        sx: {
-                          fontSize: "0.68rem",
-                          fontWeight: 700,
-                          color: "#4a148c",
-                          mt: 0.25,
-                        },
-                      }
-                    : undefined
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton 
-              onClick={() => {
-                setEditingOrder(null);
-                setCalculatorInitialInputs(null);
-                setShowCalculator(true);
-                setDistributorCurrentView("calculator");
-                setSidebarOpen(false);
-              }}
-              sx={{
-                bgcolor: "primary.main",
-                color: theme.palette.primary.contrastText,
-                borderRadius: 2,
-                mx: 1,
-                mb: 1,
-                "&:hover": {
-                  bgcolor: "primary.dark",
-                }
-              }}
-            >
-              <ListItemText
-                primary="Place Order"
-                primaryTypographyProps={{
-                  sx: {
-                    fontWeight: 700,
-                    color: "inherit",
-                    textAlign: "center",
-                    fontSize: { xs: "0.95rem", sm: "1rem" },
-                  },
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        </List>
-        <Box
+        <Box sx={{ width: "100%", maxWidth: 1180, mx: "auto" }}>
+        <Card
+          elevation={0}
           sx={{
-            mt: "auto",
-            mx: 1,
-            mb: 1.5,
-            p: 1,
-            borderRadius: 1.5,
-            bgcolor: alpha(DRAWER_FOREGROUND, 0.07),
-            border: 1,
-            borderColor: alpha(DRAWER_FOREGROUND, 0.2),
+            p: { xs: 2, sm: 2.5 },
+            mb: 3,
+            borderRadius: 3,
+            background:
+              theme.palette.mode === "dark"
+                ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.1)} 48%, ${alpha(theme.palette.success.main, 0.12)} 100%)`
+                : "linear-gradient(135deg, #ffffff 0%, #e3f2fd 48%, #e8f5e9 100%)",
+            border: "1px solid",
+            borderColor: alpha(theme.palette.divider, theme.palette.mode === "dark" ? 0.8 : 0.9),
+            boxShadow: `0 16px 44px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.28 : 0.08)}`,
           }}
         >
-          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: DRAWER_FOREGROUND, mb: 0.25 }}>
-            Logged In
-          </Typography>
-          <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: DRAWER_FOREGROUND }}>
-            {distributorName || "Distributor"}
-          </Typography>
-          <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: DRAWER_FOREGROUND, mt: 0.25 }}>
-            Code: {distributorCode || "N/A"} | Role: DISTRIBUTOR
-          </Typography>
-        </Box>
-      </Drawer>
-
-      {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: "background.default", p: { xs: 2, sm: 3 }, overflow: "auto" }}>
-        <Toolbar />
-
-        {/* Improved Info Cards - Mobile First */}
-        <Box sx={{ 
-          display: "grid", 
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-          gap: { xs: 1.5, sm: 2 },
-          mb: 3
-        }}>
-          <Card 
-            elevation={2}
-            sx={{ 
-              p: { xs: 2, sm: 2.5 },
-              borderRadius: 3,
-              background:
-                theme.palette.mode === "dark"
-                  ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.14)} 100%)`
-                  : "linear-gradient(135deg, #fff 0%, #bbdefb 100%)",
-              border: theme.palette.mode === "dark" ? 1 : 0,
-              borderColor: "divider",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: 4
-              }
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+              gap: { xs: 2, md: 3 },
+              alignItems: "stretch",
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-              <Box sx={{ 
-                p: { xs: 1, sm: 1.5 }, 
-                borderRadius: 2, 
-                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
-                mr: 1.5
-              }}>
-                <BarChartIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }} />
-              </Box>
-              <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-                Target Balance
-              </Typography>
-            </Box>
-            <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                Status (UC):
-              </Typography>
-              <Chip
-                size="small"
-                label={targetUcAchieved ? "Achieved" : "Not achieved"}
-                color={targetUcAchieved ? "success" : "warning"}
-                sx={{ fontWeight: 700 }}
-              />
-            </Box>
-            <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
-              {/* CSD Balance */}
-              <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                  CSD
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                <Box sx={{
+                  p: { xs: 1, sm: 1.5 },
+                  borderRadius: 2,
+                  bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
+                  mr: 1.5
+                }}>
+                  <BarChartIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+                  Target Balance
                 </Typography>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {(targetData.CSD_PC || 0) - (progressAchievedData.CSD_PC || 0)}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {Math.round((targetData.CSD_UC || 0) - (progressAchievedData.CSD_UC || 0)).toLocaleString()}
-                  </Typography>
-                </Box>
               </Box>
-              {/* Water Balance */}
-              <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                  Water
+              <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                  Status (UC):
                 </Typography>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {(targetData.Water_PC || 0) - (progressAchievedData.Water_PC || 0)}
+                <Chip
+                  size="small"
+                  label={targetUcAchieved ? "Achieved" : "Not achieved"}
+                  color={targetUcAchieved ? "success" : "warning"}
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+              <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
+                <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                    CSD
                   </Typography>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                      {(targetData.CSD_PC || 0) - (progressAchievedData.CSD_PC || 0)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                      {Math.round((targetData.CSD_UC || 0) - (progressAchievedData.CSD_UC || 0)).toLocaleString()}
+                    </Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                    {Math.round((targetData.Water_UC || 0) - (progressAchievedData.Water_UC || 0)).toLocaleString()}
+                <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                    Water
                   </Typography>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>PC:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                      {(targetData.Water_PC || 0) - (progressAchievedData.Water_PC || 0)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>UC:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                      {Math.round((targetData.Water_UC || 0) - (progressAchievedData.Water_UC || 0)).toLocaleString()}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             </Box>
-          </Card>
 
-          <Card 
-            elevation={2}
-            sx={{ 
-              p: { xs: 2, sm: 2.5 },
-              borderRadius: 3,
-              background:
-                theme.palette.mode === "dark"
-                  ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.success.main, 0.14)} 100%)`
-                  : "linear-gradient(135deg, #fff 0%, #c8e6c9 100%)",
-              border: theme.palette.mode === "dark" ? 1 : 0,
-              borderColor: "divider",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: 4
-              }
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-              <Box sx={{ 
-                p: { xs: 1, sm: 1.5 }, 
-                borderRadius: 2, 
-                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
-                mr: 1.5
-              }}>
-                <CalendarMonth sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }} />
-              </Box>
-              <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-                Target Period
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" }, mb: 0.5 }}>
-                  {formatDate(targetStart)}
-                </Typography>
-                <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-                  to {formatDate(targetEnd)}
+            <Box
+              sx={{
+                borderLeft: { xs: 0, md: "1px solid" },
+                borderTop: { xs: "1px solid", md: 0 },
+                borderColor: "divider",
+                pl: { xs: 0, md: 3 },
+                pt: { xs: 2, md: 0 },
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                <Box sx={{
+                  p: { xs: 1, sm: 1.5 },
+                  borderRadius: 2,
+                  bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
+                  mr: 1.5
+                }}>
+                  <CalendarMonth sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+                  Target Period
                 </Typography>
               </Box>
-              <Box sx={{ 
-                display: "flex", 
-                flexDirection: "column", 
-                alignItems: "flex-end",
-                borderLeft: "2px solid",
-                borderLeftColor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.35) : "rgba(27, 94, 32, 0.2)",
-                pl: 2,
-                minWidth: { xs: "80px", sm: "100px" }
-              }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}>
-                  Days Remaining
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: "bold", color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20", fontSize: { xs: "1.5rem", sm: "1.75rem" } }}>
-                  {remainingDays}
-                </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" }, mb: 0.5 }}>
+                    {formatDate(targetStart)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+                    to {formatDate(targetEnd)}
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  borderLeft: "2px solid",
+                  borderLeftColor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.35) : "rgba(27, 94, 32, 0.2)",
+                  pl: 2,
+                  minWidth: { xs: "80px", sm: "100px" }
+                }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}>
+                    Days Remaining
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: "bold", color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20", fontSize: { xs: "1.5rem", sm: "1.75rem" } }}>
+                    {remainingDays}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
-          </Card>
-        </Box>
+          </Box>
+        </Card>
 
         {/* Target progress — same grid: Category | Target PC/UC | Achieved PC/UC | Balance PC/UC */}
         <Box sx={{ mb: 1.5 }}>
@@ -1904,13 +1738,14 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           component={Paper}
           elevation={theme.palette.mode === "dark" ? 4 : 2}
           sx={{
-            borderRadius: 2,
+            borderRadius: 3,
             width: "100%",
             overflowX: "auto",
             WebkitOverflowScrolling: "touch",
             mb: 3,
             border: 1,
             borderColor: "divider",
+            boxShadow: `0 12px 34px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.26 : 0.07)}`,
           }}
         >
           <Table
@@ -2160,6 +1995,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           <StockLiftingRecordsTable records={stockLiftingRecords} showTotalsRow />
         </Box>
 
+        </Box>
       </Box>
 
       <Dialog
@@ -2297,11 +2133,9 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           </Box>
           <CokeCalculator
             distributorName={distributorName}
-            distributorCode={distributorCode}
             schemes={activeSchemes}
             onPlaceOrder={handlePlaceOrder}
             productRates={productRates}
-            fgStockBySku={fgStockBySku}
             initialInputs={calculatorInitialInputs}
             fixedOrderNumber={editingOrder?.orderNumber || null}
             placeOrderButtonText={editingOrder ? "Update Order" : "Place Order"}
@@ -2347,7 +2181,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           getOrderStatus={getOrderStatus}
         />
 
-        {/* Product Rate List Dialog - Placeholder */}
+        {/* Product Rate List Dialog */}
         <Dialog
           open={openProductRateDialog}
           onClose={() => {
@@ -2356,11 +2190,32 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           }}
           fullWidth
           maxWidth="md"
+          fullScreen={isMobile}
+          PaperProps={{ sx: { borderRadius: { xs: 0, sm: 3 }, overflow: "hidden" } }}
         >
-          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "primary.main", color: "primary.contrastText" }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Product Rate List
-            </Typography>
+          <DialogTitle
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              gap: 2,
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <NuProductRateIcon sx={{ width: 34, height: 34, bgcolor: alpha("#fff", 0.16), color: "#fff" }} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
+                    Product Prices
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    Current rates used in the order calculator
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
             <IconButton
               onClick={() => {
                 setOpenProductRateDialog(false);
@@ -2371,11 +2226,88 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
               <CloseIcon />
             </IconButton>
           </DialogTitle>
-          <DialogContent sx={{ p: 3, mt: 2 }}>
-            <Typography variant="body1" color="text.secondary" align="center" sx={{ py: 4 }}>
-              Product rate list will be displayed here
-            </Typography>
+          <DialogContent sx={{ p: { xs: 1.5, sm: 2.5 }, bgcolor: "background.default" }}>
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                mb: 2,
+                borderRadius: 2.5,
+                bgcolor: alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                borderColor: alpha(theme.palette.info.main, 0.2),
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                These are read-only product prices published by the admin. If a price looks incorrect, contact the
+                admin before placing your order.
+              </Typography>
+            </Paper>
+
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              variant="outlined"
+              sx={{
+                borderRadius: 2.5,
+                maxHeight: { xs: "calc(100vh - 230px)", sm: "62vh" },
+                overflow: "auto",
+              }}
+            >
+              <Table stickyHeader size="small" aria-label="Product price list">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: "background.paper" }}>Product</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: "background.paper" }}>Type</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, bgcolor: "background.paper" }}>Price / case</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {productRateRows.map((row) => {
+                    const accent = PRODUCT_RATE_CATEGORY_COLORS[row.category] || theme.palette.primary.main;
+                    return (
+                      <TableRow key={row.name} hover>
+                        <TableCell sx={{ py: 1.25 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
+                            {row.name}
+                          </Typography>
+                          {row.source === "Custom" ? (
+                            <Typography variant="caption" color="text.secondary">
+                              Custom product
+                            </Typography>
+                          ) : null}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={row.category}
+                            size="small"
+                            sx={{ bgcolor: accent, color: "#fff", fontWeight: 800, minWidth: 58 }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                          {row.rate == null
+                            ? "Not set"
+                            : `Nu. ${Number(row.rate).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </DialogContent>
+          <DialogActions sx={{ p: 2, bgcolor: "background.paper", borderTop: 1, borderColor: "divider" }}>
+            <Button
+              onClick={() => {
+                setOpenProductRateDialog(false);
+                setDistributorCurrentView("dashboard");
+              }}
+              variant="contained"
+              sx={{ textTransform: "none", fontWeight: 700 }}
+            >
+              Close
+            </Button>
+          </DialogActions>
         </Dialog>
 
         <Dialog
@@ -2450,6 +2382,93 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
           onDialogOpened={handlePhysicalStockDialogOpened}
           onPhysicalStockAcknowledged={handlePhysicalStockAcknowledged}
         />
+
+        <Paper
+          elevation={10}
+          sx={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1200,
+            px: { xs: 0.75, sm: 2 },
+            pt: 0.75,
+            pb: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
+            borderRadius: "18px 18px 0 0",
+            borderTop: "1px solid",
+            borderColor: "divider",
+            bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === "dark" ? 0.96 : 0.98),
+            backdropFilter: "blur(14px)",
+          }}
+        >
+          <Box
+            sx={{
+              maxWidth: 720,
+              mx: "auto",
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              alignItems: "end",
+              gap: { xs: 0.25, sm: 0.75 },
+            }}
+          >
+            <Button
+              onClick={openDashboard}
+              sx={{ minWidth: 0, flexDirection: "column", gap: 0.25, color: "text.secondary", textTransform: "none", fontSize: "0.68rem", fontWeight: 700 }}
+            >
+              <Badge variant="dot" color="primary" invisible={!sidebarBadges.dashboard}>
+                <DashboardIcon fontSize="small" />
+              </Badge>
+              Home
+            </Button>
+            <Button
+              onClick={openOrdersList}
+              sx={{ minWidth: 0, flexDirection: "column", gap: 0.25, color: "text.secondary", textTransform: "none", fontSize: "0.68rem", fontWeight: 700 }}
+            >
+              <Badge badgeContent={sidebarBadges.pendingOrders > 99 ? "99+" : sidebarBadges.pendingOrders} color="error" invisible={sidebarBadges.pendingOrders === 0}>
+                <ListAltIcon fontSize="small" />
+              </Badge>
+              Orders
+            </Button>
+            <Button
+              onClick={openNewOrder}
+              sx={{
+                minWidth: 0,
+                flexDirection: "column",
+                gap: 0.25,
+                color: "primary.contrastText",
+                bgcolor: "primary.main",
+                borderRadius: 999,
+                py: 1.15,
+                px: { xs: 1, sm: 2 },
+                mt: -2.5,
+                boxShadow: 5,
+                textTransform: "none",
+                fontSize: { xs: "0.72rem", sm: "0.78rem" },
+                fontWeight: 900,
+                "&:hover": { bgcolor: "primary.dark" },
+              }}
+            >
+              <CalculateIcon fontSize="small" />
+              Place Order
+            </Button>
+            <Button
+              onClick={openRateList}
+              sx={{ minWidth: 0, flexDirection: "column", gap: 0.25, color: "text.secondary", textTransform: "none", fontSize: "0.68rem", fontWeight: 700 }}
+            >
+              <NuProductRateIcon sx={{ width: 22, height: 22, fontSize: "0.65rem", borderRadius: "6px", bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main" }} />
+              Prices
+            </Button>
+            <Button
+              onClick={openPhysicalStock}
+              sx={{ minWidth: 0, flexDirection: "column", gap: 0.25, color: "text.secondary", textTransform: "none", fontSize: "0.68rem", fontWeight: 700 }}
+            >
+              <Badge variant="dot" color="secondary" invisible={!sidebarBadges.physicalStock}>
+                <WarehouseIcon fontSize="small" />
+              </Badge>
+              Stock
+            </Button>
+          </Box>
+        </Paper>
     </Box>
   );
 }

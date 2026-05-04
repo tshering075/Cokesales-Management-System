@@ -29,6 +29,22 @@ import PersonIcon from "@mui/icons-material/Person";
 import { getRecipientEmails, getSenderEmail } from "../services/emailService";
 import AppSnackbar from "./AppSnackbar";
 
+function getDistributorPrimaryName(name) {
+  const cleaned = String(name || "Distributor")
+    .trim()
+    .replace(/^(m\s*\/\s*s|m\s*s|ms|m\/s)\.?\s*/i, "")
+    .replace(/^[.\-:/\s]+/, "")
+    .trim();
+  const firstName = cleaned.split(/\s+/).find(Boolean);
+  return firstName || "Distributor";
+}
+
+function buildOrderEmailSubject(order) {
+  const primaryName = getDistributorPrimaryName(order?.distributorName || order?.distributorCode);
+  const orderNumber = order?.orderNumber || "";
+  return orderNumber ? `${primaryName} Order #${orderNumber}` : primaryName;
+}
+
 function OrderEmailDialog({ open, onClose, order, onSend }) {
   const [customMessage, setCustomMessage] = useState("");
   const [srGeneralManager, setSrGeneralManager] = useState("");
@@ -248,11 +264,7 @@ function OrderEmailDialog({ open, onClose, order, onSend }) {
     setSending(true);
 
     try {
-      const distributorName = order.distributorName || order.distributorCode || "Distributor";
-      const orderNumber = order.orderNumber || 'N/A';
-      const subject = orderNumber !== 'N/A' 
-        ? `[Order #${orderNumber}] ${distributorName}'s order`
-        : `${distributorName}'s order`;
+      const subject = buildOrderEmailSubject(order);
       
       await onSend({
         to: srGeneralManager.trim(),
@@ -275,6 +287,7 @@ function OrderEmailDialog({ open, onClose, order, onSend }) {
   if (!order) return null;
 
   const distributorName = order.distributorName || order.distributorCode || "Distributor";
+  const subjectPreview = buildOrderEmailSubject(order);
 
   return (
     <>
@@ -511,10 +524,10 @@ function OrderEmailDialog({ open, onClose, order, onSend }) {
                 }}
               >
                 <Typography variant="body1" sx={{ fontWeight: 600, color: "#e65100" }}>
-                  {distributorName}'s order
+                  {subjectPreview}
                 </Typography>
                 <Typography variant="caption" sx={{ display: "block", mt: 1, color: "text.secondary" }}>
-                  Subject is automatically generated from distributor name
+                  Subject uses the distributor primary name and order number
                 </Typography>
               </Paper>
             </CardContent>

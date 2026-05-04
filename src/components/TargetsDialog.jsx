@@ -31,8 +31,6 @@ import DownloadIcon from "@mui/icons-material/Download";
 import TrackChangesIcon from "@mui/icons-material/TrackChanges";
 import EventIcon from "@mui/icons-material/Event";
 import DeleteIcon from "@mui/icons-material/Delete";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { getTargetPeriod, saveTargetPeriod } from "../utils/targetPeriod";
 import { supabase, saveGlobalTargetPeriod } from "../services/supabaseService";
 import PasswordDialog from "./PasswordDialog";
@@ -323,6 +321,7 @@ export default function TargetsDialog({
 
   // Parse target Excel file
   const parseTargetExcel = async (file) => {
+    const XLSX = await import("xlsx");
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -432,7 +431,11 @@ export default function TargetsDialog({
   };
 
   // Download target template
-  const downloadTargetTemplate = () => {
+  const downloadTargetTemplate = async () => {
+    const [XLSX, { saveAs }] = await Promise.all([
+      import("xlsx"),
+      import("file-saver"),
+    ]);
     // Create template data
     const templateData = [
       ["Distributor", "Target CSD PC", "Target CSD UC", "Target Water PC", "Target Water UC"],

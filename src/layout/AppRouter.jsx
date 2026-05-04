@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import LoginPage from "../pages/LoginPage";
-import LandingPage from "../pages/LandingPage";
-import DistributorDashboard from "../pages/DistributorDashboard";
-import AdminDashboard from "../pages/AdminDashboard";
 import { onAuthStateChange, getCurrentUser, signOutUser, getDistributorByUid, getAdminByUid } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
+
+const LoginPage = lazy(() => import("../pages/LoginPage"));
+const LandingPage = lazy(() => import("../pages/LandingPage"));
+const DistributorDashboard = lazy(() => import("../pages/DistributorDashboard"));
+const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
 
 const SESSION_ROLE_KEY = "session_role";
 const SESSION_DISTRIBUTOR_INFO_KEY = "session_distributor_info";
@@ -15,6 +16,35 @@ const SESSION_AUTH_ACTIVE_KEY = "session_auth_active";
 const DISTRIBUTOR_LS_ACTIVE = "coke_dist_session_active";
 const DISTRIBUTOR_LS_ROLE = "coke_dist_session_role";
 const DISTRIBUTOR_LS_INFO = "coke_dist_session_info";
+
+function AppRouteFallback() {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #fff 0%, #fef2f2 50%, #fff 100%)'
+    }}>
+      <img
+        src="/app-logo.png"
+        alt="CokeSales Management System"
+        style={{ width: 180, height: "auto", maxWidth: "min(84vw, 240px)" }}
+      />
+      <div style={{
+        marginTop: 28,
+        width: 38,
+        height: 38,
+        border: '4px solid #f3f3f3',
+        borderTop: '4px solid #E40521',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 
 function readPersistedDistributorInfo() {
   try {
@@ -391,6 +421,7 @@ function AppRouterInner() {
   }
 
   return (
+    <Suspense fallback={<AppRouteFallback />}>
     <Routes>
       {/* Public home — OAuth verification: app purpose + name without login */}
       <Route
@@ -460,6 +491,7 @@ function AppRouterInner() {
         }
       />
     </Routes>
+    </Suspense>
   );
 }
 

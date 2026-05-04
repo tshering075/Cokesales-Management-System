@@ -29,8 +29,6 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DownloadIcon from "@mui/icons-material/Download";
 import PeopleIcon from "@mui/icons-material/People";
 import LockIcon from "@mui/icons-material/Lock";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { hashPasswordForStorage, isUsernameTaken, getDistributors } from "../utils/distributorAuth";
 import { getAllDistributors, supabase } from "../services/supabaseService";
 
@@ -239,6 +237,7 @@ export default function AddDistributorDialog({ open, onClose, onAdd, canWrite = 
 
   // Parse Excel file for bulk distributor upload
   const parseDistributorExcel = async (file) => {
+    const XLSX = await import("xlsx");
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -376,7 +375,11 @@ export default function AddDistributorDialog({ open, onClose, onAdd, canWrite = 
   };
 
   // Download distributor template
-  const downloadDistributorTemplate = () => {
+  const downloadDistributorTemplate = async () => {
+    const [XLSX, { saveAs }] = await Promise.all([
+      import("xlsx"),
+      import("file-saver"),
+    ]);
     const templateData = [
       ["name", "code", "region", "phone", "address", "username", "password"],
       ["Distributor A", "DIST001", "Southern", "1234567890", "123 Main St", "DIST001", "password123"],

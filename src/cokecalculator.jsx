@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import html2canvas from "html2canvas";
 import {
   Box,
   Typography,
@@ -63,7 +62,6 @@ const DEFAULT_CAN_RATE = 750;
 
 function CokeCalculator({
   distributorName,
-  distributorCode,
   schemes = [],
   onPlaceOrder,
   productRates,
@@ -72,10 +70,6 @@ function CokeCalculator({
   placeOrderButtonText = "Place Order",
   submitOrderButtonText = "Submit Order",
   editContext = null,
-  /** When set, per-SKU hints under each field (object keyed by SKU name). Distributor: net availability; admin: gross from file. */
-  fgStockBySku,
-  /** Label before the case count, e.g. "Available" (distributor) or "Opening" (admin). */
-  fgStockCaptionPrefix = "Available",
 }) {
   const skus = useMemo(() => {
     const skuRates = productRates?.skuRates || {};
@@ -385,6 +379,7 @@ function CokeCalculator({
     let tableImageData = null;
     if (tableRef.current) {
       try {
+        const { default: html2canvas } = await import("html2canvas");
         const canvas = await html2canvas(tableRef.current, {
           backgroundColor: theme.palette.mode === "dark" ? "#1e1e1e" : "#ffffff",
           scale: 2,
@@ -454,15 +449,13 @@ function CokeCalculator({
     .filter(r => skus.find(s => s.name === r.sku)?.category === "Water")
     .reduce((sum, r) => sum + (r.totalUC || 0), 0);
 
-  const fgStockLineForSku = (skuName) => {
-    if (fgStockBySku == null || typeof fgStockBySku !== "object") return null;
-    const raw = fgStockBySku[skuName];
-    const num = Number(raw);
-    const v = Math.max(0, Math.round(Number.isFinite(num) ? num : 0));
-    return `${fgStockCaptionPrefix}: ${v.toLocaleString()} cs`;
+  const priceLineForSku = (skuName) => {
+    const item = skus.find((s) => s.name === skuName);
+    const rate = item?.rate ?? (BUILT_IN_CAN_PRODUCTS.includes(skuName) ? canRate : null);
+    const amount = Number(rate);
+    if (!Number.isFinite(amount)) return null;
+    return `Price: Nu. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}/cs`;
   };
-
-  const fgStockHintsOn = fgStockBySku != null && typeof fgStockBySku === "object";
 
   const getInputStyle = (item) => {
     const isDark = theme.palette.mode === "dark";
@@ -523,15 +516,6 @@ function CokeCalculator({
             <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 400, fontSize: { xs: "0.8rem", sm: "0.9rem" }, px: { xs: 1, sm: 0 } }}>
               Enter the number of cases for each product to calculate totals (PC, UC, and weight in tons)
             </Typography>
-            {fgStockHintsOn && distributorCode && fgStockCaptionPrefix === "Available" && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", color: "text.secondary", mt: 1, px: { xs: 1, sm: 0 }, maxWidth: 720, mx: "auto", lineHeight: 1.5 }}
-              >
-                <strong>Available</strong> = opening stock from your admin (all batches summed per SKU) minus cases already on your{" "}
-                <strong>pending</strong> or <strong>approved</strong> orders. Rejected orders do not reduce availability; canceled orders are removed automatically.
-              </Typography>
-            )}
           </Box>
 
           {/* CSD Products Section */}
@@ -577,12 +561,12 @@ function CokeCalculator({
                       }
                     }}
                   />
-                  {fgStockLineForSku(item.name) && (
+                  {priceLineForSku(item.name) && (
                     <Typography
                       variant="caption"
-                      sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                      sx={{ mt: 0.5, display: "block", color: "primary.main", fontWeight: 700 }}
                     >
-                      {fgStockLineForSku(item.name)}
+                      {priceLineForSku(item.name)}
                     </Typography>
                   )}
                 </Box>
@@ -705,12 +689,12 @@ function CokeCalculator({
                           }
                         }}
                       />
-                      {fgStockLineForSku(can) && (
+                      {priceLineForSku(can) && (
                         <Typography
                           variant="caption"
-                          sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                          sx={{ mt: 0.5, display: "block", color: "primary.main", fontWeight: 700 }}
                         >
-                          {fgStockLineForSku(can)}
+                          {priceLineForSku(can)}
                         </Typography>
                       )}
                     </Box>
@@ -763,12 +747,12 @@ function CokeCalculator({
                       }
                     }}
                   />
-                  {fgStockLineForSku(item.name) && (
+                  {priceLineForSku(item.name) && (
                     <Typography
                       variant="caption"
-                      sx={{ mt: 0.5, display: "block", color: "success.main", fontWeight: 700 }}
+                      sx={{ mt: 0.5, display: "block", color: "primary.main", fontWeight: 700 }}
                     >
-                      {fgStockLineForSku(item.name)}
+                      {priceLineForSku(item.name)}
                     </Typography>
                   )}
                 </Box>

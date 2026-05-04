@@ -3,63 +3,68 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Button,
-  Container,
-  Typography,
-  Stack,
-  Paper,
-  Grid,
   Card,
   CardContent,
+  Chip,
+  Container,
   Link,
+  Paper,
+  Stack,
   Toolbar,
-  Divider,
+  Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import HubIcon from "@mui/icons-material/Hub";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LoginIcon from "@mui/icons-material/Login";
+import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 
 const publicUrl = process.env.PUBLIC_URL || "";
 
 const FEATURES = [
   {
-    icon: BarChartIcon,
-    title: "Performance overview",
-    body:
-      "Monitor distributor targets, achieved sales, and balances in one place—so teams see how they are tracking.",
+    icon: AssessmentOutlinedIcon,
+    title: "Target tracking",
+    body: "See target, achieved, and balance figures clearly for each distributor.",
   },
   {
-    icon: AssignmentTurnedInIcon,
-    title: "Orders & approvals",
-    body:
-      "Create and track distributor orders with clear status: pending, sent, approved, or rejected.",
+    icon: Inventory2OutlinedIcon,
+    title: "Order workflow",
+    body: "Create orders, monitor approvals, and review stock lifting from one dashboard.",
   },
   {
-    icon: HubIcon,
-    title: "Master data",
-    body:
-      "Manage distributors, targets, schemes, product rates, and optional physical stock from the admin side.",
-  },
-  {
-    icon: MailOutlineIcon,
-    title: "Optional Gmail (admins)",
-    body:
-      "Administrators may connect Google Gmail to send order emails and read replies to detect approval or rejection keywords—only when you choose to enable it.",
+    icon: PaidOutlinedIcon,
+    title: "Rate control",
+    body: "Keep product prices, schemes, and calculator results aligned across the team.",
   },
 ];
 
-/**
- * Public home page (no login required) — required for Google OAuth verification:
- * explains app purpose and uses the same product name as the OAuth consent screen.
- */
+const PREVIEW_STATS = [
+  { label: "Target Balance", value: "82%", tone: "success" },
+  { label: "Open Orders", value: "12", tone: "warning" },
+  { label: "Active Products", value: "23", tone: "info" },
+];
+
+const TRUST_POINTS = ["Admin controlled", "Distributor ready", "Mobile friendly"];
+
+const WORKFLOW_STEPS = [
+  "Set targets and product rates",
+  "Distributors place orders",
+  "Admins monitor progress",
+];
+
 export default function LandingPage() {
   const theme = useTheme();
   const brand = theme.palette.error.main;
   const isDark = theme.palette.mode === "dark";
+
+  const previewBg = isDark
+    ? alpha(theme.palette.background.paper, 0.72)
+    : alpha(theme.palette.common.white, 0.86);
 
   return (
     <Box
@@ -67,10 +72,10 @@ export default function LandingPage() {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        bgcolor: isDark ? theme.palette.background.default : alpha(theme.palette.warning.light, 0.12),
+        bgcolor: "background.default",
         backgroundImage: isDark
-          ? `radial-gradient(ellipse 120% 80% at 50% -20%, ${alpha(brand, 0.18)} 0%, transparent 55%), linear-gradient(180deg, ${theme.palette.grey[900]} 0%, ${alpha(theme.palette.grey[800], 0.95)} 45%, ${alpha(brand, 0.08)} 100%)`
-          : `radial-gradient(ellipse 120% 80% at 50% -20%, ${alpha(brand, 0.08)} 0%, transparent 55%), linear-gradient(180deg, ${alpha("#fff", 0.95)} 0%, ${alpha(theme.palette.grey[50], 1)} 40%, ${alpha(theme.palette.error.light, 0.06)} 100%)`,
+          ? `radial-gradient(circle at 18% 10%, ${alpha(brand, 0.22)} 0, transparent 28%), radial-gradient(circle at 84% 18%, ${alpha(theme.palette.info.main, 0.16)} 0, transparent 30%), linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.45)} 0%, transparent 50%)`
+          : `radial-gradient(circle at 18% 10%, ${alpha(brand, 0.12)} 0, transparent 28%), radial-gradient(circle at 84% 18%, ${alpha(theme.palette.info.light, 0.28)} 0, transparent 30%), linear-gradient(180deg, #fff 0%, ${alpha(theme.palette.grey[50], 0.96)} 58%, #fff 100%)`,
       }}
     >
       <Box
@@ -80,53 +85,47 @@ export default function LandingPage() {
           top: 0,
           zIndex: 50,
           borderBottom: "1px solid",
-          borderColor: "divider",
-          bgcolor: alpha(theme.palette.background.paper, 0.88),
-          backdropFilter: "saturate(140%) blur(10px)",
+          borderColor: alpha(theme.palette.divider, 0.8),
+          bgcolor: alpha(theme.palette.background.paper, 0.9),
+          backdropFilter: "blur(16px)",
         }}
       >
-        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, sm: 3 } }}>
-          <Toolbar
-            disableGutters
-            variant="dense"
-            sx={{ minHeight: { xs: 56, sm: 60 }, justifyContent: "space-between", gap: 2 }}
-          >
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Toolbar disableGutters sx={{ minHeight: { xs: 60, sm: 68 }, justifyContent: "space-between", gap: 2 }}>
             <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
               <Box
                 component="img"
                 src={`${publicUrl}/app-logo.png`}
                 alt=""
-                sx={{ height: { xs: 36, sm: 40 }, width: "auto", display: "block", flexShrink: 0 }}
+                sx={{ width: { xs: 38, sm: 44 }, height: { xs: 38, sm: 44 }, objectFit: "contain", flexShrink: 0 }}
               />
               <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 800, color: "error.dark", lineHeight: 1.2, letterSpacing: 0.2 }}
-                  noWrap
-                >
+                <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.1 }} noWrap>
                   CokeSales
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-                  Management System
+                  Distribution management
                 </Typography>
               </Box>
             </Stack>
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+
+            <Stack direction="row" alignItems="center" spacing={{ xs: 0.75, sm: 1 }}>
               <DayNightThemeToggle />
               <Button
                 component={RouterLink}
                 to="/login"
                 variant="contained"
-                size="medium"
                 startIcon={<LoginIcon />}
                 sx={{
-                  flexShrink: 0,
-                  fontWeight: 700,
+                  minWidth: { xs: 0, sm: 108 },
+                  px: { xs: 1.5, sm: 2.5 },
                   textTransform: "none",
-                  px: { xs: 2, sm: 2.5 },
+                  fontWeight: 900,
+                  borderRadius: 999,
                   bgcolor: brand,
-                  boxShadow: `0 4px 14px ${alpha(brand, 0.35)}`,
-                  "&:hover": { bgcolor: theme.palette.error.dark, boxShadow: `0 6px 18px ${alpha(brand, 0.4)}` },
+                  boxShadow: `0 10px 22px ${alpha(brand, 0.25)}`,
+                  "& .MuiButton-startIcon": { display: { xs: "none", sm: "inherit" } },
+                  "&:hover": { bgcolor: theme.palette.error.dark },
                 }}
               >
                 Sign in
@@ -136,223 +135,395 @@ export default function LandingPage() {
         </Container>
       </Box>
 
-      <Box component="main" sx={{ flex: 1, py: { xs: 3, sm: 5, md: 6 } }}>
+      <Box component="main" sx={{ flex: 1, py: { xs: 3, sm: 5, md: 7 } }}>
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
-          <Stack spacing={{ xs: 4, md: 5 }} alignItems="center">
-            <Paper
-              elevation={0}
+          <Paper
+            elevation={0}
+            sx={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: { xs: 3, md: 5 },
+              border: "1px solid",
+              borderColor: alpha(brand, isDark ? 0.26 : 0.14),
+              bgcolor: alpha(theme.palette.background.paper, isDark ? 0.82 : 0.9),
+              boxShadow: `0 28px 90px ${alpha(theme.palette.common.black, isDark ? 0.36 : 0.1)}`,
+            }}
+          >
+            <Box
               sx={{
-                width: "100%",
-                maxWidth: 720,
-                mx: "auto",
-                p: { xs: 3, sm: 4, md: 5 },
-                borderRadius: 3,
-                textAlign: "center",
-                border: "1px solid",
-                borderColor: alpha(brand, isDark ? 0.35 : 0.2),
-                boxShadow: isDark
-                  ? `0 8px 32px ${alpha(theme.palette.common.black, 0.45)}, 0 0 0 1px ${alpha(brand, 0.12)} inset`
-                  : `0 8px 32px ${alpha(theme.palette.common.black, 0.06)}, 0 0 0 1px ${alpha(brand, 0.06)} inset`,
-                background: isDark
-                  ? `linear-gradient(165deg, ${alpha(theme.palette.grey[800], 0.95)} 0%, ${alpha(theme.palette.grey[900], 0.92)} 100%)`
-                  : `linear-gradient(165deg, ${alpha("#fff", 1)} 0%, ${alpha(theme.palette.grey[50], 0.9)} 100%)`,
+                position: "absolute",
+                right: { xs: -110, md: -70 },
+                top: { xs: -120, md: -80 },
+                width: { xs: 260, md: 380 },
+                height: { xs: 260, md: 380 },
+                borderRadius: "50%",
+                bgcolor: alpha(brand, isDark ? 0.12 : 0.08),
+              }}
+            />
+            <Box
+              sx={{
+                position: "absolute",
+                left: { xs: -140, md: -90 },
+                bottom: { xs: -160, md: -130 },
+                width: { xs: 280, md: 360 },
+                height: { xs: 280, md: 360 },
+                borderRadius: "50%",
+                bgcolor: alpha(theme.palette.info.main, isDark ? 0.12 : 0.08),
+              }}
+            />
+
+            <Box
+              sx={{
+                position: "relative",
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1.08fr) minmax(320px, 0.92fr)" },
+                gap: { xs: 4, md: 5 },
+                alignItems: "center",
+                p: { xs: 2.25, sm: 4, md: 6 },
               }}
             >
-              <Box
-                component="img"
-                src={`${publicUrl}/app-logo.png`}
-                alt="CokeSales Management System"
-                sx={{
-                  width: { xs: 100, sm: 120, md: 132 },
-                  height: "auto",
-                  maxWidth: "100%",
-                  mb: 2,
-                  filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
-                }}
-              />
-              <Typography
-                component="h1"
-                variant="h3"
-                sx={{
-                  fontWeight: 800,
-                  color: "error.dark",
-                  letterSpacing: -0.5,
-                  fontSize: { xs: "1.65rem", sm: "2rem", md: "2.25rem" },
-                  lineHeight: 1.2,
-                  mb: 1.5,
-                }}
-              >
-                CokeSales Management System
-              </Typography>
-              <Typography
-                variant="body1"
-                sx={{
-                  color: "text.secondary",
-                  maxWidth: 520,
-                  mx: "auto",
-                  fontWeight: 500,
-                  lineHeight: 1.65,
-                  fontSize: { xs: "0.95rem", sm: "1.0625rem" },
-                }}
-              >
-                A business web application for beverage distribution teams to track performance, manage orders,
-                and coordinate approvals—built for administrators and distributors.
-              </Typography>
-            </Paper>
+              <Stack spacing={{ xs: 2.25, sm: 3 }} alignItems={{ xs: "center", md: "flex-start" }} textAlign={{ xs: "center", md: "left" }}>
+                <Chip
+                  icon={<VerifiedUserOutlinedIcon />}
+                  label="Private business workspace"
+                  sx={{
+                    height: 34,
+                    px: 0.75,
+                    fontWeight: 900,
+                    bgcolor: alpha(brand, isDark ? 0.16 : 0.1),
+                    color: isDark ? theme.palette.error.light : theme.palette.error.dark,
+                    border: `1px solid ${alpha(brand, 0.18)}`,
+                    "& .MuiChip-icon": { color: "inherit" },
+                  }}
+                />
 
-            <Box sx={{ width: "100%", maxWidth: 960 }}>
-              <Typography
-                variant="overline"
-                sx={{ display: "block", textAlign: "center", color: "text.secondary", fontWeight: 700, letterSpacing: 1.2, mb: 1 }}
-              >
-                Capabilities
-              </Typography>
-              <Typography
-                variant="h5"
-                component="h2"
-                sx={{ textAlign: "center", fontWeight: 800, color: "text.primary", mb: 0.5 }}
-              >
-                What this application does
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ textAlign: "center", maxWidth: 560, mx: "auto", mb: 3 }}
-              >
-                CokeSales Management System helps your organization:
-              </Typography>
+                <Box>
+                  <Typography
+                    component="h1"
+                    variant="h2"
+                    sx={{
+                      fontWeight: 950,
+                      letterSpacing: { xs: -0.8, sm: -1.3 },
+                      lineHeight: 1.04,
+                      fontSize: { xs: "2.15rem", sm: "3rem", md: "4rem" },
+                      maxWidth: 690,
+                    }}
+                  >
+                    Distribution operations, organized.
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    color="text.secondary"
+                    sx={{
+                      mt: { xs: 1.5, sm: 2 },
+                      maxWidth: 590,
+                      lineHeight: 1.65,
+                      fontWeight: 500,
+                      fontSize: { xs: "1rem", sm: "1.15rem" },
+                    }}
+                  >
+                    CokeSales brings distributor orders, product prices, targets, and stock updates into a focused workspace for daily operations.
+                  </Typography>
+                </Box>
 
-              <Grid container spacing={2.5}>
-                {FEATURES.map(({ icon: Icon, title, body }) => (
-                  <Grid key={title} size={{ xs: 12, sm: 6 }}>
-                    <Card
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
+                  alignItems="stretch"
+                >
+                  <Button
+                    component={RouterLink}
+                    to="/login"
+                    variant="contained"
+                    size="large"
+                    startIcon={<LoginIcon />}
+                    sx={{
+                      minHeight: 50,
+                      textTransform: "none",
+                      fontWeight: 950,
+                      borderRadius: 2.25,
+                      px: 3.25,
+                      bgcolor: brand,
+                      boxShadow: `0 16px 32px ${alpha(brand, 0.3)}`,
+                      "&:hover": { bgcolor: theme.palette.error.dark },
+                    }}
+                  >
+                    Sign in securely
+                  </Button>
+                  <Button
+                    component="a"
+                    href={`${publicUrl}/terms-of-service.html`}
+                    variant="outlined"
+                    size="large"
+                    sx={{
+                      minHeight: 50,
+                      textTransform: "none",
+                      fontWeight: 850,
+                      borderRadius: 2.25,
+                      px: 3.25,
+                      bgcolor: alpha(theme.palette.background.paper, 0.45),
+                    }}
+                  >
+                    View terms
+                  </Button>
+                </Stack>
+
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  justifyContent={{ xs: "center", md: "flex-start" }}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ pt: 0.5 }}
+                >
+                  {TRUST_POINTS.map((item) => (
+                    <Chip
+                      key={item}
+                      icon={<CheckCircleOutlineIcon />}
+                      label={item}
                       variant="outlined"
+                      size="small"
                       sx={{
-                        height: "100%",
-                        borderRadius: 2,
-                        borderColor: alpha(theme.palette.divider, 0.9),
-                        transition: "box-shadow 0.2s, border-color 0.2s, transform 0.2s",
-                        "&:hover": {
-                          borderColor: alpha(brand, 0.35),
-                          boxShadow: `0 12px 28px ${alpha(theme.palette.common.black, isDark ? 0.35 : 0.06)}`,
-                          transform: "translateY(-2px)",
-                        },
+                        bgcolor: alpha(theme.palette.background.paper, 0.4),
+                        fontWeight: 800,
+                        "& .MuiChip-icon": { color: "success.main" },
                       }}
-                    >
-                      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
-                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                    />
+                  ))}
+                </Stack>
+              </Stack>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  borderRadius: { xs: 3, sm: 4 },
+                  p: { xs: 2, sm: 2.5 },
+                  bgcolor: previewBg,
+                  border: "1px solid",
+                  borderColor: alpha(theme.palette.divider, 0.8),
+                  boxShadow: `0 20px 55px ${alpha(theme.palette.common.black, isDark ? 0.32 : 0.1)}`,
+                  backdropFilter: "blur(14px)",
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box
+                      component="img"
+                      src={`${publicUrl}/app-logo.png`}
+                      alt="CokeSales Management System"
+                      sx={{ width: { xs: 58, sm: 70 }, height: "auto", flexShrink: 0 }}
+                    />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1.2 }}>
+                        Operations overview
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Fast view for admins and distributors
+                      </Typography>
+                    </Box>
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)", md: "1fr" },
+                      gap: 1.25,
+                    }}
+                  >
+                    {PREVIEW_STATS.map((stat) => (
+                      <Paper
+                        key={stat.label}
+                        elevation={0}
+                        sx={{
+                          p: 1.75,
+                          borderRadius: 2.5,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          bgcolor: alpha(theme.palette.background.paper, 0.75),
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800 }}>
+                              {stat.label}
+                            </Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 950, mt: 0.25 }}>
+                              {stat.value}
+                            </Typography>
+                          </Box>
                           <Box
                             sx={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 1.5,
+                              width: 42,
+                              height: 42,
+                              borderRadius: 2,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              bgcolor: alpha(brand, 0.1),
-                              color: "error.dark",
-                              flexShrink: 0,
+                              bgcolor: alpha(theme.palette[stat.tone].main, 0.12),
+                              color: `${stat.tone}.main`,
                             }}
                           >
-                            <Icon sx={{ fontSize: 24 }} />
-                          </Box>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.75, lineHeight: 1.3 }}>
-                              {title}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                              {body}
-                            </Typography>
+                            <TrendingUpIcon />
                           </Box>
                         </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+                      </Paper>
+                    ))}
+                  </Box>
+
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2.5,
+                      bgcolor: alpha(brand, isDark ? 0.14 : 0.07),
+                      border: `1px solid ${alpha(brand, 0.16)}`,
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950, mb: 0.75 }}>
+                      Built for daily use
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                      Clear actions, quick sign-in, and responsive screens for field teams on phones or managers on desktop.
+                    </Typography>
+                  </Paper>
+                </Stack>
+              </Paper>
+            </Box>
+          </Paper>
+
+          <Box sx={{ mt: { xs: 4, md: 5 } }}>
+            <Stack spacing={1} alignItems="center" textAlign="center" sx={{ mb: 3 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 950, letterSpacing: 1.2 }}>
+                Core workflow
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 950, fontSize: { xs: "1.65rem", sm: "2.15rem" } }}>
+                Simple tools for the work that matters.
+              </Typography>
+            </Stack>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" },
+                gap: { xs: 1.5, sm: 2 },
+              }}
+            >
+              {FEATURES.map(({ icon: Icon, title, body }) => (
+                <Card
+                  key={title}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 3,
+                    bgcolor: alpha(theme.palette.background.paper, isDark ? 0.72 : 0.9),
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
+                    "&:hover": {
+                      transform: { xs: "none", md: "translateY(-4px)" },
+                      borderColor: alpha(brand, 0.3),
+                      boxShadow: `0 16px 34px ${alpha(theme.palette.common.black, isDark ? 0.28 : 0.08)}`,
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 2.25, sm: 3 }, "&:last-child": { pb: { xs: 2.25, sm: 3 } } }}>
+                    <Stack direction={{ xs: "row", sm: "column" }} spacing={2} alignItems={{ xs: "flex-start", sm: "flex-start" }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 2.25,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          bgcolor: alpha(brand, 0.1),
+                          color: brand,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon />
+                      </Box>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 950, mb: 0.75, lineHeight: 1.25 }}>
+                          {title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
+                          {body}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
             </Box>
 
             <Paper
               elevation={0}
               sx={{
-                width: "100%",
-                maxWidth: 640,
-                mx: "auto",
-                p: { xs: 2.5, sm: 3 },
-                borderRadius: 2,
-                bgcolor: isDark ? alpha(brand, 0.14) : alpha(brand, 0.06),
+                mt: { xs: 3, md: 4 },
+                p: { xs: 2.25, sm: 3 },
+                borderRadius: 3,
                 border: "1px solid",
-                borderColor: alpha(brand, isDark ? 0.22 : 0.12),
+                borderColor: alpha(brand, isDark ? 0.24 : 0.14),
+                bgcolor: alpha(theme.palette.background.paper, isDark ? 0.72 : 0.92),
               }}
             >
-              <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                <CheckCircleOutlineIcon sx={{ color: "error.main", mt: 0.15, flexShrink: 0 }} />
-                <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.65 }}>
-                  Access to dashboards requires a valid account issued by your organization. Sign in only if you
-                  have been given credentials.
-                </Typography>
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={{ xs: 2, md: 3 }}
+                alignItems={{ xs: "stretch", md: "center" }}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 950, letterSpacing: 1 }}>
+                    How teams use it
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 950, mt: 0.25 }}>
+                    From rate setup to order review in one simple flow.
+                  </Typography>
+                </Box>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap>
+                  {WORKFLOW_STEPS.map((step, index) => (
+                    <Chip
+                      key={step}
+                      label={`${index + 1}. ${step}`}
+                      sx={{
+                        height: 36,
+                        fontWeight: 850,
+                        bgcolor: alpha(brand, index === 1 ? 0.1 : 0.06),
+                        color: isDark ? theme.palette.error.light : theme.palette.error.dark,
+                        border: `1px solid ${alpha(brand, 0.14)}`,
+                      }}
+                    />
+                  ))}
+                </Stack>
               </Stack>
             </Paper>
+          </Box>
+        </Container>
+      </Box>
 
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              justifyContent="center"
-              alignItems="center"
-              sx={{ width: "100%", pt: 1 }}
-            >
-              <Button
-                component={RouterLink}
-                to="/login"
-                variant="contained"
-                size="large"
-                startIcon={<LoginIcon />}
-                sx={{
-                  bgcolor: brand,
-                  fontWeight: 800,
-                  textTransform: "none",
-                  px: { xs: 3, sm: 4 },
-                  py: 1.25,
-                  fontSize: "1rem",
-                  minWidth: { sm: 280 },
-                  boxShadow: `0 6px 20px ${alpha(brand, 0.35)}`,
-                  "&:hover": { bgcolor: theme.palette.error.dark },
-                }}
-              >
-                Sign in to CokeSales Management System
-              </Button>
-            </Stack>
-
-            <Divider sx={{ width: "100%", maxWidth: 400, my: 1 }} />
-
-            <Stack spacing={2} alignItems="center" sx={{ pb: 2 }}>
-              <Typography variant="caption" component="nav" aria-label="Legal" color="text.secondary">
-                <Link
-                  href={`${publicUrl}/privacy-policy.html`}
-                  underline="hover"
-                  color="error.dark"
-                  fontWeight={600}
-                  sx={{ mx: 0.75 }}
-                >
-                  Privacy Policy
-                </Link>
-                <Box component="span" sx={{ color: "text.disabled" }}>
-                  ·
-                </Box>
-                <Link
-                  href={`${publicUrl}/terms-of-service.html`}
-                  underline="hover"
-                  color="error.dark"
-                  fontWeight={600}
-                  sx={{ mx: 0.75 }}
-                >
-                  Terms of Service
-                </Link>
-              </Typography>
-              <Typography variant="caption" color="text.disabled" textAlign="center">
-                © {new Date().getFullYear()} Tashi Beverages Ltd
-              </Typography>
-            </Stack>
+      <Box component="footer" sx={{ borderTop: 1, borderColor: "divider", py: { xs: 2.25, sm: 2.75 } }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            alignItems={{ xs: "center", sm: "center" }}
+            justifyContent="space-between"
+            textAlign={{ xs: "center", sm: "left" }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              &copy; {new Date().getFullYear()} Tashi Beverages Ltd
+            </Typography>
+            <Typography variant="caption" component="nav" aria-label="Legal">
+              <Link href={`${publicUrl}/privacy-policy.html`} underline="hover" color="text.secondary" fontWeight={800}>
+                Privacy Policy
+              </Link>
+              <Box component="span" sx={{ mx: 1, color: "text.disabled" }}>
+                |
+              </Box>
+              <Link href={`${publicUrl}/terms-of-service.html`} underline="hover" color="text.secondary" fontWeight={800}>
+                Terms of Service
+              </Link>
+            </Typography>
           </Stack>
         </Container>
       </Box>

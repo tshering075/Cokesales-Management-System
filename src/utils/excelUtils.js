@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { partyNameAggregationKey } from "./distributorNameMatch";
 
 /**
@@ -137,6 +135,7 @@ function getProductCategory(sku) {
  */
 export async function parseExcelFile(file) {
   try {
+    const XLSX = await import("xlsx");
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
@@ -611,7 +610,11 @@ export async function parseExcelFile(file) {
  * Export distributors array to Excel and trigger download.
  * Expected data: [{ name, region, target: {...}, achieved: {...}, balance: {...} }]
  */
-export function exportToExcel(distributors, filename = "targets-report.xlsx") {
+export async function exportToExcel(distributors, filename = "targets-report.xlsx") {
+  const [XLSX, { saveAs }] = await Promise.all([
+    import("xlsx"),
+    import("file-saver"),
+  ]);
   const rows = distributors.map(d => ({
     Distributor: d.name,
     Region: d.region,
@@ -636,7 +639,11 @@ export function exportToExcel(distributors, filename = "targets-report.xlsx") {
   saveAs(new Blob([wbout], { type: "application/octet-stream" }), filename);
 }
 
-export function exportTableLayout(distributors, filename = "targets-report.xlsx") {
+export async function exportTableLayout(distributors, filename = "targets-report.xlsx") {
+  const [XLSX, { saveAs }] = await Promise.all([
+    import("xlsx"),
+    import("file-saver"),
+  ]);
   // group by region (preserve original order of appearance)
   const regions = Array.from(new Set(distributors.map(d => d.region || "Unknown")));
   const aoa = [];

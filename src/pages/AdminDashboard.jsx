@@ -35,9 +35,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import HistoryIcon from "@mui/icons-material/History";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import TargetsDialog from "../components/TargetsDialog";
 import DistributorsDialog from "../components/DistributorsDialog";
 import ReportsDialog from "../components/ReportsDialog";
@@ -51,7 +48,6 @@ import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
 import AdminStockLiftingRecordsDialog from "../components/AdminStockLiftingRecordsDialog";
-import FgStocksDialog from "../components/FgStocksDialog";
 import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import { playOrderApprovedChime } from "../utils/orderApprovedSound";
@@ -60,11 +56,8 @@ import { isCombinedTargetAchievedUC } from "../utils/targetAchievement";
 import { getTargetReminderNotificationIconUrl } from "../utils/targetReminder";
 import NuProductRateIcon from "../components/NuProductRateIcon";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CokeCalculator from "../cokecalculator";
-import { buildFgStockOpeningAllSkus } from "../utils/fgStockSkuMatch";
-import { getAllCalculatorSkuNames } from "../utils/calculatorSkuNames";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 // Import extracted components
 import InfoCards from "./AdminDashboard/components/InfoCards";
@@ -101,8 +94,6 @@ import {
   getGlobalTargetPeriod,
   getSalesPerformanceLastUpdated,
   saveSalesPerformanceLastUpdated,
-  getFgOpeningStock,
-  subscribeFgOpeningStock,
 } from "../services/supabaseService";
 import { 
   sendOrderEmail, 
@@ -156,10 +147,7 @@ function AdminDashboard({ onLogout }) {
   const [schemeDiscountOpen, setSchemeDiscountOpen] = useState(false);
   const [rateMasterOpen, setRateMasterOpen] = useState(false);
   const [physicalStockAdminOpen, setPhysicalStockAdminOpen] = useState(false);
-  const [fgStocksOpen, setFgStocksOpen] = useState(false);
   const [stockLiftingRecordsOpen, setStockLiftingRecordsOpen] = useState(false);
-  const [fgStockDataVersion, setFgStockDataVersion] = useState(0);
-  const [adminFgStockBySku, setAdminFgStockBySku] = useState(undefined);
   const [productRates, setProductRates] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(null); // Order ID being sent
   const [emailToast, setEmailToast] = useState({
@@ -203,6 +191,7 @@ function AdminDashboard({ onLogout }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [adminPhysicalStockBadgeTick, setAdminPhysicalStockBadgeTick] = useState(0);
+  const dialogBackHistoryRef = useRef(false);
 
   const SALES_PERF_UPDATED_KEY = "coke_sales_performance_last_updated";
 
@@ -949,44 +938,6 @@ function AdminDashboard({ onLogout }) {
     loadRates();
   }, [isSupabaseConfigured]);
 
-  // Opening stock in admin calculator = same FG rows as FG Stocks dialog (Supabase). Show zeros immediately, then hydrate.
-  useEffect(() => {
-    if (!showCalculator || !productRates) {
-      setAdminFgStockBySku(undefined);
-      return;
-    }
-    const names = getAllCalculatorSkuNames(productRates);
-    setAdminFgStockBySku(buildFgStockOpeningAllSkus(names, []));
-
-    if (!isSupabaseConfigured) return;
-
-    let cancelled = false;
-    const applyFgRows = (data) => {
-      if (cancelled) return;
-      const n = getAllCalculatorSkuNames(productRatesRef.current);
-      const rows = Array.isArray(data?.rows) ? data.rows : [];
-      setAdminFgStockBySku(buildFgStockOpeningAllSkus(n, rows));
-    };
-
-    (async () => {
-      try {
-        const data = await getFgOpeningStock();
-        applyFgRows(data);
-      } catch {
-        applyFgRows(null);
-      }
-    })();
-
-    const unsub = subscribeFgOpeningStock((payload) => {
-      applyFgRows(payload);
-    });
-
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [showCalculator, productRates, fgStockDataVersion, isSupabaseConfigured]);
-
   // Load orders from Supabase or localStorage
   useEffect(() => {
     const loadOrders = async () => {
@@ -1145,6 +1096,7 @@ function AdminDashboard({ onLogout }) {
     if (isSupabaseConfigured) {
       const refreshOrdersSafe = async () => {
         if (!isMounted) return;
+        if (typeof document !== "undefined" && document.hidden) return;
         try {
           await refreshOrders();
         } catch (error) {
@@ -1167,6 +1119,7 @@ function AdminDashboard({ onLogout }) {
 
     const interval = setInterval(() => {
       if (!isMounted) return;
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const stored = localStorage.getItem("coke_orders");
         if (stored) {
@@ -1636,8 +1589,9 @@ function AdminDashboard({ onLogout }) {
   };
 
   // Download Excel function
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     try {
+      const XLSX = await import("xlsx");
       const filteredDistributors = selectedRegion === "All"
         ? filteredDistributorsFromPerformance
         : filteredDistributorsFromPerformance.filter(d => d.region === selectedRegion);
@@ -1736,6 +1690,10 @@ function AdminDashboard({ onLogout }) {
       : null;
 
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
       alert("Generating PDF... Please wait.");
 
       // Beat MUI sx + parent Paper overflow:hidden (both clip html2canvas to the viewport)
@@ -2122,7 +2080,6 @@ function AdminDashboard({ onLogout }) {
       if (savedView === "scheme_discount") setSchemeDiscountOpen(true);
       if (savedView === "rate_master") setRateMasterOpen(true);
       if (savedView === "physical_stock") setPhysicalStockAdminOpen(true);
-      if (savedView === "fg_stocks") setFgStocksOpen(true);
       if (savedView === "stock_lifting_records") setStockLiftingRecordsOpen(true);
       if (savedView === "distributors") setDistributorsOpen(true);
       if (savedView === "reports") setReportsOpen(true);
@@ -3455,6 +3412,7 @@ function AdminDashboard({ onLogout }) {
       document.body.appendChild(tempDiv);
       
       // Convert to canvas using html2canvas
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(tempDiv, {
         backgroundColor: '#ffffff',
         scale: 2,
@@ -3496,11 +3454,7 @@ function AdminDashboard({ onLogout }) {
       
       // Get order number for tracking
       const orderNumber = order.orderNumber || 'N/A';
-      
-      // Update subject to include order number for better tracking
-      const subjectWithOrderNo = subject.includes(orderNumber) 
-        ? subject 
-        : `[Order #${orderNumber}] ${subject}`;
+      const finalSubject = subject;
       
       // Create email content with custom message only (order details are in attachment)
       const htmlBody = `
@@ -3523,7 +3477,7 @@ function AdminDashboard({ onLogout }) {
           const gmailResponse = await sendEmailViaGmail({
             to: to,
             cc: cc || "",
-            subject: subjectWithOrderNo, // Use subject with order number
+            subject: finalSubject,
             htmlBody: htmlBody,
             imageData: imageData
           });
@@ -3545,7 +3499,7 @@ function AdminDashboard({ onLogout }) {
           
           monitorOrderReplies(
             orderId,
-            subjectWithOrderNo, // Use subject with order number for tracking
+            finalSubject,
             async (reply, body) => {
               // Approval detected
               console.log('✅ Approval callback triggered for order:', orderId);
@@ -3660,7 +3614,7 @@ function AdminDashboard({ onLogout }) {
           await sendOrderEmail({
             to: to,
             cc: cc || "",
-            subject: subject,
+            subject: finalSubject,
             htmlBody: htmlBody,
             imageData: imageData,
             orderId: orderId
@@ -3693,7 +3647,7 @@ function AdminDashboard({ onLogout }) {
         const mailtoLink = createMailtoLink({
           to: recipients,
           cc: cc,
-          subject: subject,
+          subject: finalSubject,
           body: `${message}\n\nOrder Details:\nDistributor: ${order.distributorName || order.distributorCode}\nDate: ${new Date(order.timestamp || Date.now()).toLocaleDateString()}\nTotal UC: ${(order.totalUC || 0).toFixed(2)}\n\nPlease review the attached order details.`
         });
         window.location.href = mailtoLink;
@@ -3804,16 +3758,236 @@ function AdminDashboard({ onLogout }) {
     }
   };
 
+  const anyAdminDialogOpen =
+    notificationsOpen ||
+    targetsOpen ||
+    distributorsOpen ||
+    showCalculator ||
+    reportsOpen ||
+    emailRecipientsOpen ||
+    userManagementOpen ||
+    activityOpen ||
+    gmailSettingsOpen ||
+    schemeDiscountOpen ||
+    rateMasterOpen ||
+    physicalStockAdminOpen ||
+    stockLiftingRecordsOpen ||
+    previewOpen ||
+    emailDialogOpen ||
+    (isMobile && sidebarOpen);
+
+  const closeTopAdminDialog = useCallback(() => {
+    if (emailDialogOpen) {
+      setEmailDialogOpen(false);
+      setEmailOrder(null);
+      return;
+    }
+    if (previewOpen) {
+      setPreviewOpen(false);
+      setPreviewOrder(null);
+      return;
+    }
+    if (notificationsOpen) {
+      setNotificationsOpen(false);
+      return;
+    }
+    if (targetsOpen) {
+      setTargetsOpen(false);
+      return;
+    }
+    if (distributorsOpen) {
+      setDistributorsOpen(false);
+      return;
+    }
+    if (showCalculator) {
+      setShowCalculator(false);
+      return;
+    }
+    if (reportsOpen) {
+      setReportsOpen(false);
+      return;
+    }
+    if (emailRecipientsOpen) {
+      setEmailRecipientsOpen(false);
+      return;
+    }
+    if (userManagementOpen) {
+      setUserManagementOpen(false);
+      return;
+    }
+    if (activityOpen) {
+      setActivityOpen(false);
+      return;
+    }
+    if (gmailSettingsOpen) {
+      setGmailSettingsOpen(false);
+      return;
+    }
+    if (schemeDiscountOpen) {
+      setSchemeDiscountOpen(false);
+      return;
+    }
+    if (rateMasterOpen) {
+      setRateMasterOpen(false);
+      return;
+    }
+    if (physicalStockAdminOpen) {
+      setPhysicalStockAdminOpen(false);
+      return;
+    }
+    if (stockLiftingRecordsOpen) {
+      setStockLiftingRecordsOpen(false);
+      return;
+    }
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [
+    emailDialogOpen,
+    previewOpen,
+    notificationsOpen,
+    targetsOpen,
+    distributorsOpen,
+    showCalculator,
+    reportsOpen,
+    emailRecipientsOpen,
+    userManagementOpen,
+    activityOpen,
+    gmailSettingsOpen,
+    schemeDiscountOpen,
+    rateMasterOpen,
+    physicalStockAdminOpen,
+    stockLiftingRecordsOpen,
+    isMobile,
+    sidebarOpen,
+  ]);
+
+  useEffect(() => {
+    if (!anyAdminDialogOpen || dialogBackHistoryRef.current || typeof window === "undefined") return;
+    window.history.pushState({ cokeAdminDialog: true }, "", window.location.href);
+    dialogBackHistoryRef.current = true;
+  }, [anyAdminDialogOpen]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!dialogBackHistoryRef.current) return;
+      dialogBackHistoryRef.current = false;
+      closeTopAdminDialog();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeTopAdminDialog]);
+
+  const dashboardSurfaceBg =
+    theme.palette.mode === "dark"
+      ? `radial-gradient(circle at top left, ${alpha(theme.palette.primary.main, 0.16)}, transparent 30%), linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.22)} 0%, ${theme.palette.background.default} 44%)`
+      : `radial-gradient(circle at top left, ${alpha(theme.palette.primary.main, 0.08)}, transparent 30%), linear-gradient(180deg, #fff 0%, ${alpha(theme.palette.grey[50], 0.98)} 46%, #fff 100%)`;
+
+  const adminQuickNavItems = [
+    { label: "Dashboard", icon: DashboardIcon, active: !showOrders, action: () => { setShowOrders(false); setAdminCurrentView("dashboard"); } },
+    { label: "Orders", icon: AssignmentIcon, active: showOrders, action: () => { setShowOrders(true); setAdminCurrentView("orders"); }, badgeCount: adminActionableOrdersCount },
+    { label: "Targets", icon: TrackChangesIcon, active: targetsOpen, action: () => { setTargetsOpen(true); setAdminCurrentView("targets"); } },
+    { label: "Calculator", icon: CalculateIcon, active: showCalculator, action: () => { setShowCalculator(true); setAdminCurrentView("calculator"); } },
+    { label: "Distributors", icon: PeopleIcon, active: distributorsOpen, action: () => { setDistributorsOpen(true); setAdminCurrentView("distributors"); } },
+    { label: "Reports", icon: BarChartIcon, active: reportsOpen, action: () => { setReportsOpen(true); setAdminCurrentView("reports"); } },
+  ];
+
   return (
-    <Box sx={{ display: "flex", height: "100vh" }}>
-      <AppBar position="fixed" sx={{ zIndex: 1201, bgcolor: "primary.main" }}>
-        <Toolbar sx={{ minHeight: { xs: 48, sm: 64 }, px: { xs: 1, sm: 2 } }}>
+    <Box sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          zIndex: 1201,
+          bgcolor: alpha(theme.palette.primary.main, 0.96),
+          backdropFilter: "blur(14px)",
+          borderBottom: `1px solid ${alpha(theme.palette.primary.contrastText, 0.12)}`,
+          boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.35 : 0.12)}`,
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: 52, sm: 64 }, px: { xs: 1, sm: 2 }, gap: 1 }}>
           <IconButton color="inherit" onClick={toggleSidebar} aria-label="toggle menu" sx={{ p: { xs: 0.75, sm: 1 } }}>
             <MenuIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500, fontSize: { xs: "0.875rem", sm: "1.125rem", md: "1.25rem" } }}>
-            Admin Dashboard
-          </Typography>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="h6" noWrap sx={{ fontWeight: 850, fontSize: { xs: "0.95rem", sm: "1.15rem", md: "1.25rem" }, lineHeight: 1.15 }}>
+              Admin Dashboard
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.82, display: { xs: "none", sm: "block" }, fontWeight: 600 }}>
+              Sales performance and distributor operations
+            </Typography>
+          </Box>
+          <Box
+            aria-label="Admin quick navigation"
+            sx={{
+              position: { lg: "absolute" },
+              left: { lg: "50%" },
+              transform: { lg: "translateX(-50%)" },
+              display: { xs: "none", lg: "flex" },
+              alignItems: "center",
+              gap: 0.35,
+              px: 0.55,
+              py: 0.45,
+              borderRadius: 3,
+              bgcolor: alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.12),
+              border: `1px solid ${alpha(theme.palette.primary.contrastText, 0.2)}`,
+              boxShadow: `inset 0 1px 0 ${alpha(theme.palette.primary.contrastText, 0.14)}`,
+              backdropFilter: "blur(14px)",
+            }}
+          >
+            {adminQuickNavItems.map((item) => {
+              const active = item.active;
+              const Icon = item.icon;
+              return (
+                <Button
+                  key={item.label}
+                  onClick={item.action}
+                  size="small"
+                  sx={{
+                    minWidth: 0,
+                    px: { lg: 0.95, xl: 1.2 },
+                    py: 0.7,
+                    borderRadius: 2.25,
+                    color: active ? theme.palette.warning.contrastText : "primary.contrastText",
+                    textTransform: "none",
+                    fontWeight: active ? 950 : 800,
+                    fontSize: { lg: "0.75rem", xl: "0.82rem" },
+                    lineHeight: 1,
+                    bgcolor: active ? alpha(theme.palette.warning.light, 0.92) : "transparent",
+                    boxShadow: active ? `0 8px 18px ${alpha(theme.palette.warning.light, 0.24)}` : "none",
+                    opacity: active ? 1 : 0.88,
+                    transition: "background-color 0.18s ease, transform 0.18s ease, opacity 0.18s ease",
+                    "&:hover": {
+                      bgcolor: active ? theme.palette.warning.light : alpha(theme.palette.primary.contrastText, 0.14),
+                      opacity: 1,
+                      transform: "translateY(-1px)",
+                    },
+                  }}
+                >
+                  <Badge
+                    badgeContent={item.badgeCount > 99 ? "99+" : item.badgeCount}
+                    color="error"
+                    invisible={!item.badgeCount}
+                    sx={{
+                      "& .MuiBadge-badge": {
+                        fontSize: "0.58rem",
+                        fontWeight: 900,
+                        height: 16,
+                        minWidth: 16,
+                        right: -8,
+                        top: 1,
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.65 }}>
+                      <Icon sx={{ fontSize: { lg: 16, xl: 18 }, opacity: active ? 1 : 0.88 }} />
+                      <Box component="span">{item.label}</Box>
+                    </Box>
+                  </Badge>
+                </Button>
+              );
+            })}
+          </Box>
           <DayNightThemeToggle />
           <Tooltip title="Notifications">
             <IconButton
@@ -3845,12 +4019,13 @@ function AdminDashboard({ onLogout }) {
           [`& .MuiDrawer-paper`]: {
             width: { xs: 200, sm: 220 },
             boxSizing: "border-box",
-            bgcolor: "secondary.main",
+            bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.secondary.dark, 0.96) : "secondary.main",
             color: DRAWER_FOREGROUND,
             borderRight: isMobile ? "none" : "1px solid rgba(0,0,0,0.12)",
             px: { xs: 0.5, sm: 1 },
             display: "flex",
             flexDirection: "column",
+            boxShadow: `12px 0 34px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.28 : 0.12)}`,
           },
         }}
       >
@@ -3899,15 +4074,6 @@ function AdminDashboard({ onLogout }) {
                   action: () => {
                     setPhysicalStockAdminOpen(true);
                     setAdminCurrentView("physical_stock");
-                    setSidebarOpen(isMobile);
-                  },
-                },
-                {
-                  text: "FG stocks",
-                  icon: <Inventory2Icon />,
-                  action: () => {
-                    setFgStocksOpen(true);
-                    setAdminCurrentView("fg_stocks");
                     setSidebarOpen(isMobile);
                   },
                 },
@@ -4039,7 +4205,7 @@ function AdminDashboard({ onLogout }) {
         component="main" 
           sx={{
           flexGrow: 1, 
-          bgcolor: "background.default", 
+          background: dashboardSurfaceBg,
           p: { xs: 1, sm: 2, md: 3 },
           overflowX: "hidden",
           overflowY: "auto",
@@ -4091,8 +4257,10 @@ function AdminDashboard({ onLogout }) {
             ref={performancePaperRef}
             sx={{ 
               p: { xs: 1.5, sm: 2, md: 2.5 }, 
-              borderRadius: 2,
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "divider",
+              boxShadow: `0 16px 44px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.28 : 0.08)}`,
               mt: { xs: 1, sm: 2 },
               width: "100%",
               minHeight: { xs: 380, sm: 480 },
@@ -4313,18 +4481,6 @@ function AdminDashboard({ onLogout }) {
           onOpened={handlePhysicalStockAdminDialogOpened}
         />
 
-        <FgStocksDialog
-          open={fgStocksOpen}
-          onClose={() => {
-            setFgStocksOpen(false);
-            setAdminCurrentView("dashboard");
-          }}
-          onSaved={() => setFgStockDataVersion((n) => n + 1)}
-          onNotify={(n) =>
-            showEmailToast(n.message, n.severity || "info", n.duration || 5200, n.title || "")
-          }
-        />
-
         <AdminStockLiftingRecordsDialog
           open={stockLiftingRecordsOpen}
           onClose={() => {
@@ -4368,8 +4524,6 @@ function AdminDashboard({ onLogout }) {
           <Box sx={{ p: 2 }}>
             <CokeCalculator
               productRates={productRates}
-              fgStockBySku={adminFgStockBySku}
-              fgStockCaptionPrefix="Opening"
             />
             <DialogActions>
               <Button

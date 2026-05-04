@@ -41,9 +41,6 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { parseExcelFile } from "../utils/excelUtils";
 import { parseFirestoreDate } from "../utils/dateUtils";
 import { logger } from "../utils/logger";
@@ -393,79 +390,93 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   };
   
   // 1. DISTRIBUTOR PERFORMANCE REPORT
-  // Aggregates sales data by distributor, showing CSD and Water PC/UC
-  const performanceReport = useMemo(() => {
-    const report = {};
-    
-    filteredSalesData.forEach(record => {
-      const distName = record.distributorName || record.matchedDistributorName || "Unknown";
-      
-      if (!report[distName]) {
-        report[distName] = {
-          name: distName,
-          code: record.distributorCode || null,
-          csdPC: 0,
-          csdUC: 0,
-          waterPC: 0,
-          waterUC: 0,
-        };
+  // Aggregates uploaded product lines into the spreadsheet-style distributor SKU layout.
+  const performanceSkuReport = useMemo(() => {
+    const distributorMap = new Map();
+
+    const getGroup = (record) => {
+      const name = record.matchedDistributorName || record.distributorName || "Unknown";
+      const key = record.distributorCode || name;
+
+      if (!distributorMap.has(key)) {
+        distributorMap.set(key, {
+          key,
+          name,
+          csd: new Map(),
+          water: new Map(),
+          totals: { csdPC: 0, csdUC: 0, waterPC: 0, waterUC: 0 },
+        });
       }
-      
-      // Calculate PC/UC from products array (preferred - more accurate)
-      // If products array exists, use it; otherwise fall back to stored values
-      if (record.products && Array.isArray(record.products) && record.products.length > 0) {
-        record.products.forEach(product => {
-          if (!product || !product.sku) return;
-          
+
+      return distributorMap.get(key);
+    };
+
+    const addSku = (skuMap, sku, pc, uc) => {
+      if (!skuMap.has(sku)) {
+        skuMap.set(sku, { sku, pc: 0, uc: 0 });
+      }
+
+      const current = skuMap.get(sku);
+      current.pc += pc;
+      current.uc += uc;
+    };
+
+    filteredSalesData.forEach((record) => {
+      const group = getGroup(record);
+
+      if (Array.isArray(record.products) && record.products.length > 0) {
+        record.products.forEach((product) => {
+          if (!product?.sku) return;
+
           const pc = Number(product.quantity) || 0;
-          if (pc === 0) return;
-          
-          const category = product.category || "Unknown";
-          const uc = convertPCtoUC(pc, product.sku);
-          
-          if (category === "CSD") {
-            report[distName].csdPC += pc;
-            report[distName].csdUC += uc;
-          } else if (category === "Water") {
-            report[distName].waterPC += pc;
-            report[distName].waterUC += uc;
+          if (pc <= 0) return;
+
+          const category = (product.category || "").toString().trim().toLowerCase();
+          const uc = Number(product.uc) || convertPCtoUC(pc, product.sku);
+
+          if (category === "csd") {
+            addSku(group.csd, product.sku, pc, uc);
+            group.totals.csdPC += pc;
+            group.totals.csdUC += uc;
+          } else if (category === "water") {
+            addSku(group.water, product.sku, pc, uc);
+            group.totals.waterPC += pc;
+            group.totals.waterUC += uc;
           }
         });
       } else {
-        // Fall back to stored values if products array is not available
-        report[distName].csdPC += Number(record.csdPC) || 0;
-        report[distName].csdUC += Number(record.csdUC) || 0;
-        report[distName].waterPC += Number(record.waterPC) || 0;
-        report[distName].waterUC += Number(record.waterUC) || 0;
+        const csdPC = Number(record.csdPC) || 0;
+        const csdUC = Number(record.csdUC) || 0;
+        const waterPC = Number(record.waterPC) || 0;
+        const waterUC = Number(record.waterUC) || 0;
+
+        if (csdPC || csdUC) {
+          addSku(group.csd, "CSD Total", csdPC, csdUC);
+          group.totals.csdPC += csdPC;
+          group.totals.csdUC += csdUC;
+        }
+        if (waterPC || waterUC) {
+          addSku(group.water, "K WATER Total", waterPC, waterUC);
+          group.totals.waterPC += waterPC;
+          group.totals.waterUC += waterUC;
+        }
       }
     });
-    
-    // Convert to array, sort by total UC (descending), and add ranks
-    const sortedReport = Object.values(report)
-      .map(item => ({
-        ...item,
-        csdPC: Math.round(item.csdPC),
-        csdUC: Math.round(item.csdUC * 100) / 100, // 2 decimal places
-        waterPC: Math.round(item.waterPC),
-        waterUC: Math.round(item.waterUC * 100) / 100,
-        totalUC: Math.round((item.csdUC + item.waterUC) * 100) / 100, // Total UC for ranking
+
+    return Array.from(distributorMap.values())
+      .map((group) => ({
+        ...group,
+        csd: Array.from(group.csd.values()).sort((a, b) => b.pc - a.pc),
+        water: Array.from(group.water.values()).sort((a, b) => b.pc - a.pc),
+        totals: {
+          csdPC: Math.round(group.totals.csdPC),
+          csdUC: Math.round(group.totals.csdUC * 100) / 100,
+          waterPC: Math.round(group.totals.waterPC),
+          waterUC: Math.round(group.totals.waterUC * 100) / 100,
+        },
       }))
-      .sort((a, b) => b.totalUC - a.totalUC); // Sort by total UC descending
-    
-    // Add rank to each item (handle ties - same rank for same total UC)
-    let currentRank = 1;
-    let previousTotalUC = null;
-    
-    return sortedReport.map((item, index) => {
-      if (previousTotalUC !== null && item.totalUC !== previousTotalUC) {
-        currentRank = index + 1;
-      }
-      previousTotalUC = item.totalUC;
-      return {
-        ...item,
-        rank: currentRank,
-      };
-    });
+      .filter((group) => group.csd.length > 0 || group.water.length > 0)
+      .sort((a, b) => (b.totals.csdUC + b.totals.waterUC) - (a.totals.csdUC + a.totals.waterUC));
   }, [filteredSalesData]);
   
   // 2. CSD & WATER SKU-WISE REPORTS (same aggregation, different product category)
@@ -747,9 +758,8 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
         }
       }
       
-      // Update local state - REPLACE existing data with new upload
-      // Track file information for management
-      const localFormattedData = validSalesData.map(sale => ({
+      // Keep every parsed upload row in the local report view. Cloud save still only uses matched rows.
+      const localFormattedData = salesDataToSave.map(sale => ({
         ...sale,
         invoiceDate: sale.invoiceDate instanceof Date ? sale.invoiceDate : new Date(sale.invoiceDate),
         uploadedFileName: file.name, // Track which file this record came from
@@ -765,7 +775,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           updated[existingIndex] = {
             fileName: file.name,
             uploadDate: new Date(),
-            recordCount: validSalesData.length,
+            recordCount: localFormattedData.length,
             data: localFormattedData,
           };
           return updated;
@@ -774,7 +784,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           return [...prev, {
             fileName: file.name,
             uploadDate: new Date(),
-            recordCount: validSalesData.length,
+            recordCount: localFormattedData.length,
             data: localFormattedData,
           }];
         }
@@ -782,14 +792,18 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       
       // REPLACE all local sales data with new upload (as requested)
       setLocalSalesData(localFormattedData);
-      setUploadProgress(prev => ({ ...prev, processed: salesDataFromFile.length, saved: validSalesData.length }));
+      setUploadProgress(prev => ({ ...prev, processed: salesDataFromFile.length, saved: localFormattedData.length }));
       
       if (onSalesDataUploaded) {
-        onSalesDataUploaded(localFormattedData);
+        onSalesDataUploaded(validSalesData.map(sale => ({
+          ...sale,
+          invoiceDate: sale.invoiceDate instanceof Date ? sale.invoiceDate : new Date(sale.invoiceDate),
+          uploadedFileName: file.name,
+        })));
       }
       
       // Show success message
-      let message = `Successfully uploaded ${validSalesData.length} sales record(s)!`;
+      let message = `Successfully uploaded ${localFormattedData.length} sales record(s) for reports.`;
       if (savedToFirebase > 0) {
         message += ` ${savedToFirebase} record(s) saved to Firebase.`;
       }
@@ -812,7 +826,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
         const moreCount = actualSkippedCount > 5 ? ` and ${actualSkippedCount - 5} more` : "";
         const availableDistCount = distributors?.length || 0;
         
-        message += `\n\n⚠️ ${actualSkippedCount} record(s) skipped - Distributor name from Excel not found in app: ${unmatchedNames}${moreCount}`;
+        message += `\n\n⚠️ ${actualSkippedCount} record(s) were not matched to an app distributor: ${unmatchedNames}${moreCount}. They will still appear in this report, but region filtering may exclude them.`;
         if (availableDistCount > 0) {
           message += `\n\n💡 Tip: Add missing distributors in the Distributors section, then upload again.`;
         }
@@ -853,8 +867,9 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   };
   
   // Excel Export
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     try {
+      const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
       
       if (reportType === "performance") {
@@ -862,15 +877,37 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           ["Distributor Performance Report"],
           [startDate && endDate ? `Date Range: ${startDate} to ${endDate}` : "All Data"],
           [],
-          ["Distributor", "CSD PC", "CSD UC", "Water PC", "Water UC"],
-          ...performanceReport.map(row => [
-            row.name,
-            row.csdPC,
-            row.csdUC.toFixed(2),
-            row.waterPC,
-            row.waterUC.toFixed(2),
-          ]),
         ];
+
+        performanceSkuReport.forEach((group, groupIndex) => {
+          const rowCount = Math.max(group.csd.length, group.water.length);
+          if (groupIndex > 0) wsData.push([]);
+
+          wsData.push([`Distributor: ${group.name}`, "CSD", "", "K WATER", "", ""]);
+          wsData.push(["Product skus", "PC", "UC", "Product skus", "PC", "UC"]);
+
+          for (let i = 0; i < rowCount; i += 1) {
+            const csd = group.csd[i];
+            const water = group.water[i];
+            wsData.push([
+              csd?.sku || "",
+              csd ? Math.round(csd.pc) : "",
+              csd ? Math.round(csd.uc * 100) / 100 : "",
+              water?.sku || "",
+              water ? Math.round(water.pc) : "",
+              water ? Math.round(water.uc * 100) / 100 : "",
+            ]);
+          }
+
+          wsData.push([
+            "TOTAL",
+            group.totals.csdPC,
+            group.totals.csdUC,
+            "TOTAL",
+            group.totals.waterPC,
+            group.totals.waterUC,
+          ]);
+        });
         
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         XLSX.utils.book_append_sheet(wb, ws, "Distributor Performance");
@@ -908,18 +945,17 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
     
     setExportingPDF(true);
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
       const boxElement = tableRef.current;
       /** SKU tab has two scroll areas — capture the whole panel; performance uses the inner table. */
-      const captureRoot =
-        reportType === "sku"
-          ? boxElement
-          : boxElement.querySelector(".MuiTableContainer-root") || boxElement;
+      const captureRoot = boxElement;
 
       const restoreStyles = [];
-      const nodesToUnconstrain =
-        reportType === "sku"
-          ? Array.from(boxElement.querySelectorAll(".MuiTableContainer-root"))
-          : [captureRoot];
+      const tableContainers = Array.from(boxElement.querySelectorAll(".MuiTableContainer-root"));
+      const nodesToUnconstrain = tableContainers.length > 0 ? tableContainers : [captureRoot];
 
       nodesToUnconstrain.forEach((el) => {
         if (!el) return;
@@ -1061,27 +1097,15 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
     }
   };
   
-  // Calculate totals for performance report
-  const performanceTotals = useMemo(() => {
-    return performanceReport.reduce(
-      (acc, row) => ({
-        csdPC: acc.csdPC + row.csdPC,
-        csdUC: acc.csdUC + row.csdUC,
-        waterPC: acc.waterPC + row.waterPC,
-        waterUC: acc.waterUC + row.waterUC,
-      }),
-      { csdPC: 0, csdUC: 0, waterPC: 0, waterUC: 0 }
-    );
-  }, [performanceReport]);
-
   const reportHasRows =
     reportType === "performance"
-      ? performanceReport.length > 0
+      ? performanceSkuReport.length > 0
       : skuReport.length > 0 || waterSkuReport.length > 0;
 
   const tableMaxH = { xs: "min(48vh, 360px)", sm: "min(56vh, 520px)" };
   const skuTableMaxH = { xs: "min(34vh, 300px)", sm: "min(38vh, 340px)" };
   const headSx = { fontWeight: 700, backgroundColor: "#c62828", color: "#fff", py: 1.25 };
+  const formatWholeNumber = (value) => Math.round(Number(value) || 0).toLocaleString();
   const subHeadCsd = {
     fontWeight: 700,
     backgroundColor: alpha(theme.palette.warning.main, theme.palette.mode === "dark" ? 0.22 : 0.12),
@@ -1545,7 +1569,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                 {reportType === "performance" ? "Distributor performance" : "CSD & Water SKU ranking"}
               </Typography>
               {reportType === "performance" && reportHasRows ? (
-                <Chip label={`${performanceReport.length} rows`} size="small" sx={{ ml: "auto" }} />
+                <Chip label={`${performanceSkuReport.length} distributor${performanceSkuReport.length === 1 ? "" : "s"}`} size="small" sx={{ ml: "auto" }} />
               ) : null}
               {reportType === "sku" && (skuReport.length > 0 || waterSkuReport.length > 0) ? (
                 <Stack direction="row" spacing={0.75} sx={{ ml: "auto" }} flexWrap="wrap" useFlexGap>
@@ -1562,99 +1586,105 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
 
             <Box ref={tableRef} sx={{ bgcolor: "background.paper" }}>
               {reportType === "performance" ? (
-                <TableContainer sx={{ maxHeight: tableMaxH }}>
-                  <Table stickyHeader size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ ...headSx, width: 56 }}>Rank</TableCell>
-                        <TableCell sx={headSx}>Distributor</TableCell>
-                        <TableCell align="center" sx={subHeadCsd}>
-                          CSD PC
-                        </TableCell>
-                        <TableCell align="center" sx={subHeadCsd}>
-                          CSD UC
-                        </TableCell>
-                        <TableCell align="center" sx={subHeadWater}>
-                          Water PC
-                        </TableCell>
-                        <TableCell align="center" sx={subHeadWater}>
-                          Water UC
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {performanceReport.length === 0 ? (
+                performanceSkuReport.length === 0 ? (
+                  <Box sx={{ py: 6, px: 2, textAlign: "center" }}>
+                    <AssessmentOutlinedIcon
+                      sx={{ fontSize: 48, color: "action.disabled", mb: 1.5 }}
+                    />
+                    <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                      {localSalesData.length === 0
+                        ? "No data yet"
+                        : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
+                          ? "Nothing matches these filters"
+                          : "No rows to show"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: "auto" }}>
+                      {localSalesData.length === 0
+                        ? "Upload a sales Excel file above to build distributor performance."
+                        : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
+                          ? "Try widening the date range or setting region to All."
+                          : "Adjust filters or upload a file with matched distributors."}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TableContainer sx={{ maxHeight: tableMaxH }}>
+                    <Table stickyHeader size="small" sx={{ minWidth: 820 }}>
+                      <TableHead>
                         <TableRow>
-                          <TableCell colSpan={6} align="center" sx={{ py: 6, border: "none" }}>
-                            <AssessmentOutlinedIcon
-                              sx={{ fontSize: 48, color: "action.disabled", mb: 1.5 }}
-                            />
-                            <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                              {localSalesData.length === 0
-                                ? "No data yet"
-                                : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
-                                  ? "Nothing matches these filters"
-                                  : "No rows to show"}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: "auto" }}>
-                              {localSalesData.length === 0
-                                ? "Upload a sales Excel file above to build distributor performance."
-                                : (startDate && endDate) || (selectedRegion && selectedRegion !== "All")
-                                  ? "Try widening the date range or setting region to All."
-                                  : "Adjust filters or upload a file with matched distributors."}
-                            </Typography>
-                          </TableCell>
+                          <TableCell sx={{ ...headSx, width: "32%" }}>CSD Product skus</TableCell>
+                          <TableCell align="right" sx={{ ...headSx, width: 96 }}>PC</TableCell>
+                          <TableCell align="right" sx={{ ...headSx, width: 96 }}>UC</TableCell>
+                          <TableCell sx={{ ...headSx, width: "32%" }}>K WATER Product skus</TableCell>
+                          <TableCell align="right" sx={{ ...headSx, width: 96 }}>PC</TableCell>
+                          <TableCell align="right" sx={{ ...headSx, width: 96 }}>UC</TableCell>
                         </TableRow>
-                      ) : (
-                        <>
-                          {performanceReport.map((row) => (
-                            <TableRow
-                              key={row.name}
-                              hover
-                              sx={{
-                                color: "text.primary",
-                                "&:nth-of-type(even)": { bgcolor: alpha(theme.palette.grey[500], 0.04) },
-                              }}
-                            >
-                              <TableCell
-                                sx={{ fontWeight: 800, color: row.rank <= 3 ? "error.main" : "text.primary" }}
+                      </TableHead>
+                      <TableBody>
+                        {performanceSkuReport.map((group) => {
+                          const rowCount = Math.max(group.csd.length, group.water.length, 1);
+
+                          return (
+                            <React.Fragment key={group.key}>
+                              <TableRow>
+                                <TableCell
+                                  colSpan={6}
+                                  sx={{
+                                    bgcolor: alpha(theme.palette.grey[500], 0.08),
+                                    color: "text.primary",
+                                    fontWeight: 900,
+                                    py: 1.25,
+                                  }}
+                                >
+                                  Distributor: {group.name}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={subHeadCsd}>CSD</TableCell>
+                                <TableCell align="right" sx={subHeadCsd}>PC</TableCell>
+                                <TableCell align="right" sx={subHeadCsd}>UC</TableCell>
+                                <TableCell sx={subHeadWater}>K WATER</TableCell>
+                                <TableCell align="right" sx={subHeadWater}>PC</TableCell>
+                                <TableCell align="right" sx={subHeadWater}>UC</TableCell>
+                              </TableRow>
+                              {Array.from({ length: rowCount }).map((_, index) => {
+                                const csd = group.csd[index];
+                                const water = group.water[index];
+
+                                return (
+                                  <TableRow
+                                    key={`${group.key}-${index}`}
+                                    hover
+                                    sx={{ "&:nth-of-type(even)": { bgcolor: alpha(theme.palette.grey[500], 0.04) } }}
+                                  >
+                                    <TableCell sx={{ fontWeight: csd ? 600 : 400 }}>{csd?.sku || ""}</TableCell>
+                                    <TableCell align="right">{csd ? formatWholeNumber(csd.pc) : ""}</TableCell>
+                                    <TableCell align="right">{csd ? formatWholeNumber(csd.uc) : ""}</TableCell>
+                                    <TableCell sx={{ fontWeight: water ? 600 : 400 }}>{water?.sku || ""}</TableCell>
+                                    <TableCell align="right">{water ? formatWholeNumber(water.pc) : ""}</TableCell>
+                                    <TableCell align="right">{water ? formatWholeNumber(water.uc) : ""}</TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                              <TableRow
+                                sx={{
+                                  bgcolor: alpha(theme.palette.grey[700], 0.06),
+                                  "& .MuiTableCell-root": { fontWeight: 900, color: "text.primary" },
+                                }}
                               >
-                                {row.rank}
-                              </TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: "text.primary" }}>{row.name}</TableCell>
-                              <TableCell align="center" sx={{ color: "text.primary" }}>
-                                {row.csdPC.toLocaleString()}
-                              </TableCell>
-                              <TableCell align="center" sx={{ color: "text.primary" }}>
-                                {row.csdUC.toFixed(2)}
-                              </TableCell>
-                              <TableCell align="center" sx={{ color: "text.primary" }}>
-                                {row.waterPC.toLocaleString()}
-                              </TableCell>
-                              <TableCell align="center" sx={{ color: "text.primary" }}>
-                                {row.waterUC.toFixed(2)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow
-                            sx={{
-                              bgcolor: alpha(theme.palette.grey[700], 0.06),
-                              color: "text.primary",
-                              "& .MuiTableCell-root": { fontWeight: 800, color: "text.primary" },
-                            }}
-                          >
-                            <TableCell />
-                            <TableCell>Total</TableCell>
-                            <TableCell align="center">{performanceTotals.csdPC.toLocaleString()}</TableCell>
-                            <TableCell align="center">{performanceTotals.csdUC.toFixed(2)}</TableCell>
-                            <TableCell align="center">{performanceTotals.waterPC.toLocaleString()}</TableCell>
-                            <TableCell align="center">{performanceTotals.waterUC.toFixed(2)}</TableCell>
-                          </TableRow>
-                        </>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                                <TableCell>Total</TableCell>
+                                <TableCell align="right">{formatWholeNumber(group.totals.csdPC)}</TableCell>
+                                <TableCell align="right">{formatWholeNumber(group.totals.csdUC)}</TableCell>
+                                <TableCell>Total</TableCell>
+                                <TableCell align="right">{formatWholeNumber(group.totals.waterPC)}</TableCell>
+                                <TableCell align="right">{formatWholeNumber(group.totals.waterUC)}</TableCell>
+                              </TableRow>
+                            </React.Fragment>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )
               ) : (
                 <Stack spacing={2.5} sx={{ p: { xs: 1.5, sm: 2 } }}>
                   <Box>

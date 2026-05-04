@@ -12,7 +12,6 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import DownloadIcon from "@mui/icons-material/Download";
-import html2canvas from "html2canvas";
 import { orderToHTML } from "../services/emailService";
 
 function OrderPreviewDialog({ open, order, onClose }) {
@@ -53,6 +52,7 @@ function OrderPreviewDialog({ open, order, onClose }) {
       document.body.appendChild(tempDiv);
       
       // Convert to canvas using html2canvas
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(tempDiv, {
         backgroundColor: '#ffffff',
         scale: 2,
