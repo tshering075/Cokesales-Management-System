@@ -1195,7 +1195,6 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   const tableMaxH = { xs: "min(48vh, 360px)", sm: "min(56vh, 520px)" };
   const skuTableMaxH = { xs: "min(34vh, 300px)", sm: "min(38vh, 340px)" };
   const headSx = { fontWeight: 700, backgroundColor: "#c62828", color: "#fff", py: 1.25 };
-  const formatWholeNumber = (value) => Math.round(Number(value) || 0).toLocaleString();
   const renderMetric = (value) => {
     const num = Math.round(Number(value) || 0);
     return (
