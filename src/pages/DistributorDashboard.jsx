@@ -39,6 +39,7 @@ import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import SalesDataRefreshNoticeDialog from "../components/SalesDataRefreshNoticeDialog";
 import { getTargetPeriod, saveTargetPeriod, getDaysRemaining } from "../utils/targetPeriod";
+import TargetPeriodCalendarPreview from "../components/TargetPeriodCalendarPreview";
 import {
   tryClaimDailyStockLiftReminder,
   buildTargetBalanceReminderMessage,
@@ -87,23 +88,6 @@ const PRODUCT_RATE_CATEGORY_COLORS = {
   CAN: "#FF6F00",
   Water: "#0288D1",
 };
-
-// Helper function to format dates
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const year = date.getFullYear();
-  const suffix =
-    day % 10 === 1 && day !== 11
-      ? "st"
-      : day % 10 === 2 && day !== 12
-      ? "nd"
-      : day % 10 === 3 && day !== 13
-      ? "rd"
-      : "th";
-  return `${day}${suffix} ${month} ${year}`;
-}
 
 function formatDistributorOrderRow(order) {
   return {
@@ -187,7 +171,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
       cancelled = true;
     };
   }, [isSupabaseConfigured]);
-  
+
   // Load distributor data
   useEffect(() => {
     let isMounted = true;
@@ -1585,8 +1569,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
         <Card
           elevation={0}
           sx={{
-            p: { xs: 2, sm: 2.5 },
-            mb: 3,
+            p: { xs: 1.5, sm: 2 },
+            mb: 2.5,
             borderRadius: 3,
             background:
               theme.palette.mode === "dark"
@@ -1601,25 +1585,25 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             sx={{
               display: "grid",
               gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
-              gap: { xs: 2, md: 3 },
+              gap: { xs: 1.5, md: 2.25 },
               alignItems: "stretch",
             }}
           >
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1.1 }}>
                 <Box sx={{
-                  p: { xs: 1, sm: 1.5 },
+                  p: { xs: 0.75, sm: 1.15 },
                   borderRadius: 2,
                   bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
-                  mr: 1.5
+                  mr: 1.1
                 }}>
-                  <BarChartIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }} />
+                  <BarChartIcon sx={{ fontSize: { xs: 22, sm: 26 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }} />
                 </Box>
-                <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
+                <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.84rem", sm: "0.95rem" } }}>
                   Target Balance
                 </Typography>
               </Box>
-              <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <Box sx={{ mb: 0.9, display: "flex", alignItems: "center", gap: 0.85, flexWrap: "wrap" }}>
                 <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                   Status (UC):
                 </Typography>
@@ -1630,9 +1614,9 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   sx={{ fontWeight: 700 }}
                 />
               </Box>
-              <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
+              <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2.25 }, flexWrap: "wrap" }}>
                 <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 0.65, fontSize: { xs: "0.78rem", sm: "0.84rem" } }}>
                     CSD
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -1649,7 +1633,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                   </Box>
                 </Box>
                 <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 0.65, fontSize: { xs: "0.78rem", sm: "0.84rem" } }}>
                     Water
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -1673,48 +1657,75 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
                 borderLeft: { xs: 0, md: "1px solid" },
                 borderTop: { xs: "1px solid", md: 0 },
                 borderColor: "divider",
-                pl: { xs: 0, md: 3 },
-                pt: { xs: 2, md: 0 },
+                pl: { xs: 0, md: 2.5 },
+                pt: { xs: 1.35, md: 0 },
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-                <Box sx={{
-                  p: { xs: 1, sm: 1.5 },
-                  borderRadius: 2,
-                  bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
-                  mr: 1.5
-                }}>
-                  <CalendarMonth sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }} />
-                </Box>
-                <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-                  Target Period
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" }, mb: 0.5 }}>
-                    {formatDate(targetStart)}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-                    to {formatDate(targetEnd)}
-                  </Typography>
-                </Box>
-                <Box sx={{
+              <Box
+                sx={{
                   display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  borderLeft: "2px solid",
-                  borderLeftColor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.35) : "rgba(27, 94, 32, 0.2)",
-                  pl: 2,
-                  minWidth: { xs: "80px", sm: "100px" }
-                }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}>
+                  alignItems: "flex-start",
+                  gap: 1,
+                  mb: 1.1,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Box
+                  sx={{
+                    p: { xs: 0.75, sm: 1.15 },
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <CalendarMonth sx={{ fontSize: { xs: 22, sm: 26 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }} />
+                </Box>
+                <Box sx={{ flex: "1 1 160px", minWidth: 0 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.84rem", sm: "0.95rem" } }}
+                  >
+                    Target Period
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    flexShrink: 0,
+                    ml: { xs: "auto", sm: 0 },
+                    alignSelf: "center",
+                    textAlign: "right",
+                    lineHeight: 1.15,
+                  }}
+                >
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      display: "block",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      fontSize: "0.55rem",
+                      color: "text.secondary",
+                      lineHeight: 1.2,
+                    }}
+                  >
                     Days Remaining
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: "bold", color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20", fontSize: { xs: "1.5rem", sm: "1.75rem" } }}>
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontWeight: 800,
+                      fontVariantNumeric: "tabular-nums",
+                      color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20",
+                      lineHeight: 1,
+                      fontSize: { xs: "1.25rem", sm: "1.4rem" },
+                    }}
+                  >
                     {remainingDays}
                   </Typography>
                 </Box>
+              </Box>
+              <Box sx={{ width: "100%", minWidth: 0 }}>
+                <TargetPeriodCalendarPreview startYmd={targetStart} endYmd={targetEnd} compact fillWidth minPanels={2} />
               </Box>
             </Box>
           </Box>

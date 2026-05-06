@@ -4224,9 +4224,11 @@ function AdminDashboard({ onLogout }) {
         {/* Centered content container */}
         <Box sx={{ width: "100%", maxWidth: 1400, mx: "auto" }}>
           {/* Improved Info Cards */}
-          <InfoCards 
+          <InfoCards
             balance={calculateBalanceFromDistributors}
             targetPeriod={targetPeriod}
+            allOrders={allOrders}
+            getOrderStatus={getOrderStatus}
           />
 
                

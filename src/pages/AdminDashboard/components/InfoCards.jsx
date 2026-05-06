@@ -1,231 +1,686 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Card, Chip, Typography, useTheme } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import {
   formatTargetPeriodDisplay,
   getDaysRemaining,
-  parseTargetPeriodBounds,
 } from "../../../utils/targetPeriod";
+import TargetPeriodCalendarPreview from "../../../components/TargetPeriodCalendarPreview";
 
-function formatPeriodDate(ymd) {
-  if (!ymd) return "";
-  const { start } = parseTargetPeriodBounds(ymd, ymd);
-  if (!start || Number.isNaN(start.getTime())) return String(ymd);
-  const day = start.getDate();
-  const month = start.toLocaleString("en-US", { month: "short" });
-  const year = start.getFullYear();
-  const suffix =
-    day % 10 === 1 && day !== 11
-      ? "st"
-      : day % 10 === 2 && day !== 12
-        ? "nd"
-        : day % 10 === 3 && day !== 13
-          ? "rd"
-          : "th";
-  return `${day}${suffix} ${month} ${year}`;
+/** Normalize status for today's-order filter (approved | pending | rejected). */
+function normalizeTodayOrderStatus(raw) {
+  const x = String(raw ?? "pending").toLowerCase().trim();
+  if (x === "approve") return "approved";
+  if (x === "reject") return "rejected";
+  if (x === "sent") return "pending";
+  return x;
+}
+
+function parseOrderCreatedMs(order) {
+  if (!order || typeof order !== "object") return null;
+  if (order.created_at) {
+    const t = Date.parse(order.created_at);
+    if (!Number.isNaN(t)) return t;
+  }
+  if (order.timestamp != null) {
+    if (typeof order.timestamp === "number") return order.timestamp;
+    const t = Date.parse(order.timestamp);
+    if (!Number.isNaN(t)) return t;
+  }
+  return null;
+}
+
+function isSameLocalCalendarDay(ms, now = new Date()) {
+  const a = new Date(ms);
+  if (Number.isNaN(a.getTime())) return false;
+  return (
+    a.getFullYear() === now.getFullYear() &&
+    a.getMonth() === now.getMonth() &&
+    a.getDate() === now.getDate()
+  );
+}
+
+/** Compact section title row: icon + labels + optional trailing control */
+function SectionHeader({ icon: Icon, iconBg, iconColor, title, subtitle, action, sx }) {
+  const theme = useTheme();
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 1.1,
+        mb: { xs: 0.85, sm: 0.95 },
+        flexWrap: "wrap",
+        ...sx,
+      }}
+    >
+      <Box
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          bgcolor: iconBg,
+          border: "1px solid",
+          borderColor: alpha(iconColor, theme.palette.mode === "dark" ? 0.35 : 0.22),
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? `0 1px 0 ${alpha(theme.palette.common.white, 0.06)} inset`
+              : `0 1px 2px ${alpha(theme.palette.common.black, 0.06)}`,
+        }}
+      >
+        <Icon sx={{ fontSize: 18, color: iconColor }} aria-hidden />
+      </Box>
+      <Box sx={{ flex: "1 1 140px", minWidth: 0 }}>
+        <Typography
+          component="h3"
+          variant="overline"
+          sx={{
+            display: "block",
+            letterSpacing: "0.06em",
+            fontWeight: 700,
+            fontSize: "0.625rem",
+            color: "text.secondary",
+            lineHeight: 1.2,
+          }}
+        >
+          {title}
+        </Typography>
+        {subtitle ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.15, lineHeight: 1.35, fontSize: "0.7rem" }}
+          >
+            {subtitle}
+          </Typography>
+        ) : null}
+      </Box>
+      {action ? (
+        <Box sx={{ flexShrink: 0, ml: { xs: "auto", sm: 0 }, alignSelf: "center" }}>{action}</Box>
+      ) : null}
+    </Box>
+  );
+}
+
+function BalanceRow({ category, pc, uc }) {
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "minmax(52px, 1fr) 1fr 1fr",
+        alignItems: "center",
+        columnGap: 1,
+        py: 0.45,
+        minHeight: 24,
+        borderRadius: 0.5,
+        mx: -0.25,
+        px: 0.25,
+        transition: "background-color 0.15s ease",
+        "&:nth-of-type(odd)": {
+          bgcolor: (t) => alpha(t.palette.text.primary, t.palette.mode === "dark" ? 0.03 : 0.02),
+        },
+        "&:not(:last-of-type)": {
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        },
+      }}
+    >
+      <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", fontSize: "0.75rem" }}>
+        {category}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+          fontVariantNumeric: "tabular-nums",
+          color: "text.primary",
+          fontSize: "0.75rem",
+          textAlign: "right",
+        }}
+      >
+        {pc?.toLocaleString?.() ?? pc ?? "0"}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+          fontVariantNumeric: "tabular-nums",
+          color: "text.primary",
+          fontSize: "0.75rem",
+          textAlign: "right",
+        }}
+      >
+        {uc?.toLocaleString?.() ?? uc ?? "0"}
+      </Typography>
+    </Box>
+  );
 }
 
 /**
- * Target Balance + Target Period cards — match DistributorDashboard (Night/Day via theme).
+ * Target Balance + Target Period + Today's orders — admin dashboard summary card.
  */
-function InfoCards({ balance, targetPeriod }) {
+function InfoCards({ balance, targetPeriod, allOrders = [], getOrderStatus }) {
   const theme = useTheme();
   const remainingDays = targetPeriod?.end ? getDaysRemaining(targetPeriod.end) : 0;
   const ucAchieved = balance?.targetUcAchieved === true;
 
+  const infoTint = alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.14 : 0.08);
+  const successTint = alpha(theme.palette.success.main, theme.palette.mode === "dark" ? 0.14 : 0.08);
+  const ordersTint = alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.08);
+
+  const todaysOrderRows = useMemo(() => {
+    const allowed = new Set(["approved", "pending", "rejected"]);
+    if (typeof getOrderStatus !== "function" || !Array.isArray(allOrders)) return [];
+
+    const byKey = new Map();
+
+    for (const order of allOrders) {
+      const status = normalizeTodayOrderStatus(getOrderStatus(order));
+      if (!allowed.has(status)) continue;
+
+      const ms = parseOrderCreatedMs(order);
+      if (ms == null || !isSameLocalCalendarDay(ms)) continue;
+
+      const name =
+        order.distributorName ||
+        order.distributor_name ||
+        order.distributorCode ||
+        "Unknown";
+      const key = String(order.distributorCode ?? name);
+
+      const prev = byKey.get(key);
+      if (!prev || ms > prev.ms) {
+        byKey.set(key, { name, status, ms });
+      }
+    }
+
+    return [...byKey.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(({ name, status }) => ({ name, status }));
+  }, [allOrders, getOrderStatus]);
+
+  const statusChipColor = (status) => {
+    if (status === "approved") return "success";
+    if (status === "rejected") return "error";
+    if (status === "pending") return "warning";
+    return "default";
+  };
+
+  const scrollAreaSx = {
+    scrollbarWidth: "thin",
+    scrollbarColor: `${alpha(theme.palette.text.secondary, 0.35)} transparent`,
+    "&::-webkit-scrollbar": { width: 6, height: 6 },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: alpha(theme.palette.text.secondary, 0.28),
+      borderRadius: 3,
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: alpha(theme.palette.divider, 0.35),
+      borderRadius: 3,
+    },
+  };
+
+  const statusChip = (
+    <Chip
+      size="small"
+      label={ucAchieved ? "Achieved" : "In progress"}
+      color={ucAchieved ? "success" : "warning"}
+      variant={ucAchieved ? "filled" : "outlined"}
+      sx={{ fontWeight: 600, fontSize: "0.65rem", height: 20, "& .MuiChip-label": { px: 0.85 } }}
+    />
+  );
+
+  const daysLeftAction = (
+    <Box sx={{ textAlign: "right", lineHeight: 1.15 }}>
+      <Typography
+        variant="overline"
+        sx={{
+          display: "block",
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          fontSize: "0.55rem",
+          color: "text.secondary",
+          lineHeight: 1.2,
+        }}
+      >
+        Days left
+      </Typography>
+      <Typography
+        component="span"
+        sx={{
+          fontWeight: 800,
+          fontVariantNumeric: "tabular-nums",
+          color: "success.main",
+          lineHeight: 1,
+          fontSize: { xs: "1.2rem", sm: "1.28rem" },
+        }}
+      >
+        {remainingDays}
+      </Typography>
+    </Box>
+  );
+
   return (
     <Card
+      component="section"
       elevation={0}
+      aria-label="Dashboard summary: target balance, today's orders, and target period"
       sx={{
-        p: { xs: 2, sm: 2.5 },
-        mb: { xs: 1.25, sm: 2 },
-        borderRadius: 3,
-        background:
-          theme.palette.mode === "dark"
-            ? `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.info.main, 0.1)} 48%, ${alpha(theme.palette.success.main, 0.12)} 100%)`
-            : "linear-gradient(135deg, #ffffff 0%, #e3f2fd 48%, #e8f5e9 100%)",
+        overflow: "hidden",
+        borderRadius: 2,
+        mb: { xs: 1, sm: 1.5 },
         border: "1px solid",
-        borderColor: alpha(theme.palette.divider, theme.palette.mode === "dark" ? 0.8 : 0.9),
-        boxShadow: `0 16px 44px ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.28 : 0.08)}`,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        transition: "box-shadow 0.2s ease, transform 0.2s ease",
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? `0 1px 0 ${alpha(theme.palette.common.white, 0.06)} inset, 0 10px 36px ${alpha(theme.palette.common.black, 0.34)}`
+            : `0 1px 3px ${alpha(theme.palette.common.black, 0.05)}, 0 12px 32px ${alpha(theme.palette.common.black, 0.06)}`,
+        "&:hover": {
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? `0 1px 0 ${alpha(theme.palette.common.white, 0.07)} inset, 0 12px 40px ${alpha(theme.palette.common.black, 0.38)}`
+              : `0 2px 8px ${alpha(theme.palette.common.black, 0.06)}, 0 16px 40px ${alpha(theme.palette.common.black, 0.07)}`,
+        },
       }}
     >
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
-          gap: { xs: 2, md: 3 },
-          alignItems: "stretch",
+          minHeight: 0,
+          gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+          gridTemplateRows: {
+            xs: "repeat(6, auto)",
+            md: "auto minmax(140px, auto)",
+          },
+          gridTemplateAreas: {
+            xs: `
+              "balHead"
+              "balBody"
+              "ordHead"
+              "ordBody"
+              "perHead"
+              "perBody"
+            `,
+            md: `
+              "balHead ordHead perHead"
+              "balBody ordBody perBody"
+            `,
+          },
+          columnGap: 0,
+          rowGap: { xs: 0, md: 0.75 },
         }}
       >
-        <Box>
-          <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+        {/* Target balance — header */}
+        <Box
+          sx={{
+            gridArea: "balHead",
+            p: { xs: 0.8, sm: 0.9 },
+            pt: { xs: 0.7, sm: 0.8 },
+            borderTop: "3px solid",
+            borderTopColor: "info.main",
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: "none" },
+            minHeight: 0,
+          }}
+        >
+          <SectionHeader
+            sx={{ mb: { md: 0 } }}
+            icon={BarChartIcon}
+            iconBg={infoTint}
+            iconColor={theme.palette.info.main}
+            title="Target balance"
+            subtitle="Remaining vs targets — UC sets achievement."
+            action={statusChip}
+          />
+        </Box>
+
+        {/* Target balance — table */}
+        <Box
+          sx={{
+            gridArea: "balBody",
+            px: { xs: 0.8, sm: 0.9 },
+            pb: { xs: 0.8, sm: 0.9 },
+            pt: { xs: 0, md: 0 },
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: "none" },
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              height: { md: "100%" },
+            }}
+          >
             <Box
               sx={{
-                p: { xs: 1, sm: 1.5 },
-                borderRadius: 2,
-                bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.info.main, 0.2) : "rgba(13, 71, 161, 0.1)",
-                mr: 1.5,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: 1.25,
+                border: "1px solid",
+                borderColor: alpha(theme.palette.divider, 0.95),
+                overflow: "hidden",
+                minHeight: 0,
+                boxShadow: `0 1px 0 ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.04)} inset`,
               }}
             >
-              <BarChartIcon
-                sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1" }}
-              />
-            </Box>
-            <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-              Target Balance
-            </Typography>
-          </Box>
-          <Box sx={{ mb: 1.25, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-              Status (UC):
-            </Typography>
-            <Chip
-              size="small"
-              label={ucAchieved ? "Achieved" : "Not achieved"}
-              color={ucAchieved ? "success" : "warning"}
-              sx={{ fontWeight: 700 }}
-            />
-          </Box>
-          <Box sx={{ display: "flex", gap: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
-            <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                CSD
-              </Typography>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                  PC:
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(52px, 1fr) 1fr 1fr",
+                  alignItems: "center",
+                  columnGap: 1,
+                  flexShrink: 0,
+                  bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.03),
+                  px: 1.25,
+                  py: 0.4,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.6rem", letterSpacing: "0.04em" }}>
+                  Cat.
                 </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                  }}
-                >
-                  {balance?.csdPC?.toLocaleString() || 0}
+                <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.6rem", letterSpacing: "0.04em", textAlign: "right" }}>
+                  PC
+                </Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.6rem", letterSpacing: "0.04em", textAlign: "right" }}>
+                  UC
                 </Typography>
               </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                  UC:
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                  }}
-                >
-                  {balance?.csdUC?.toLocaleString() || 0}
-                </Typography>
-              </Box>
-            </Box>
-            <Box sx={{ flex: { xs: "1 1 calc(50% - 8px)", sm: "1 1 auto" }, minWidth: { xs: "45%", sm: "auto" } }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary", mb: 1, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
-                Water
-              </Typography>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                  PC:
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                  }}
-                >
-                  {balance?.waterPC?.toLocaleString() || 0}
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
-                  UC:
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: theme.palette.mode === "dark" ? "info.light" : "#0d47a1",
-                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
-                  }}
-                >
-                  {balance?.waterUC?.toLocaleString() || 0}
-                </Typography>
+              <Box
+                sx={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  px: 1.1,
+                  py: 0.55,
+                  minHeight: 0,
+                }}
+              >
+                <BalanceRow category="CSD" pc={balance?.csdPC ?? 0} uc={balance?.csdUC ?? 0} />
+                <BalanceRow category="Water" pc={balance?.waterPC ?? 0} uc={balance?.waterUC ?? 0} />
               </Box>
             </Box>
           </Box>
         </Box>
 
+        {/* Today's orders — header */}
         <Box
           sx={{
-            borderLeft: { xs: 0, md: "1px solid" },
-            borderTop: { xs: "1px solid", md: 0 },
-            borderColor: "divider",
-            pl: { xs: 0, md: 3 },
-            pt: { xs: 2, md: 0 },
+            gridArea: "ordHead",
+            p: { xs: 0.8, sm: 0.9 },
+            pt: { xs: 0.7, sm: 0.8 },
+            borderTop: "3px solid",
+            borderTopColor: "primary.main",
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: "none" },
+            bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.05 : 0.03),
+            minHeight: 0,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-          <Box
-            sx={{
-              p: { xs: 1, sm: 1.5 },
-              borderRadius: 2,
-              bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.2) : "rgba(27, 94, 32, 0.1)",
-              mr: 1.5,
-            }}
-          >
-            <CalendarMonthIcon
-              sx={{ fontSize: { xs: 24, sm: 28 }, color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20" }}
-            />
-          </Box>
-          <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-            Target Period
-          </Typography>
+          <SectionHeader
+            sx={{ mb: { md: 0 } }}
+            icon={LocalShippingOutlinedIcon}
+            iconBg={ordersTint}
+            iconColor={theme.palette.primary.main}
+            title="Today's orders"
+            subtitle="Distributors who placed an order today (approved, pending, or rejected)."
+            action={
+              <Chip
+                size="small"
+                label={String(todaysOrderRows.length)}
+                color="primary"
+                variant="outlined"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "0.65rem",
+                  height: 22,
+                  "& .MuiChip-label": { px: 0.85 },
+                }}
+              />
+            }
+          />
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" }, mb: 0.5 }}>
-              {formatPeriodDate(targetPeriod?.start)}
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600, fontSize: { xs: "0.875rem", sm: "1rem" } }}>
-              to {formatPeriodDate(targetPeriod?.end)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5, fontWeight: 600 }}>
-              {formatTargetPeriodDisplay(targetPeriod?.start, targetPeriod?.end)}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              borderLeft: "2px solid",
-              borderLeftColor: theme.palette.mode === "dark" ? alpha(theme.palette.success.main, 0.35) : "rgba(27, 94, 32, 0.2)",
-              pl: 2,
-              minWidth: { xs: "80px", sm: "100px" },
-            }}
-          >
-            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}>
-              Days Remaining
-            </Typography>
-            <Typography
-              variant="h5"
+
+        {/* Today's orders — list */}
+        <Box
+          sx={{
+            gridArea: "ordBody",
+            px: { xs: 0.8, sm: 0.9 },
+            pb: { xs: 0.8, sm: 0.9 },
+            pt: { xs: 0, md: 0 },
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: "none" },
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.05 : 0.03),
+          }}
+        >
+          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, height: { md: "100%" } }}>
+            <Box
               sx={{
-                fontWeight: "bold",
-                color: theme.palette.mode === "dark" ? "success.light" : "#1b5e20",
-                fontSize: { xs: "1.5rem", sm: "1.75rem" },
+                flex: 1,
+                borderRadius: 1.25,
+                border: "1px solid",
+                borderColor: alpha(theme.palette.divider, 0.95),
+                bgcolor: "background.paper",
+                overflow: "auto",
+                minHeight: { xs: 108, md: 0 },
+                ...scrollAreaSx,
+                boxShadow: `0 1px 0 ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.04)} inset`,
               }}
             >
-              {remainingDays}
-            </Typography>
+              {typeof getOrderStatus !== "function" ? (
+                <Box
+                  sx={{
+                    p: 1.35,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    gap: 0.75,
+                  }}
+                >
+                  <ErrorOutlineIcon sx={{ fontSize: 28, color: "text.disabled", opacity: 0.85 }} aria-hidden />
+                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.55, maxWidth: 220 }}>
+                    Order status isn&apos;t available in this view. Open the full orders list when enabled.
+                  </Typography>
+                </Box>
+              ) : todaysOrderRows.length === 0 ? (
+                <Box
+                  sx={{
+                    p: 1.35,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    gap: 0.75,
+                  }}
+                >
+                  <InboxOutlinedIcon sx={{ fontSize: 32, color: "text.disabled", opacity: 0.9 }} aria-hidden />
+                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.55, maxWidth: 240, fontWeight: 500 }}>
+                    No distributors yet today with approved, pending, or rejected orders.
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem", lineHeight: 1.45 }}>
+                    Same-day orders appear here automatically.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+                {todaysOrderRows.map((row, idx) => (
+                  <Box
+                    component="li"
+                    key={`${row.name}-${idx}`}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 1,
+                      px: 1.1,
+                      py: 0.55,
+                      borderBottom:
+                        idx < todaysOrderRows.length - 1 ? "1px solid" : "none",
+                      borderColor: "divider",
+                      transition: "background-color 0.15s ease",
+                      "&:hover": {
+                        bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.08 : 0.04),
+                      },
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        color: "text.primary",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        minWidth: 0,
+                      }}
+                    >
+                      {row.name}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                      color={statusChipColor(row.status)}
+                      variant={row.status === "pending" ? "outlined" : "filled"}
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: "0.65rem",
+                        height: 22,
+                        flexShrink: 0,
+                      }}
+                    />
+                  </Box>
+                ))}
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
+
+        {/* Target period — header (Days left beside title) */}
+        <Box
+          sx={{
+            gridArea: "perHead",
+            p: { xs: 0.8, sm: 0.9 },
+            pt: { xs: 0.7, sm: 0.8 },
+            borderTop: "3px solid",
+            borderTopColor: "success.main",
+            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: "none" },
+            bgcolor: alpha(theme.palette.success.main, theme.palette.mode === "dark" ? 0.03 : 0.02),
+            minHeight: 0,
+          }}
+        >
+          <SectionHeader
+            sx={{ mb: { md: 0 } }}
+            icon={CalendarMonthIcon}
+            iconBg={successTint}
+            iconColor={theme.palette.success.main}
+            title="Target period"
+            subtitle="Invoice dates counted within this window."
+            action={daysLeftAction}
+          />
+        </Box>
+
+        {/* Target period — calendar full width */}
+        <Box
+          sx={{
+            gridArea: "perBody",
+            px: { xs: 0.8, sm: 0.9 },
+            pb: { xs: 0.75, sm: 0.85 },
+            pt: { xs: 0, md: 0 },
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            bgcolor: alpha(theme.palette.success.main, theme.palette.mode === "dark" ? 0.03 : 0.02),
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.4,
+              minHeight: 0,
+              height: { md: "100%" },
+            }}
+          >
+            <Box
+              sx={{
+                flex: 1,
+                borderRadius: 1.25,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                p: 0.3,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                boxShadow: `0 1px 0 ${alpha(theme.palette.common.black, theme.palette.mode === "dark" ? 0.2 : 0.04)} inset`,
+              }}
+            >
+              <TargetPeriodCalendarPreview
+                compact
+                fillWidth
+                stretchVertically
+                minPanels={2}
+                startYmd={targetPeriod?.start}
+                endYmd={targetPeriod?.end}
+              />
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: { xs: 0.65, sm: 0.85 },
+                rowGap: 0.35,
+                flexShrink: 0,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500, fontSize: "0.68rem", lineHeight: 1.35 }}>
+                {formatTargetPeriodDisplay(targetPeriod?.start, targetPeriod?.end)}
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: { sm: "auto" } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "success.main", flexShrink: 0 }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+                    Start
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "warning.main", flexShrink: 0 }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+                    End
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
         </Box>
       </Box>
     </Card>

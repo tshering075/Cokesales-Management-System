@@ -271,7 +271,7 @@ export default function TargetsDialog({
         });
       }
     }
-    
+
     // send only changed targets (pass full entries is fine)
     if (onApplyTargets) onApplyTargets(editing);
     if (onUpdatePeriod) onUpdatePeriod(start, end);

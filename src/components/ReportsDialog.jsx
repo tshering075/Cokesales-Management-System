@@ -28,6 +28,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  InputAdornment,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
@@ -44,6 +45,7 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import { parseExcelFile } from "../utils/excelUtils";
 import { parseFirestoreDate } from "../utils/dateUtils";
 import { logger } from "../utils/logger";
+import { DEFAULT_SKUS } from "../constants/productSkus";
 import AppSnackbar from "./AppSnackbar";
 
 /**
@@ -71,6 +73,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   
   // Region filtering (single select - only for "performance" report)
   const [selectedRegion, setSelectedRegion] = useState("All");
+  const [performanceSearch, setPerformanceSearch] = useState("");
   
   // Upload state
   const [uploading, setUploading] = useState(false);
@@ -188,6 +191,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   // Debug: Log distributors when they change or dialog opens
   React.useEffect(() => {
     if (open) {
+      setPerformanceSearch("");
       logger.log("ReportsDialog opened - Distributors check:");
       logger.log("- distributors prop received:", distributors?.length || 0);
       logger.log("- distributor names:", distributors?.map(d => d.name) || []);
@@ -392,6 +396,68 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
   // 1. DISTRIBUTOR PERFORMANCE REPORT
   // Aggregates uploaded product lines into the spreadsheet-style distributor SKU layout.
   const performanceSkuReport = useMemo(() => {
+    const normalizeSkuText = (value) =>
+      (value || "")
+        .toString()
+        .toUpperCase()
+        .replace(/[.\-_]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const categoryNameToKey = (category) => {
+      const value = (category || "").toString().trim().toLowerCase();
+      if (value === "csd") return "csd";
+      if (value === "water") return "water";
+      return null;
+    };
+
+    const canonicalizeSku = (category, sku) => {
+      const raw = (sku || "").toString().trim();
+      if (!raw) return "";
+
+      const skuNorm = normalizeSkuText(raw);
+      if (category === "water") {
+        const waterLike = /\b(KINLEY|K\s*WATER|WATER|KWATER|K WATER R)\b/.test(skuNorm);
+        if (waterLike && /\b200\s*ML\b/.test(skuNorm)) return "KINLEY WATER 200 ML";
+        if (waterLike && /\b500\s*ML\b/.test(skuNorm)) return "KINLEY WATER 500 ML";
+        if (waterLike && /\b1\s*(L|LTR)\b/.test(skuNorm)) return "KINLEY WATER 1 L";
+      }
+
+      return raw;
+    };
+
+    const getCsdSizeOrder = (sku) => {
+      const s = normalizeSkuText(sku);
+      if (/\b300\s*ML\b/.test(s)) return 0;
+      if (/\b500\s*ML\b/.test(s)) return 1;
+      if (/\b1\s*\.?\s*25\s*(L|LTR)\b/.test(s)) return 2;
+      return 3;
+    };
+
+    const getCsdBrandOrder = (sku) => {
+      const s = normalizeSkuText(sku);
+      if (/\bCOKE\b|\bCOCA\s*COLA\b/.test(s)) return 0;
+      if (/\bFANTA\b/.test(s)) return 1;
+      if (/\bSPRITE\b/.test(s)) return 2;
+      if (/\bCHARGE\b|\bCHARGED\b/.test(s)) return 3;
+      return 4;
+    };
+
+    const getWaterSizeOrder = (sku) => {
+      const s = normalizeSkuText(sku);
+      if (/\b200\s*ML\b/.test(s)) return 0;
+      if (/\b500\s*ML\b/.test(s)) return 1;
+      if (/\b1\s*(L|LTR)\b/.test(s)) return 2;
+      return 3;
+    };
+
+    const seededSkus = {
+      csd: DEFAULT_SKUS.filter((sku) => categoryNameToKey(sku.category) === "csd")
+        .map((sku) => ({ sku: sku.name, pc: 0, uc: 0 })),
+      water: DEFAULT_SKUS.filter((sku) => categoryNameToKey(sku.category) === "water")
+        .map((sku) => ({ sku: sku.name, pc: 0, uc: 0 })),
+    };
+
     const distributorMap = new Map();
 
     const getGroup = (record) => {
@@ -405,6 +471,14 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           csd: new Map(),
           water: new Map(),
           totals: { csdPC: 0, csdUC: 0, waterPC: 0, waterUC: 0 },
+        });
+
+        // Seed every distributor with all master SKUs so missing lines render as 0.
+        seededSkus.csd.forEach((item) => {
+          distributorMap.get(key).csd.set(item.sku, { ...item });
+        });
+        seededSkus.water.forEach((item) => {
+          distributorMap.get(key).water.set(item.sku, { ...item });
         });
       }
 
@@ -431,15 +505,17 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           const pc = Number(product.quantity) || 0;
           if (pc <= 0) return;
 
-          const category = (product.category || "").toString().trim().toLowerCase();
+          const category = categoryNameToKey(product.category);
+          const canonicalSku = canonicalizeSku(category, product.sku);
+          if (!canonicalSku) return;
           const uc = Number(product.uc) || convertPCtoUC(pc, product.sku);
 
           if (category === "csd") {
-            addSku(group.csd, product.sku, pc, uc);
+            addSku(group.csd, canonicalSku, pc, uc);
             group.totals.csdPC += pc;
             group.totals.csdUC += uc;
           } else if (category === "water") {
-            addSku(group.water, product.sku, pc, uc);
+            addSku(group.water, canonicalSku, pc, uc);
             group.totals.waterPC += pc;
             group.totals.waterUC += uc;
           }
@@ -466,8 +542,18 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
     return Array.from(distributorMap.values())
       .map((group) => ({
         ...group,
-        csd: Array.from(group.csd.values()).sort((a, b) => b.pc - a.pc),
-        water: Array.from(group.water.values()).sort((a, b) => b.pc - a.pc),
+        csd: Array.from(group.csd.values()).sort((a, b) => {
+          const sizeDiff = getCsdSizeOrder(a.sku) - getCsdSizeOrder(b.sku);
+          if (sizeDiff !== 0) return sizeDiff;
+          const brandDiff = getCsdBrandOrder(a.sku) - getCsdBrandOrder(b.sku);
+          if (brandDiff !== 0) return brandDiff;
+          return a.sku.localeCompare(b.sku);
+        }),
+        water: Array.from(group.water.values()).sort((a, b) => {
+          const sizeDiff = getWaterSizeOrder(a.sku) - getWaterSizeOrder(b.sku);
+          if (sizeDiff !== 0) return sizeDiff;
+          return a.sku.localeCompare(b.sku);
+        }),
         totals: {
           csdPC: Math.round(group.totals.csdPC),
           csdUC: Math.round(group.totals.csdUC * 100) / 100,
@@ -475,7 +561,6 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
           waterUC: Math.round(group.totals.waterUC * 100) / 100,
         },
       }))
-      .filter((group) => group.csd.length > 0 || group.water.length > 0)
       .sort((a, b) => (b.totals.csdUC + b.totals.waterUC) - (a.totals.csdUC + a.totals.waterUC));
   }, [filteredSalesData]);
   
@@ -792,6 +877,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       
       // REPLACE all local sales data with new upload (as requested)
       setLocalSalesData(localFormattedData);
+      setPerformanceSearch("");
       setUploadProgress(prev => ({ ...prev, processed: salesDataFromFile.length, saved: localFormattedData.length }));
       
       if (onSalesDataUploaded) {
@@ -1008,11 +1094,9 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2) - 15; // Extra space for title
       
-      // Scale to fill full landscape width; only shrink vertically if needed
+      // Always scale to full landscape width, then paginate vertically.
       const widthRatio = availableWidth / imgWidth;
-      const ratio = (imgHeight * widthRatio > availableHeight)
-        ? Math.min(widthRatio, availableHeight / imgHeight)
-        : widthRatio;
+      const ratio = widthRatio;
       const imgScaledWidth = imgWidth * ratio;
       const imgScaledHeight = imgHeight * ratio;
       
@@ -1102,10 +1186,30 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
       ? performanceSkuReport.length > 0
       : skuReport.length > 0 || waterSkuReport.length > 0;
 
+  const filteredPerformanceSkuReport = useMemo(() => {
+    const needle = performanceSearch.trim().toLowerCase();
+    if (!needle) return performanceSkuReport;
+    return performanceSkuReport.filter((group) => (group.name || "").toLowerCase().includes(needle));
+  }, [performanceSkuReport, performanceSearch]);
+
   const tableMaxH = { xs: "min(48vh, 360px)", sm: "min(56vh, 520px)" };
   const skuTableMaxH = { xs: "min(34vh, 300px)", sm: "min(38vh, 340px)" };
   const headSx = { fontWeight: 700, backgroundColor: "#c62828", color: "#fff", py: 1.25 };
   const formatWholeNumber = (value) => Math.round(Number(value) || 0).toLocaleString();
+  const renderMetric = (value) => {
+    const num = Math.round(Number(value) || 0);
+    return (
+      <Box
+        component="span"
+        sx={{
+          color: num === 0 ? "text.disabled" : "text.primary",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {num.toLocaleString()}
+      </Box>
+    );
+  };
   const subHeadCsd = {
     fontWeight: 700,
     backgroundColor: alpha(theme.palette.warning.main, theme.palette.mode === "dark" ? 0.22 : 0.12),
@@ -1568,8 +1672,17 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
               <Typography variant="subtitle1" fontWeight={800}>
                 {reportType === "performance" ? "Distributor performance" : "CSD & Water SKU ranking"}
               </Typography>
-              {reportType === "performance" && reportHasRows ? (
-                <Chip label={`${performanceSkuReport.length} distributor${performanceSkuReport.length === 1 ? "" : "s"}`} size="small" sx={{ ml: "auto" }} />
+              {reportType === "performance" ? (
+                <Stack direction="row" spacing={0.75} sx={{ ml: "auto" }} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" label={`${filteredPerformanceSkuReport.length} shown`} />
+                  {reportHasRows ? (
+                    <Chip
+                      label={`${performanceSkuReport.length} distributor${performanceSkuReport.length === 1 ? "" : "s"}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ) : null}
+                </Stack>
               ) : null}
               {reportType === "sku" && (skuReport.length > 0 || waterSkuReport.length > 0) ? (
                 <Stack direction="row" spacing={0.75} sx={{ ml: "auto" }} flexWrap="wrap" useFlexGap>
@@ -1606,8 +1719,39 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                           : "Adjust filters or upload a file with matched distributors."}
                     </Typography>
                   </Box>
+                ) : filteredPerformanceSkuReport.length === 0 ? (
+                  <Box sx={{ py: 5, px: 2, textAlign: "center" }}>
+                    <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                      No distributors match your search
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Clear the search box to view all distributor performance rows.
+                    </Typography>
+                  </Box>
                 ) : (
-                  <TableContainer sx={{ maxHeight: tableMaxH }}>
+                  <>
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      sx={{ px: 2, pt: 1.5, pb: 1 }}
+                      alignItems={{ xs: "stretch", sm: "center" }}
+                    >
+                      <TextField
+                        size="small"
+                        placeholder="Search distributor..."
+                        value={performanceSearch}
+                        onChange={(e) => setPerformanceSearch(e.target.value)}
+                        sx={{ minWidth: { sm: 280 } }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PeopleOutlineIcon fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Stack>
+                    <TableContainer sx={{ maxHeight: tableMaxH }}>
                     <Table stickyHeader size="small" sx={{ minWidth: 820 }}>
                       <TableHead>
                         <TableRow>
@@ -1620,7 +1764,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {performanceSkuReport.map((group) => {
+                        {filteredPerformanceSkuReport.map((group) => {
                           const rowCount = Math.max(group.csd.length, group.water.length, 1);
 
                           return (
@@ -1633,6 +1777,9 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                                     color: "text.primary",
                                     fontWeight: 900,
                                     py: 1.25,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "flex-start",
                                   }}
                                 >
                                   Distributor: {group.name}
@@ -1657,11 +1804,11 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                                     sx={{ "&:nth-of-type(even)": { bgcolor: alpha(theme.palette.grey[500], 0.04) } }}
                                   >
                                     <TableCell sx={{ fontWeight: csd ? 600 : 400 }}>{csd?.sku || ""}</TableCell>
-                                    <TableCell align="right">{csd ? formatWholeNumber(csd.pc) : ""}</TableCell>
-                                    <TableCell align="right">{csd ? formatWholeNumber(csd.uc) : ""}</TableCell>
+                                    <TableCell align="right">{csd ? renderMetric(csd.pc) : renderMetric(0)}</TableCell>
+                                    <TableCell align="right">{csd ? renderMetric(csd.uc) : renderMetric(0)}</TableCell>
                                     <TableCell sx={{ fontWeight: water ? 600 : 400 }}>{water?.sku || ""}</TableCell>
-                                    <TableCell align="right">{water ? formatWholeNumber(water.pc) : ""}</TableCell>
-                                    <TableCell align="right">{water ? formatWholeNumber(water.uc) : ""}</TableCell>
+                                    <TableCell align="right">{water ? renderMetric(water.pc) : renderMetric(0)}</TableCell>
+                                    <TableCell align="right">{water ? renderMetric(water.uc) : renderMetric(0)}</TableCell>
                                   </TableRow>
                                 );
                               })}
@@ -1672,11 +1819,21 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                                 }}
                               >
                                 <TableCell>Total</TableCell>
-                                <TableCell align="right">{formatWholeNumber(group.totals.csdPC)}</TableCell>
-                                <TableCell align="right">{formatWholeNumber(group.totals.csdUC)}</TableCell>
+                                <TableCell align="right">{renderMetric(group.totals.csdPC)}</TableCell>
+                                <TableCell align="right">{renderMetric(group.totals.csdUC)}</TableCell>
                                 <TableCell>Total</TableCell>
-                                <TableCell align="right">{formatWholeNumber(group.totals.waterPC)}</TableCell>
-                                <TableCell align="right">{formatWholeNumber(group.totals.waterUC)}</TableCell>
+                                <TableCell align="right">{renderMetric(group.totals.waterPC)}</TableCell>
+                                <TableCell align="right">{renderMetric(group.totals.waterUC)}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell
+                                  colSpan={6}
+                                  sx={{
+                                    py: 0.8,
+                                    borderBottom: "none",
+                                    bgcolor: "transparent",
+                                  }}
+                                />
                               </TableRow>
                             </React.Fragment>
                           );
@@ -1684,6 +1841,7 @@ export default function ReportsDialog({ open, onClose, distributors = [], salesD
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  </>
                 )
               ) : (
                 <Stack spacing={2.5} sx={{ p: { xs: 1.5, sm: 2 } }}>
