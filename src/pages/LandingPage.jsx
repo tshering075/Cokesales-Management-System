@@ -22,6 +22,7 @@ import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
+import { markLandingSeen } from "../utils/landingSeen";
 
 const publicUrl = process.env.PUBLIC_URL || "";
 
