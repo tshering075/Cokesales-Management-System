@@ -70,6 +70,9 @@ function CokeCalculator({
   placeOrderButtonText = "Place Order",
   submitOrderButtonText = "Submit Order",
   editContext = null,
+  gstEnabled = true,
+  canManageGst = false,
+  onToggleGst = null,
 }) {
   const skus = useMemo(() => {
     const skuRates = productRates?.skuRates || {};
@@ -138,7 +141,6 @@ function CokeCalculator({
   const [selectedCans, setSelectedCans] = useState([]);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
-  const [gstEnabled, setGstEnabled] = useState(true); // GST toggle - default ON
   const theme = useTheme();
   const summ = calcSummaryRows(theme);
   const resultsShellSx = calculatorResultsShellSx(theme);
@@ -170,6 +172,8 @@ function CokeCalculator({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs]);
+
+  const effectiveGstEnabled = !!gstEnabled;
 
   const handleChange = (sku, value) => {
     // Allow empty string for clearing
@@ -436,7 +440,7 @@ function CokeCalculator({
   // GST is not applicable for "Gelephu Grocery" distributor
   const isGelephuGrocery = distributorName && distributorName.toLowerCase().includes("gelephu grocery");
   // Use toggle state if GST is enabled, otherwise 0 (unless it's Gelephu Grocery which is always 0)
-  const gstRate = (isGelephuGrocery || !gstEnabled) ? 0 : 0.05; // 5% or 0% based on toggle or Gelephu Grocery
+      const gstRate = (isGelephuGrocery || !effectiveGstEnabled) ? 0 : 0.05; // 5% or 0% based on admin global setting or Gelephu Grocery
   const grossTotal = totalAmountSum; // Amount after discount
   const gstAmount = grossTotal * gstRate;
   const netTotal = grossTotal + gstAmount;
@@ -760,7 +764,8 @@ function CokeCalculator({
             </Box>
           </Box>
 
-          {/* GST Toggle Switch */}
+          {/* GST Toggle Switch (admin control only) */}
+          {canManageGst && (
           <Box sx={{ 
             display: "flex", 
             justifyContent: "center", 
@@ -779,8 +784,8 @@ function CokeCalculator({
             <FormControlLabel
               control={
                 <Switch
-                  checked={gstEnabled}
-                  onChange={(e) => setGstEnabled(e.target.checked)}
+                  checked={effectiveGstEnabled}
+                  onChange={(e) => onToggleGst && onToggleGst(e.target.checked)}
                   color="warning"
                   sx={{
                     "& .MuiSwitch-switchBase.Mui-checked": {
@@ -804,6 +809,7 @@ function CokeCalculator({
               sx={{ m: 0 }}
             />
           </Box>
+          )}
             
           {/* Action Buttons Section */}
           <Box sx={{ 
@@ -1486,7 +1492,7 @@ function CokeCalculator({
                   </TableRow>
                   
                   {/* GST Row - Only show if GST is enabled and applicable */}
-                  {gstEnabled && !isGelephuGrocery && gstAmount > 0 && (
+                  {effectiveGstEnabled && !isGelephuGrocery && gstAmount > 0 && (
                     <TableRow sx={{ 
                       fontWeight: "bold", 
                       background: summ.gstBg,
@@ -1898,7 +1904,7 @@ function CokeCalculator({
                 </TableRow>
                 
                 {/* GST Row - Only show if GST is enabled and applicable */}
-                {gstEnabled && !isGelephuGrocery && gstAmount > 0 && (
+                {effectiveGstEnabled && !isGelephuGrocery && gstAmount > 0 && (
                   <TableRow sx={{ 
                     fontWeight: "bold", 
                     background: summ.gstBg,

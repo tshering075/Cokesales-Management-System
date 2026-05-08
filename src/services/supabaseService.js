@@ -2947,6 +2947,7 @@ export async function saveProductRates(rates) {
 
 const GLOBAL_TARGET_PERIOD_ID = 'global_target_period';
 const SALES_PERFORMANCE_LAST_UPDATED_ID = 'sales_performance_last_updated';
+const GLOBAL_GST_SETTING_ID = 'global_gst_setting';
 
 /**
  * @returns {Promise<{ start: string, end: string } | null>}
@@ -3071,6 +3072,179 @@ export async function saveSalesPerformanceLastUpdated(atIso) {
     if (error) throw error;
   } catch (error) {
     console.error('Error saving sales performance last updated:', error);
+    throw error;
+  }
+}
+
+/**
+ * Global GST switch for order calculations (admin-managed).
+ * @returns {Promise<boolean|null>} true/false when stored, null when unset/unavailable
+ */
+export async function getGlobalGstEnabled() {
+  try {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .eq('id', GLOBAL_GST_SETTING_ID)
+      .limit(1);
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching global GST setting:', error);
+      return null;
+    }
+    if (!data || data.length === 0) return null;
+
+    const row = data[0];
+    const candidates = [row.clientId, row.apiKey];
+    for (const raw of candidates) {
+      if (raw == null) continue;
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && typeof parsed.enabled === 'boolean') {
+            return parsed.enabled;
+          }
+        } catch {
+          const normalized = raw.trim().toLowerCase();
+          if (normalized === 'true' || normalized === '1') return true;
+          if (normalized === 'false' || normalized === '0') return false;
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching global GST setting:', error);
+    return null;
+  }
+}
+
+/**
+ * Persist global GST switch for all distributors.
+ * @param {boolean} enabled
+ */
+export async function saveGlobalGstEnabled(enabled) {
+  try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+    const boolEnabled = !!enabled;
+    const payload = JSON.stringify({ enabled: boolEnabled });
+    const { error } = await supabase
+      .from('app_config')
+      .upsert(
+        {
+          id: GLOBAL_GST_SETTING_ID,
+          clientId: payload,
+          apiKey: payload,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving global GST setting:', error);
+    throw error;
+  }
+}
+
+/**
+ * Read GST policy with default + optional per-region overrides.
+ * @returns {Promise<{defaultEnabled:boolean, regionEnabled:Record<string, boolean>}|null>}
+ */
+export async function getGlobalGstPolicy() {
+  try {
+    const enabled = await getGlobalGstEnabled();
+    if (enabled == null) return null;
+
+    if (!supabase) return { defaultEnabled: enabled, regionEnabled: {}, distributorEnabled: {} };
+
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .eq('id', GLOBAL_GST_SETTING_ID)
+      .limit(1);
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching global GST policy:', error);
+      return { defaultEnabled: enabled, regionEnabled: {}, distributorEnabled: {} };
+    }
+    if (!data || data.length === 0) return { defaultEnabled: enabled, regionEnabled: {}, distributorEnabled: {} };
+
+    const row = data[0];
+    const candidates = [row.clientId, row.apiKey];
+    for (const raw of candidates) {
+      if (!raw || typeof raw !== 'string') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const defaultEnabled =
+            typeof parsed.defaultEnabled === 'boolean' ? parsed.defaultEnabled : enabled;
+          const regionEnabled = {};
+          const distributorEnabled = {};
+          if (parsed.regionEnabled && typeof parsed.regionEnabled === 'object') {
+            Object.entries(parsed.regionEnabled).forEach(([k, v]) => {
+              regionEnabled[String(k)] = !!v;
+            });
+          }
+          if (parsed.distributorEnabled && typeof parsed.distributorEnabled === 'object') {
+            Object.entries(parsed.distributorEnabled).forEach(([k, v]) => {
+              distributorEnabled[String(k)] = !!v;
+            });
+          }
+          return { defaultEnabled, regionEnabled, distributorEnabled };
+        }
+      } catch {
+        // ignore malformed payload and continue
+      }
+    }
+    return { defaultEnabled: enabled, regionEnabled: {}, distributorEnabled: {} };
+  } catch (error) {
+    console.error('Error fetching global GST policy:', error);
+    return null;
+  }
+}
+
+/**
+ * Save GST policy with default + optional per-region overrides.
+ * @param {{defaultEnabled:boolean, regionEnabled?:Record<string, boolean>}} policy
+ */
+export async function saveGlobalGstPolicy(policy) {
+  const normalized = {
+    defaultEnabled: !!policy?.defaultEnabled,
+    regionEnabled: {},
+    distributorEnabled: {},
+  };
+  if (policy?.regionEnabled && typeof policy.regionEnabled === 'object') {
+    Object.entries(policy.regionEnabled).forEach(([k, v]) => {
+      normalized.regionEnabled[String(k)] = !!v;
+    });
+  }
+  if (policy?.distributorEnabled && typeof policy.distributorEnabled === 'object') {
+    Object.entries(policy.distributorEnabled).forEach(([k, v]) => {
+      normalized.distributorEnabled[String(k)] = !!v;
+    });
+  }
+  try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+    const payload = JSON.stringify(normalized);
+    const { error } = await supabase
+      .from('app_config')
+      .upsert(
+        {
+          id: GLOBAL_GST_SETTING_ID,
+          clientId: payload,
+          apiKey: payload,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving global GST policy:', error);
     throw error;
   }
 }

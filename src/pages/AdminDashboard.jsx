@@ -10,8 +10,8 @@ import {
    ListItemButton,
    ListItemText,
    Typography,
-   Button,
-   Paper,
+  Button,
+  Paper,
   Tooltip,
   Badge,
   useMediaQuery,
@@ -45,6 +45,7 @@ import ActivityDialog from "../components/ActivityDialog";
 import GmailSettingsDialog from "../components/GmailSettingsDialog";
 import SchemeDiscountDialog from "../components/SchemeDiscountDialog";
 import RateMasterDialog from "../components/RateMasterDialog";
+import GstSettingsDialog from "../components/GstSettingsDialog";
 import PhysicalStockAdminDialog from "../components/PhysicalStockAdminDialog";
 import AdminStockLiftingRecordsDialog from "../components/AdminStockLiftingRecordsDialog";
 import AppSnackbar from "../components/AppSnackbar";
@@ -91,6 +92,8 @@ import {
   getProductRates,
   updateOrderStatus as updateOrderStatusInSupabaseService,
   getGlobalTargetPeriod,
+  getGlobalGstPolicy,
+  saveGlobalGstPolicy,
   getSalesPerformanceLastUpdated,
   saveSalesPerformanceLastUpdated,
 } from "../services/supabaseService";
@@ -102,6 +105,11 @@ import {
 import { getCurrentUserRole, getUserPermissions } from "../utils/permissions";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import { readProductRatesFromLocalStorage, writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
+import {
+  readGlobalGstPolicyFromLocalStorage,
+  writeGlobalGstPolicyToLocalStorage,
+  resolveGstEnabledForRegion,
+} from "../utils/globalGstSetting";
 import {
   ensureAdminPhysicalStockBaseline,
   countDistributorsWithNewPhysicalStock,
@@ -157,6 +165,9 @@ function AdminDashboard({ onLogout }) {
   const [physicalStockAdminOpen, setPhysicalStockAdminOpen] = useState(false);
   const [stockLiftingRecordsOpen, setStockLiftingRecordsOpen] = useState(false);
   const [productRates, setProductRates] = useState(null);
+  const [gstSettingsOpen, setGstSettingsOpen] = useState(false);
+  const [globalGstPolicy, setGlobalGstPolicy] = useState(() => readGlobalGstPolicyFromLocalStorage());
+  const [savingGlobalGst, setSavingGlobalGst] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(null); // Order ID being sent
   const [emailToast, setEmailToast] = useState({
     open: false,
@@ -947,6 +958,86 @@ function AdminDashboard({ onLogout }) {
     };
     loadRates();
   }, [isSupabaseConfigured]);
+
+  useEffect(() => {
+    const loadGlobalGst = async () => {
+      try {
+        if (isSupabaseConfigured) {
+          const remote = await getGlobalGstPolicy();
+          if (remote && typeof remote === "object") {
+            setGlobalGstPolicy(remote);
+            writeGlobalGstPolicyToLocalStorage(remote);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error loading global GST setting:", error);
+      }
+      setGlobalGstPolicy(readGlobalGstPolicyFromLocalStorage());
+    };
+    loadGlobalGst();
+  }, [isSupabaseConfigured]);
+
+  const gstRegions = useMemo(() => {
+    const fromDistributors = Array.isArray(distributors)
+      ? distributors.map((d) => String(d?.region || "").trim()).filter(Boolean)
+      : [];
+    const defaults = ["Southern", "Western", "Eastern"];
+    return Array.from(new Set([...fromDistributors, ...defaults]));
+  }, [distributors]);
+
+  const handleSaveGlobalGstPolicy = useCallback(
+    async (policy) => {
+      const next = {
+        defaultEnabled: !!policy?.defaultEnabled,
+        regionEnabled: policy?.regionEnabled && typeof policy.regionEnabled === "object"
+          ? { ...policy.regionEnabled }
+          : {},
+        distributorEnabled: policy?.distributorEnabled && typeof policy.distributorEnabled === "object"
+          ? { ...policy.distributorEnabled }
+          : {},
+      };
+      setGlobalGstPolicy(next);
+      writeGlobalGstPolicyToLocalStorage(next);
+
+      if (!isSupabaseConfigured) {
+        setEmailToast({
+          open: true,
+          title: "GST Setting",
+          message: "GST settings saved locally. Connect Supabase to apply to all distributors.",
+          severity: "info",
+          duration: 4200,
+        });
+        setGstSettingsOpen(false);
+        return;
+      }
+
+      setSavingGlobalGst(true);
+      try {
+        await saveGlobalGstPolicy(next);
+        setEmailToast({
+          open: true,
+          title: "GST Setting",
+          message: "GST settings saved for all distributors.",
+          severity: "success",
+          duration: 3600,
+        });
+        setGstSettingsOpen(false);
+      } catch (error) {
+        console.error("Error saving global GST setting:", error);
+        setEmailToast({
+          open: true,
+          title: "GST Setting",
+          message: "Failed to save global GST setting to Supabase.",
+          severity: "error",
+          duration: 4600,
+        });
+      } finally {
+        setSavingGlobalGst(false);
+      }
+    },
+    [isSupabaseConfigured]
+  );
 
   // Load orders from Supabase or localStorage
   useEffect(() => {
@@ -2095,6 +2186,7 @@ function AdminDashboard({ onLogout }) {
       if (savedView === "reports") setReportsOpen(true);
       if (savedView === "activity") setActivityOpen(true);
       if (savedView === "gmail_settings") setGmailSettingsOpen(true);
+      if (savedView === "gst_settings") setGstSettingsOpen(true);
       if (savedView === "user_permissions") setUserManagementOpen(true);
     } catch (error) {
       console.warn("Could not restore admin current view:", error);
@@ -4001,6 +4093,7 @@ function AdminDashboard({ onLogout }) {
     userManagementOpen ||
     activityOpen ||
     gmailSettingsOpen ||
+    gstSettingsOpen ||
     schemeDiscountOpen ||
     rateMasterOpen ||
     physicalStockAdminOpen ||
@@ -4056,6 +4149,10 @@ function AdminDashboard({ onLogout }) {
       setGmailSettingsOpen(false);
       return;
     }
+    if (gstSettingsOpen) {
+      setGstSettingsOpen(false);
+      return;
+    }
     if (schemeDiscountOpen) {
       setSchemeDiscountOpen(false);
       return;
@@ -4087,6 +4184,7 @@ function AdminDashboard({ onLogout }) {
     userManagementOpen,
     activityOpen,
     gmailSettingsOpen,
+    gstSettingsOpen,
     schemeDiscountOpen,
     rateMasterOpen,
     physicalStockAdminOpen,
@@ -4323,6 +4421,7 @@ function AdminDashboard({ onLogout }) {
                 { text: "Reports", icon: <BarChartIcon />, action: () => { setReportsOpen(true); setAdminCurrentView("reports"); setSidebarOpen(isMobile); } },
                 { text: "Activity", icon: <HistoryIcon />, action: () => { setActivityOpen(true); setAdminCurrentView("activity"); setSidebarOpen(isMobile); } },
                 { text: "Gmail Settings", icon: <SettingsIcon />, action: () => { setGmailSettingsOpen(true); setAdminCurrentView("gmail_settings"); setSidebarOpen(isMobile); } },
+                { text: "GST Settings", icon: <LocalOfferIcon />, action: () => { setGstSettingsOpen(true); setAdminCurrentView("gst_settings"); setSidebarOpen(isMobile); } },
                 { text: "User & Permissions", icon: <AdminPanelSettingsIcon />, action: () => { setUserManagementOpen(true); setAdminCurrentView("user_permissions"); setSidebarOpen(isMobile); } },
               ];
               
@@ -4672,6 +4771,21 @@ function AdminDashboard({ onLogout }) {
           }}
         />
 
+        <GstSettingsDialog
+          open={gstSettingsOpen}
+          policy={globalGstPolicy}
+          regions={gstRegions}
+          distributors={distributors}
+          saving={savingGlobalGst}
+          onClose={() => {
+            setGstSettingsOpen(false);
+            setAdminCurrentView("dashboard");
+          }}
+          onSave={(policy) => {
+            void handleSaveGlobalGstPolicy(policy);
+          }}
+        />
+
         <SchemeDiscountDialog
           open={schemeDiscountOpen}
           onClose={() => {
@@ -4748,6 +4862,7 @@ function AdminDashboard({ onLogout }) {
           <Box sx={{ p: 2 }}>
             <CokeCalculator
               productRates={productRates}
+              gstEnabled={resolveGstEnabledForRegion(globalGstPolicy, null)}
             />
             <DialogActions>
               <Button

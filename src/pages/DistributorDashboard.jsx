@@ -65,6 +65,7 @@ import {
   supabase,
   getProductRates,
   getGlobalTargetPeriod,
+  getGlobalGstPolicy,
 } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import {
@@ -76,6 +77,11 @@ import {
 } from "../utils/distributorSidebarSignals";
 import { getRawPhysicalStockFromDistributor } from "../utils/physicalStockTemplate";
 import { readProductRatesFromLocalStorage, writeProductRatesToLocalStorage } from "../utils/productRatesStorage";
+import {
+  readGlobalGstPolicyFromLocalStorage,
+  writeGlobalGstPolicyToLocalStorage,
+  resolveGstEnabledForRegion,
+} from "../utils/globalGstSetting";
 import { DEFAULT_SKUS, DEFAULT_SKU_NAMES, customProductLineName } from "../constants/productSkus";
 import { BUILT_IN_CAN_PRODUCTS } from "../utils/calculatorSkuNames";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
@@ -123,6 +129,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const [openOrdersListDialog, setOpenOrdersListDialog] = useState(false);
   const [openProductRateDialog, setOpenProductRateDialog] = useState(false);
   const [productRates, setProductRates] = useState(null);
+  const [globalGstPolicy, setGlobalGstPolicy] = useState(() => readGlobalGstPolicyFromLocalStorage());
   const [openStockLiftingDialog, setOpenStockLiftingDialog] = useState(false);
   const [openPhysicalStockDialog, setOpenPhysicalStockDialog] = useState(false);
   const DISTRIBUTOR_VIEW_STORAGE_KEY = `distributor_current_view_${distributorCode || "default"}`;
@@ -293,6 +300,30 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   useEffect(() => {
     loadProductRates();
   }, [loadProductRates]);
+
+  useEffect(() => {
+    const loadGlobalGst = async () => {
+      try {
+        if (isSupabaseConfigured) {
+          const remote = await getGlobalGstPolicy();
+          if (remote && typeof remote === "object") {
+            setGlobalGstPolicy(remote);
+            writeGlobalGstPolicyToLocalStorage(remote);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error loading global GST setting:", error);
+      }
+      setGlobalGstPolicy(readGlobalGstPolicyFromLocalStorage());
+    };
+    loadGlobalGst();
+  }, [isSupabaseConfigured]);
+  const distributorGstEnabled = useMemo(
+    () => resolveGstEnabledForRegion(globalGstPolicy, distributor?.region, distributor?.code || distributorCode),
+    [globalGstPolicy, distributor, distributorCode]
+  );
+
 
   useEffect(() => {
     if (!showCalculator) return;
@@ -2157,6 +2188,7 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
             schemes={activeSchemes}
             onPlaceOrder={handlePlaceOrder}
             productRates={productRates}
+            gstEnabled={distributorGstEnabled}
             initialInputs={calculatorInitialInputs}
             fixedOrderNumber={editingOrder?.orderNumber || null}
             placeOrderButtonText={editingOrder ? "Update Order" : "Place Order"}
