@@ -67,14 +67,49 @@ CREATE TABLE IF NOT EXISTS orders (
   "waterPC" NUMERIC,                                -- Water PC
   "orderNumber" TEXT,                               -- 4-digit order number
   "tableImageData" TEXT,                            -- Base64 PNG image for email
-  status TEXT DEFAULT 'pending',                     -- pending | sent | approved | rejected | canceled
+  status TEXT DEFAULT 'pending',                      -- pending | sent | approved | rejected | canceled | pending_email_failed
+  status_updated_at TIMESTAMPTZ,
+  status_history JSONB DEFAULT '[]'::jsonb,
+  approval_source TEXT,
+  approval_sent_at TIMESTAMPTZ,
+  approval_due_at TIMESTAMPTZ,
+  last_reminder_at TIMESTAMPTZ,
+  reminder_count INTEGER DEFAULT 0,
+  escalation_level INTEGER DEFAULT 0,
+  escalated_at TIMESTAMPTZ,
+  resolved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'orders_status_allowed_check'
+  ) THEN
+    ALTER TABLE orders
+    ADD CONSTRAINT orders_status_allowed_check
+    CHECK (
+      status IN (
+        'pending',
+        'sent',
+        'approved',
+        'rejected',
+        'canceled',
+        'pending_email_failed'
+      )
+    );
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_orders_distributor_code ON orders("distributorCode");
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders("orderNumber");
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_approval_due_at ON orders(approval_due_at);
+CREATE INDEX IF NOT EXISTS idx_orders_sent_due_lookup ON orders(status, approval_due_at);
 
 -- Disable Row Level Security (RLS) for orders
 ALTER TABLE orders DISABLE ROW LEVEL SECURITY;

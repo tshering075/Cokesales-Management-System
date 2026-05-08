@@ -28,6 +28,11 @@ import {
   DialogContentText,
   DialogActions,
 } from "@mui/material";
+import {
+  ORDER_STATUS,
+  getOrderStatusLabel,
+  getOrderApprovalDueMs,
+} from "../../../utils/orderStatus";
 
 /**
  * OrdersSection Component
@@ -236,6 +241,10 @@ function OrdersSection({
                   const orderId = getOrderId(order);
                   const isSending = sendingEmail === orderId;
                   const updated = isOrderUpdated(order);
+                  const approvalDueMs =
+                    status === ORDER_STATUS.SENT ? getOrderApprovalDueMs(order) : null;
+                  const isApprovalOverdue =
+                    approvalDueMs != null && Date.now() > approvalDueMs;
 
                   return (
                     <TableRow
@@ -300,16 +309,18 @@ function OrdersSection({
                       <TableCell align="center" sx={{ py: { xs: 1, sm: 1.5 } }}>
                         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
                           <Chip
-                            label={status.charAt(0).toUpperCase() + status.slice(1)}
+                            label={getOrderStatusLabel(status)}
                             size={isMobile ? "small" : "medium"}
                             color={
-                              status === "approved"
+                              status === ORDER_STATUS.APPROVED
                                 ? "success"
-                                : status === "rejected"
+                                : status === ORDER_STATUS.REJECTED
                                 ? "error"
-                                : status === "canceled"
+                                : status === ORDER_STATUS.CANCELED
                                 ? "warning"
-                                : status === "sent"
+                                : status === ORDER_STATUS.PENDING_EMAIL_FAILED
+                                ? "warning"
+                                : status === ORDER_STATUS.SENT
                                 ? "info"
                                 : "default"
                             }
@@ -319,6 +330,19 @@ function OrdersSection({
                               height: { xs: 20, sm: 24 },
                             }}
                           />
+                          {isApprovalOverdue && (
+                            <Chip
+                              label="Overdue"
+                              size={isMobile ? "small" : "medium"}
+                              color="error"
+                              variant="outlined"
+                              sx={{
+                                fontWeight: 700,
+                                fontSize: { xs: "0.6rem", sm: "0.72rem" },
+                                height: { xs: 20, sm: 24 },
+                              }}
+                            />
+                          )}
                           {updated && (
                             <Chip
                               label={getUpdatedLabel(order)}

@@ -25,6 +25,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import { tableHeaderBg, tableStripeAt } from "../theme/contrastSurfaces";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EditIcon from "@mui/icons-material/Edit";
+import {
+  ORDER_STATUS,
+  getOrderStatusLabel,
+  getOrderApprovalDueMs,
+} from "../utils/orderStatus";
 
 export default function OrdersDialog({
   open,
@@ -165,32 +170,46 @@ export default function OrdersDialog({
                       {(() => {
                         const status = (getOrderStatus ? getOrderStatus(order) : order?.status || "pending").toLowerCase();
                         const color =
-                          status === "approved"
+                          status === ORDER_STATUS.APPROVED
                             ? "success"
-                            : status === "rejected"
+                            : status === ORDER_STATUS.REJECTED
                             ? "error"
-                            : status === "canceled"
+                            : status === ORDER_STATUS.CANCELED
                             ? "warning"
-                            : status === "sent"
+                            : status === ORDER_STATUS.PENDING_EMAIL_FAILED
+                            ? "warning"
+                            : status === ORDER_STATUS.SENT
                             ? "info"
                             : "default";
+                        const approvalDueMs =
+                          status === ORDER_STATUS.SENT ? getOrderApprovalDueMs(order) : null;
+                        const overdue =
+                          approvalDueMs != null && Date.now() > approvalDueMs;
                         return (
-                          <Chip
-                            label={status.charAt(0).toUpperCase() + status.slice(1)}
-                            size="small"
-                            color={color}
-                            sx={{ fontWeight: 600 }}
-                          />
+                          <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5, flexWrap: "wrap" }}>
+                            <Chip
+                              label={getOrderStatusLabel(status)}
+                              size="small"
+                              color={color}
+                              sx={{ fontWeight: 600 }}
+                            />
+                            {overdue && (
+                              <Chip label="Overdue" size="small" color="error" variant="outlined" sx={{ fontWeight: 700 }} />
+                            )}
+                          </Box>
                         );
                       })()}
                     </TableCell>
                     <TableCell align="center">
                       {(() => {
                         const status = (getOrderStatus ? getOrderStatus(order) : order?.status || "pending").toLowerCase();
-                        const cancellable = status === "pending" || status === "sent";
+                        const cancellable =
+                          status === ORDER_STATUS.PENDING ||
+                          status === ORDER_STATUS.SENT ||
+                          status === ORDER_STATUS.PENDING_EMAIL_FAILED;
                         const orderId = order?.id || order?.orderNumber || idx;
                         return (
-                          <Tooltip title={cancellable ? "Cancel this order" : "Only pending/sent orders can be canceled"}>
+                          <Tooltip title={cancellable ? "Cancel this order" : "Only pending/sent/email-failed orders can be canceled"}>
                             <span>
                               <IconButton
                                 size="small"

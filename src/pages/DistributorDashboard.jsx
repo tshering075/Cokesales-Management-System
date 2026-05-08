@@ -81,6 +81,7 @@ import { BUILT_IN_CAN_PRODUCTS } from "../utils/calculatorSkuNames";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { ORDER_STATUS, normalizeOrderStatus } from "../utils/orderStatus";
 
 const DEFAULT_CAN_RATE = 750;
 const PRODUCT_RATE_CATEGORY_COLORS = {
@@ -457,8 +458,12 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const pendingOrdersCount = useMemo(
     () =>
       orders.filter((o) => {
-        const s = String(o?.status || "pending").toLowerCase();
-        return s === "pending" || s === "sent";
+        const s = normalizeOrderStatus(o?.status || ORDER_STATUS.PENDING);
+        return (
+          s === ORDER_STATUS.PENDING ||
+          s === ORDER_STATUS.SENT ||
+          s === ORDER_STATUS.PENDING_EMAIL_FAILED
+        );
       }).length,
     [orders]
   );
@@ -568,8 +573,8 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
 
   const getOrderStatus = useCallback((order) => {
     const s = order?.status;
-    if (s == null || String(s).trim() === "") return "pending";
-    return String(s).trim().toLowerCase();
+    if (s == null || String(s).trim() === "") return ORDER_STATUS.PENDING;
+    return normalizeOrderStatus(s);
   }, []);
   const getOrderKey = useCallback((order) => {
     if (order?.orderNumber) return `ORD-${order.orderNumber}`;
@@ -1309,9 +1314,13 @@ function DistributorDashboard({ distributorName = "Distributor", distributorCode
   const handleCancelOrder = async (order) => {
     try {
       const currentStatus = getOrderStatus(order);
-      if (currentStatus !== "pending" && currentStatus !== "sent") {
+      if (
+        currentStatus !== ORDER_STATUS.PENDING &&
+        currentStatus !== ORDER_STATUS.SENT &&
+        currentStatus !== ORDER_STATUS.PENDING_EMAIL_FAILED
+      ) {
         showToast(
-          "Only orders that are still pending or sent can be canceled. Approved or rejected orders can’t be canceled here.",
+          "Only orders that are still pending, sent, or email-failed can be canceled. Approved or rejected orders can’t be canceled here.",
           "warning",
           5000,
           "Can’t cancel this order"

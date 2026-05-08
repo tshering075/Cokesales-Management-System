@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Box, 
   Chip,
@@ -30,6 +30,7 @@ import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 import AppSnackbar from "../components/AppSnackbar";
 import DayNightThemeToggle from "../components/DayNightThemeToggle";
 import { useDayNightTheme } from "../theme/AppThemeProvider";
+import { markLandingSeen } from "../utils/landingSeen";
 
 const publicUrl = process.env.PUBLIC_URL || "";
 const LOGIN_POINTS = ["Admin dashboard", "Distributor access", "Order and target tracking"];
@@ -63,6 +64,10 @@ function LoginPage({ onLogin }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const { isDayView } = useDayNightTheme();
+
+  useEffect(() => {
+    markLandingSeen();
+  }, []);
   const isDarkUi = isDayView;
   const greeting = getBhutanGreeting();
 

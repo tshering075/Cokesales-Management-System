@@ -1054,9 +1054,19 @@ export async function saveOrder(orderData) {
       throw new Error('Supabase not initialized');
     }
 
+    const normalizeWorkflowStatus = (s) => {
+      const value = s != null && String(s).trim() !== '' ? String(s).trim().toLowerCase() : 'pending';
+      const allowed = new Set(['pending', 'sent', 'approved', 'rejected', 'canceled', 'pending_email_failed']);
+      return allowed.has(value) ? value : 'pending';
+    };
+    const normalizedStatus = normalizeWorkflowStatus(orderData.status);
     const orderDoc = {
       ...orderData,
-      status: orderData.status != null && String(orderData.status).trim() !== '' ? String(orderData.status).trim() : 'pending',
+      status: normalizedStatus,
+      status_updated_at: new Date().toISOString(),
+      status_history: Array.isArray(orderData.statusHistory) ? orderData.statusHistory : [],
+      reminder_count: Number.isFinite(Number(orderData.reminder_count)) ? Number(orderData.reminder_count) : 0,
+      escalation_level: Number.isFinite(Number(orderData.escalation_level)) ? Number(orderData.escalation_level) : 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1105,9 +1115,9 @@ export async function saveOrder(orderData) {
 function normalizeOrderRowStatus(row) {
   if (!row || typeof row !== 'object') return row;
   const s = row.status;
-  const normalized =
-    s != null && String(s).trim() !== '' ? String(s).trim().toLowerCase() : 'pending';
-  return { ...row, status: normalized };
+  const normalized = s != null && String(s).trim() !== '' ? String(s).trim().toLowerCase() : 'pending';
+  const allowed = new Set(['pending', 'sent', 'approved', 'rejected', 'canceled', 'pending_email_failed']);
+  return { ...row, status: allowed.has(normalized) ? normalized : 'pending' };
 }
 
 export async function getOrdersByDistributor(distributorCode) {
@@ -1256,7 +1266,7 @@ async function updateOrdersRowMatching(matchFn, basePayload) {
 /**
  * Update order status in Supabase
  * @param {string|null|undefined} orderId - Order row UUID (optional if identityFallback is set)
- * @param {string} status - New status (pending|sent|approved|rejected|canceled)
+ * @param {string} status - New status (pending|sent|approved|rejected|canceled|pending_email_failed)
  * @param {Object} extraFields - Additional fields to persist
  * @param {{ distributorCode?: string, orderNumber?: string|number }|null} identityFallback - Match row when id fails or is missing
  * @returns {Promise<Object|null>} Updated order or null
@@ -1277,8 +1287,13 @@ export async function updateOrderStatus(orderId, status, extraFields = {}, ident
 
     if (!hasId && !hasFb) return null;
 
+    const normalizeWorkflowStatus = (s) => {
+      const value = s != null && String(s).trim() !== '' ? String(s).trim().toLowerCase() : 'pending';
+      const allowed = new Set(['pending', 'sent', 'approved', 'rejected', 'canceled', 'pending_email_failed']);
+      return allowed.has(value) ? value : 'pending';
+    };
     const basePayload = {
-      status,
+      status: normalizeWorkflowStatus(status),
       ...extraFields,
       updated_at: new Date().toISOString()
     };

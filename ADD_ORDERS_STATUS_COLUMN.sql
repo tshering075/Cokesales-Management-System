@@ -3,4 +3,7 @@
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
 
-COMMENT ON COLUMN orders.status IS 'pending | sent | approved | rejected | canceled';
+COMMENT ON COLUMN orders.status IS 'pending | sent | approved | rejected | canceled | pending_email_failed';
+
+-- For full workflow hardening (audit history, reminder/escalation columns, status constraint),
+-- also run: PHASE2_ORDERS_WORKFLOW_MIGRATION.sql

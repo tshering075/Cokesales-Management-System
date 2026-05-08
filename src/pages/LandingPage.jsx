@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Box,
@@ -61,6 +61,10 @@ export default function LandingPage() {
   const theme = useTheme();
   const brand = theme.palette.error.main;
   const isDark = theme.palette.mode === "dark";
+
+  useEffect(() => {
+    markLandingSeen();
+  }, []);
 
   const previewBg = isDark
     ? alpha(theme.palette.background.paper, 0.72)

@@ -12,7 +12,6 @@ import {
    Typography,
    Button,
    Paper,
-  Alert,
   Tooltip,
   Badge,
   useMediaQuery,
@@ -65,7 +64,7 @@ import FiltersSection from "./AdminDashboard/components/FiltersSection";
 import HeaderActions from "./AdminDashboard/components/HeaderActions";
 import PerformanceTable from "./AdminDashboard/components/PerformanceTable";
 import OrdersSection from "./AdminDashboard/components/OrdersSection";
-import { getTargetPeriod, saveTargetPeriod, formatTargetPeriodDisplay, parseTargetPeriodBounds } from "../utils/targetPeriod";
+import { getTargetPeriod, saveTargetPeriod } from "../utils/targetPeriod";
 import { parseExcelFile } from "../utils/excelUtils";
 import { findDistributorForPartyName, partyNameAggregationKey } from "../utils/distributorNameMatch";
 import { 
@@ -108,6 +107,15 @@ import {
   countDistributorsWithNewPhysicalStock,
   markAdminPhysicalStockNotificationsSeen,
 } from "../utils/adminPhysicalStockSignals";
+import {
+  ORDER_STATUS,
+  normalizeOrderStatus,
+  canTransitionOrderStatus,
+  appendOrderStatusHistory,
+  getOrderApprovalSlaHours,
+  isoDeadlineFromNowHours,
+  getOrderApprovalDueMs,
+} from "../utils/orderStatus";
 
 const ADMIN_REGION_STORAGE_KEY = "coke_admin_dashboard_region";
 const ADMIN_REGION_OPTIONS = ["All", "Southern", "Western", "Eastern", "PLING", "THIM"];
@@ -871,6 +879,8 @@ function AdminDashboard({ onLogout }) {
   const previousOrderIdsRef = useRef(new Set());
   const approvalSnapshotRef = useRef({});
   const approvalNotifyInitRef = useRef(false);
+  /** orderId -> last time we fired an overdue-approval reminder (throttle). */
+  const approvalReminderLastRef = useRef(new Map());
   /** Tracks UC target achievement per region + period so we notify once on transition to achieved. */
   const adminUcAchievementNotifyRef = useRef({ scope: "", prevAchieved: false });
   const [schemes, setSchemes] = useState([]); // All schemes and discounts
@@ -2096,12 +2106,6 @@ function AdminDashboard({ onLogout }) {
       const n = Number(value);
       return Number.isFinite(n) ? n : 0;
     };
-    const parseDateSafe = (value) => {
-      if (!value) return null;
-      const d = value instanceof Date ? value : new Date(value);
-      return Number.isNaN(d.getTime()) ? null : d;
-    };
-
     const readField = (obj, keys, fallback = undefined) => {
       for (const key of keys) {
         if (obj && Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined && obj[key] !== null) {
@@ -2110,11 +2114,6 @@ function AdminDashboard({ onLogout }) {
       }
       return fallback;
     };
-
-    const hasTargetPeriod = !!(targetPeriod?.start && targetPeriod?.end);
-    const { start: periodStart, end: normalizedPeriodEnd } = hasTargetPeriod
-      ? parseTargetPeriodBounds(targetPeriod.start, targetPeriod.end)
-      : { start: null, end: null };
 
     const salesAggByCode = new Map();
 
@@ -2130,12 +2129,6 @@ function AdminDashboard({ onLogout }) {
 
     allSalesData.forEach((sale) => {
       if (!sale) return;
-      const saleDate = parseDateSafe(readField(sale, ["invoiceDate", "invoice_date", "date"], null));
-      if (hasTargetPeriod && periodStart && normalizedPeriodEnd) {
-        // If period filter is active and sale date is invalid/missing, don't count it.
-        if (!saleDate || saleDate < periodStart || saleDate > normalizedPeriodEnd) return;
-      }
-
       const rawCode = readField(sale, ["distributorCode", "distributor_code"], null);
       const codeStr = rawCode != null && rawCode !== "" ? String(rawCode).trim() : "";
       let resolvedCode = null;
@@ -2200,37 +2193,7 @@ function AdminDashboard({ onLogout }) {
         },
       };
     });
-  }, [distributors, allSalesData, targetPeriod]);
-
-  /** Rows in sales_data that are not counted toward Achieved because invoice date is outside target period */
-  const salesOutsideTargetPeriod = useMemo(() => {
-    const readField = (obj, keys, fallback = undefined) => {
-      for (const key of keys) {
-        if (obj && Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined && obj[key] !== null) {
-          return obj[key];
-        }
-      }
-      return fallback;
-    };
-    const parseDateSafe = (value) => {
-      if (!value) return null;
-      const d = value instanceof Date ? value : new Date(value);
-      return Number.isNaN(d.getTime()) ? null : d;
-    };
-    const hasTargetPeriod = !!(targetPeriod?.start && targetPeriod?.end);
-    if (!hasTargetPeriod || !allSalesData.length) return { count: 0 };
-
-    const { start: pStart, end: pEnd } = parseTargetPeriodBounds(targetPeriod.start, targetPeriod.end);
-    if (!pStart || !pEnd) return { count: 0 };
-
-    let count = 0;
-    allSalesData.forEach((sale) => {
-      if (!sale) return;
-      const saleDate = parseDateSafe(readField(sale, ["invoiceDate", "invoice_date", "date"], null));
-      if (!saleDate || saleDate < pStart || saleDate > pEnd) count += 1;
-    });
-    return { count };
-  }, [allSalesData, targetPeriod]);
+  }, [distributors, allSalesData]);
 
   const filteredDistributorsFromPerformance = useMemo(() => {
     const map = { South: "Southern", West: "Western", East: "Eastern", PLING: "PLING", THIM: "THIM" };
@@ -3020,10 +2983,29 @@ function AdminDashboard({ onLogout }) {
     return JSON.stringify(order);
   };
 
+  const getOrderNumberToken = (order) => {
+    const raw = order?.orderNumber;
+    if (raw == null || String(raw).trim() === "") return "";
+    return String(raw).trim();
+  };
+
+  const replyMentionsOrderNumber = (reply, body, orderNumberToken) => {
+    if (!orderNumberToken) return true;
+    const subject = String(reply?.payload?.headers?.find((h) => String(h?.name || "").toLowerCase() === "subject")?.value || "");
+    const haystack = `${subject}\n${String(body || "")}`.toLowerCase();
+    const token = orderNumberToken.toLowerCase();
+    return (
+      haystack.includes(`#${token}`) ||
+      haystack.includes(`order ${token}`) ||
+      haystack.includes(`order#${token}`) ||
+      haystack.includes(token)
+    );
+  };
+
   // Get order status (defaults to 'pending')
   const getOrderStatus = (order) => {
     const orderId = getOrderId(order);
-    return orderStatuses[orderId] || order?.status || 'pending';
+    return normalizeOrderStatus(orderStatuses[orderId] || order?.status || ORDER_STATUS.PENDING);
   };
 
   /** Orders awaiting admin review (sidebar badge). */
@@ -3031,8 +3013,12 @@ function AdminDashboard({ onLogout }) {
     if (!Array.isArray(allOrders)) return 0;
     return allOrders.filter((order) => {
       const orderId = getOrderId(order);
-      const s = String(orderStatuses[orderId] || order?.status || "pending").toLowerCase();
-      return s === "pending" || s === "sent";
+      const s = normalizeOrderStatus(orderStatuses[orderId] || order?.status || ORDER_STATUS.PENDING);
+      return (
+        s === ORDER_STATUS.PENDING ||
+        s === ORDER_STATUS.SENT ||
+        s === ORDER_STATUS.PENDING_EMAIL_FAILED
+      );
     }).length;
   }, [allOrders, orderStatuses]);
 
@@ -3051,7 +3037,7 @@ function AdminDashboard({ onLogout }) {
     setAdminPhysicalStockBadgeTick((t) => t + 1);
   }, [distributors]);
 
-  const syncOrderStatusToSupabase = async (orderLikeOrKey, status) => {
+  const syncOrderStatusToSupabase = async (orderLikeOrKey, status, extraFields = {}) => {
     try {
       if (!isSupabaseConfigured) return;
 
@@ -3078,7 +3064,7 @@ function AdminDashboard({ onLogout }) {
         return;
       }
 
-      await updateOrderStatusInSupabaseService(resolvedOrder.id, status, {}, statusFallback);
+      await updateOrderStatusInSupabaseService(resolvedOrder.id, status, extraFields, statusFallback);
     } catch (syncError) {
       console.error("Failed to sync order status to Supabase:", syncError);
       showEmailToast(
@@ -3221,7 +3207,7 @@ function AdminDashboard({ onLogout }) {
     const next = {};
     allOrders.forEach((order) => {
       const id = getOrderId(order);
-      next[id] = String(orderStatuses[id] || order.status || "pending").toLowerCase();
+      next[id] = normalizeOrderStatus(orderStatuses[id] || order.status || ORDER_STATUS.PENDING);
     });
 
     const prev = approvalSnapshotRef.current;
@@ -3258,13 +3244,34 @@ function AdminDashboard({ onLogout }) {
   }, [allOrders, orderStatuses]);
 
   // Update order status
-  const updateOrderStatus = async (order, status) => {
+  const updateOrderStatus = async (order, status, meta = {}) => {
     const orderId = getOrderId(order);
-    console.log('updateOrderStatus called:', { orderId, status, order });
+    const currentStatus = getOrderStatus(order);
+    const nextStatus = normalizeOrderStatus(status);
+    const sentAtIso =
+      nextStatus === ORDER_STATUS.SENT ? new Date().toISOString() : null;
+    const dueAtIso =
+      nextStatus === ORDER_STATUS.SENT
+        ? isoDeadlineFromNowHours(getOrderApprovalSlaHours())
+        : null;
+    const sentAuditFields =
+      sentAtIso && dueAtIso
+        ? { approval_sent_at: sentAtIso, approval_due_at: dueAtIso }
+        : {};
+    if (!canTransitionOrderStatus(currentStatus, nextStatus)) {
+      showEmailToast(
+        `Invalid status transition: ${currentStatus} -> ${nextStatus}`,
+        "warning",
+        4200,
+        "Status blocked"
+      );
+      return;
+    }
+    console.log('updateOrderStatus called:', { orderId, status: nextStatus, order });
     setOrderStatuses(prev => {
       const newStatuses = {
         ...prev,
-        [orderId]: status
+        [orderId]: nextStatus
       };
       console.log('Order statuses updated:', newStatuses);
       return newStatuses;
@@ -3272,17 +3279,33 @@ function AdminDashboard({ onLogout }) {
 
     // Persist status in order objects for reliability across refresh/reload
     setAllOrders(prevOrders =>
-      prevOrders.map(o =>
-        getOrderId(o) === orderId ? { ...o, status } : o
-      )
+      prevOrders.map((o) => {
+        if (getOrderId(o) !== orderId) return o;
+        return {
+          ...o,
+          status: nextStatus,
+          statusUpdatedAt: new Date().toISOString(),
+          statusHistory: appendOrderStatusHistory(o, nextStatus, meta),
+          ...sentAuditFields,
+        };
+      })
     );
+    const orderHistory = appendOrderStatusHistory(order, nextStatus, meta);
 
     try {
       const stored = localStorage.getItem("coke_orders");
       if (stored) {
         const orders = JSON.parse(stored);
-        const updatedOrders = orders.map(o =>
-          getOrderId(o) === orderId ? { ...o, status } : o
+        const updatedOrders = orders.map((o) =>
+          getOrderId(o) === orderId
+            ? {
+                ...o,
+                status: nextStatus,
+                statusUpdatedAt: new Date().toISOString(),
+                statusHistory: appendOrderStatusHistory(o, nextStatus, meta),
+                ...sentAuditFields,
+              }
+            : o
         );
         localStorage.setItem("coke_orders", JSON.stringify(updatedOrders));
       }
@@ -3290,16 +3313,48 @@ function AdminDashboard({ onLogout }) {
       console.warn("Error saving order status to localStorage:", error);
     }
 
-    await syncOrderStatusToSupabase(order, status);
+    await syncOrderStatusToSupabase(order, nextStatus, {
+      status_updated_at: new Date().toISOString(),
+      status_history: orderHistory,
+      approval_source: meta.source || "manual",
+      ...sentAuditFields,
+      ...(nextStatus === ORDER_STATUS.APPROVED || nextStatus === ORDER_STATUS.REJECTED
+        ? { resolved_at: new Date().toISOString() }
+        : {}),
+    });
   };
   
   // Update order status by ID (for use in callbacks)
-  const updateOrderStatusById = async (orderId, status) => {
-    console.log('updateOrderStatusById called:', { orderId, status });
+  const updateOrderStatusById = async (orderId, status, meta = {}) => {
+    const currentOrder = allOrders.find((o) => getOrderId(o) === orderId);
+    const currentStatus = normalizeOrderStatus(
+      (currentOrder && (orderStatuses[orderId] || currentOrder.status)) || ORDER_STATUS.PENDING
+    );
+    const nextStatus = normalizeOrderStatus(status);
+    const sentAtIsoById =
+      nextStatus === ORDER_STATUS.SENT ? new Date().toISOString() : null;
+    const dueAtIsoById =
+      nextStatus === ORDER_STATUS.SENT
+        ? isoDeadlineFromNowHours(getOrderApprovalSlaHours())
+        : null;
+    const sentAuditFieldsById =
+      sentAtIsoById && dueAtIsoById
+        ? { approval_sent_at: sentAtIsoById, approval_due_at: dueAtIsoById }
+        : {};
+    if (!canTransitionOrderStatus(currentStatus, nextStatus)) {
+      showEmailToast(
+        `Invalid status transition: ${currentStatus} -> ${nextStatus}`,
+        "warning",
+        4200,
+        "Status blocked"
+      );
+      return;
+    }
+    console.log('updateOrderStatusById called:', { orderId, status: nextStatus });
     setOrderStatuses(prev => {
       const newStatuses = {
         ...prev,
-        [orderId]: status
+        [orderId]: nextStatus
       };
       console.log('Order statuses updated by ID:', newStatuses);
       return newStatuses;
@@ -3307,17 +3362,33 @@ function AdminDashboard({ onLogout }) {
 
     // Also persist status into order objects so it survives refresh/reload
     setAllOrders(prevOrders =>
-      prevOrders.map(order =>
-        getOrderId(order) === orderId ? { ...order, status } : order
-      )
+      prevOrders.map((order) => {
+        if (getOrderId(order) !== orderId) return order;
+        return {
+          ...order,
+          status: nextStatus,
+          statusUpdatedAt: new Date().toISOString(),
+          statusHistory: appendOrderStatusHistory(order, nextStatus, meta),
+          ...sentAuditFieldsById,
+        };
+      })
     );
+    const currentHistory = appendOrderStatusHistory(currentOrder || {}, nextStatus, meta);
 
     try {
       const stored = localStorage.getItem("coke_orders");
       if (stored) {
         const orders = JSON.parse(stored);
-        const updatedOrders = orders.map(order =>
-          getOrderId(order) === orderId ? { ...order, status } : order
+        const updatedOrders = orders.map((order) =>
+          getOrderId(order) === orderId
+            ? {
+                ...order,
+                status: nextStatus,
+                statusUpdatedAt: new Date().toISOString(),
+                statusHistory: appendOrderStatusHistory(order, nextStatus, meta),
+                ...sentAuditFieldsById,
+              }
+            : order
         );
         localStorage.setItem("coke_orders", JSON.stringify(updatedOrders));
       }
@@ -3325,8 +3396,137 @@ function AdminDashboard({ onLogout }) {
       console.warn("Error persisting order status to localStorage:", error);
     }
 
-    await syncOrderStatusToSupabase(orderId, status);
+    await syncOrderStatusToSupabase(orderId, nextStatus, {
+      status_updated_at: new Date().toISOString(),
+      status_history: currentHistory,
+      approval_source: meta.source || "manual",
+      ...sentAuditFieldsById,
+      ...(nextStatus === ORDER_STATUS.APPROVED || nextStatus === ORDER_STATUS.REJECTED
+        ? { resolved_at: new Date().toISOString() }
+        : {}),
+    });
   };
+
+  /** Overdue approval reminders: throttle per order; bump escalation every 3rd reminder. */
+  useEffect(() => {
+    const TICK_MS = 5 * 60 * 1000;
+    const REMINDER_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+
+    const run = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (!Array.isArray(allOrders) || allOrders.length === 0) return;
+
+      const now = Date.now();
+      const patches = [];
+
+      for (const order of allOrders) {
+        const id = getOrderId(order);
+        const st = normalizeOrderStatus(
+          orderStatuses[id] || order?.status || ORDER_STATUS.PENDING
+        );
+        if (st !== ORDER_STATUS.SENT) continue;
+
+        const dueMs = getOrderApprovalDueMs(order);
+        if (dueMs == null || now <= dueMs) continue;
+
+        const lastFire = approvalReminderLastRef.current.get(id) || 0;
+        if (now - lastFire < REMINDER_COOLDOWN_MS) continue;
+
+        approvalReminderLastRef.current.set(id, now);
+
+        const prevCount =
+          Number(order.reminder_count ?? order.reminderCount ?? 0) || 0;
+        const nextCount = prevCount + 1;
+        const prevEsc =
+          Number(order.escalation_level ?? order.escalationLevel ?? 0) || 0;
+        const nextEsc = Math.min(3, Math.floor(nextCount / 3));
+        const escBump = nextEsc > prevEsc;
+        const lastReminderIso = new Date().toISOString();
+
+        patches.push({
+          id,
+          patch: {
+            last_reminder_at: lastReminderIso,
+            reminder_count: nextCount,
+            escalation_level: nextEsc,
+            ...(escBump ? { escalated_at: lastReminderIso } : {}),
+          },
+          notify: {
+            orderNumber: order.orderNumber,
+            name: order.distributorName || order.distributorCode || "Distributor",
+            escBump,
+            nextEsc,
+          },
+          supabaseId: order.id,
+          statusFallback:
+            order.distributorCode &&
+            order.orderNumber != null &&
+            String(order.orderNumber).trim() !== ""
+              ? {
+                  distributorCode: String(order.distributorCode).trim(),
+                  orderNumber: order.orderNumber,
+                }
+              : null,
+        });
+      }
+
+      if (patches.length === 0) return;
+
+      setAllOrders((prev) =>
+        prev.map((o) => {
+          const p = patches.find((x) => x.id === getOrderId(o));
+          return p ? { ...o, ...p.patch } : o;
+        })
+      );
+
+      try {
+        const stored = localStorage.getItem("coke_orders");
+        if (stored) {
+          const orders = JSON.parse(stored);
+          const updated = orders.map((o) => {
+            const p = patches.find((x) => x.id === getOrderId(o));
+            return p ? { ...o, ...p.patch } : o;
+          });
+          localStorage.setItem("coke_orders", JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.warn("Error persisting reminder fields to localStorage:", e);
+      }
+
+      for (const p of patches) {
+        const num = p.notify.orderNumber != null ? p.notify.orderNumber : p.id;
+        pushNotification(
+          p.notify.escBump
+            ? `Escalation (L${p.notify.nextEsc}): Order #${num} (${p.notify.name}) overdue for GM approval.`
+            : `Reminder: Order #${num} (${p.notify.name}) is past the approval deadline.`,
+          p.notify.escBump ? "warning" : "info"
+        );
+      }
+
+      if (!isSupabaseConfigured) return;
+
+      void (async () => {
+        for (const p of patches) {
+          try {
+            await updateOrderStatusInSupabaseService(
+              p.supabaseId,
+              ORDER_STATUS.SENT,
+              p.patch,
+              p.statusFallback
+            );
+          } catch (e) {
+            console.warn("Supabase reminder sync failed:", p.id, e);
+          }
+        }
+      })();
+    };
+
+    const timer = setInterval(run, TICK_MS);
+    run();
+    return () => clearInterval(timer);
+    // getOrderId is stable in practice; order list drives the scan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allOrders, orderStatuses, isSupabaseConfigured]);
 
   // Delete order from all sources (state, localStorage, Supabase)
   const deleteOrderFromAllSources = async (order) => {
@@ -3454,6 +3654,7 @@ function AdminDashboard({ onLogout }) {
       
       // Get order number for tracking
       const orderNumber = order.orderNumber || 'N/A';
+      const orderNumberToken = getOrderNumberToken(order);
       const finalSubject = subject;
       
       // Create email content with custom message only (order details are in attachment)
@@ -3513,7 +3714,15 @@ function AdminDashboard({ onLogout }) {
                 console.log('Current orderStatuses:', orderStatuses);
                 
                 // Update status using the orderId directly
-                await updateOrderStatusById(orderId, 'approved');
+                if (!replyMentionsOrderNumber(reply, body, orderNumberToken)) {
+                  console.warn("Ignoring approval reply because order number token was not found in reply content.");
+                  return;
+                }
+                await updateOrderStatusById(orderId, ORDER_STATUS.APPROVED, {
+                  source: "gmail-reply",
+                  actor: "gm-email-reply",
+                  note: `reply:${reply?.id || ""}`,
+                });
                 console.log('Order status updated to approved');
                 
                 await logActivity(
@@ -3571,7 +3780,15 @@ function AdminDashboard({ onLogout }) {
                 console.log('Current order found:', currentOrder ? 'Yes' : 'No');
                 
                 // Update status using the orderId directly
-                await updateOrderStatusById(orderId, 'rejected');
+                if (!replyMentionsOrderNumber(reply, body, orderNumberToken)) {
+                  console.warn("Ignoring rejection reply because order number token was not found in reply content.");
+                  return;
+                }
+                await updateOrderStatusById(orderId, ORDER_STATUS.REJECTED, {
+                  source: "gmail-reply",
+                  actor: "gm-email-reply",
+                  note: `reply:${reply?.id || ""}`,
+                });
                 console.log('Order status updated to rejected');
                 
                 await logActivity(
@@ -3637,7 +3854,11 @@ function AdminDashboard({ onLogout }) {
         );
         
         showEmailToast("Email sent successfully.", "success", 3800);
-        await updateOrderStatus(order, 'sent');
+        await updateOrderStatus(order, ORDER_STATUS.SENT, {
+          source: "email-send",
+          actor: "admin",
+          note: "Email sent to GM",
+        });
         setEmailDialogOpen(false);
         setEmailOrder(null);
       } catch (emailError) {
@@ -3651,7 +3872,11 @@ function AdminDashboard({ onLogout }) {
           body: `${message}\n\nOrder Details:\nDistributor: ${order.distributorName || order.distributorCode}\nDate: ${new Date(order.timestamp || Date.now()).toLocaleDateString()}\nTotal UC: ${(order.totalUC || 0).toFixed(2)}\n\nPlease review the attached order details.`
         });
         window.location.href = mailtoLink;
-        await updateOrderStatus(order, 'sent');
+        await updateOrderStatus(order, ORDER_STATUS.PENDING_EMAIL_FAILED, {
+          source: "email-fallback",
+          actor: "admin",
+          note: "Gmail/EmailJS failed; opened mail client fallback",
+        });
         showEmailToast("Opening email client. Please attach the order image manually.", "info", 5000);
         setEmailDialogOpen(false);
         setEmailOrder(null);
@@ -3671,7 +3896,11 @@ function AdminDashboard({ onLogout }) {
     if (window.confirm('Are you sure you want to approve this order?')) {
       const orderId = getOrderId(order);
 
-      await updateOrderStatus(order, 'approved');
+      await updateOrderStatus(order, ORDER_STATUS.APPROVED, {
+        source: "manual",
+        actor: "admin",
+        note: "Manual approval from dashboard",
+      });
 
       // Merge approvedAt onto the row that already has status: approved from updateOrderStatus
       setAllOrders(prevOrders =>
@@ -3701,7 +3930,11 @@ function AdminDashboard({ onLogout }) {
   // Handle order rejection
   const handleRejectOrder = async (order) => {
     if (window.confirm('Are you sure you want to reject this order?')) {
-      await updateOrderStatus(order, 'rejected');
+      await updateOrderStatus(order, ORDER_STATUS.REJECTED, {
+        source: "manual",
+        actor: "admin",
+        note: "Manual rejection from dashboard",
+      });
       alert('Order rejected.');
     }
   };
@@ -4291,17 +4524,6 @@ function AdminDashboard({ onLogout }) {
               onRegionChange={handleRegionChange}
               updatedDate={updatedDate}
             />
-
-            {salesOutsideTargetPeriod.count > 0 && (
-              <Alert severity="info" sx={{ mt: 1.5, mb: 0.5, fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                <strong>Achieved uses your target period only.</strong>{" "}
-                {salesOutsideTargetPeriod.count} lifting row(s) in saved sales have invoice dates outside{" "}
-                <strong>{formatTargetPeriodDisplay(targetPeriod?.start, targetPeriod?.end)}</strong> and are{" "}
-                <strong>not</strong> included in the table totals (stock lifting still lists every row).{" "}
-                Open <strong>Targets</strong> and widen start/end so every invoice date you want in one total falls
-                inside the range (start and end can span two or more calendar months).
-              </Alert>
-            )}
 
             {/* Distributor Performance Table */}
             <PerformanceTable

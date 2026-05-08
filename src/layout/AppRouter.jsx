@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { onAuthStateChange, getCurrentUser, signOutUser, getDistributorByUid, getAdminByUid } from "../services/supabaseService";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
+import { hasLandingBeenSeen } from "../utils/landingSeen";
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const LandingPage = lazy(() => import("../pages/LandingPage"));
@@ -432,6 +433,8 @@ function AppRouterInner() {
               to={getCurrentRole() === "distributor" ? "/distributor" : "/admin"}
               replace
             />
+          ) : hasLandingBeenSeen() ? (
+            <Navigate to="/login" replace />
           ) : (
             <LandingPage />
           )
