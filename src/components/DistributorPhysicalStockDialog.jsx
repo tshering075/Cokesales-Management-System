@@ -22,7 +22,7 @@ import PhysicalStockMatrix, { PhysicalStockFifoNote } from "./PhysicalStockMatri
 import {
   normalizePhysicalStockPayload,
   getRawPhysicalStockFromDistributor,
-  rowTotal,
+  aggregatePhysicalStockTotals,
 } from "../utils/physicalStockTemplate";
 import { updateDistributor } from "../services/supabaseService";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
@@ -53,7 +53,7 @@ export default function DistributorPhysicalStockDialog({
   const openRef = useRef(false);
   const dialogOpenedNotifiedRef = useRef(false);
 
-  const grandTotal = rows.reduce((s, r) => s + rowTotal(r), 0);
+  const distTotals = aggregatePhysicalStockTotals(rows);
 
   useEffect(() => {
     if (open && !openRef.current) {
@@ -181,7 +181,7 @@ export default function DistributorPhysicalStockDialog({
       );
       if (showToast && !localOnlyWarning) {
         showToast(
-          "Your FIFO lots and report date are saved. Admins can see this in Physical Stock.",
+          "Your stock table and report date are saved. Admins can see this in Physical Stock.",
           "success",
           4500,
           "Physical stock saved"
@@ -301,17 +301,10 @@ export default function DistributorPhysicalStockDialog({
             "& .MuiOutlinedInput-root": { borderRadius: 2 },
           }}
         />
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
-          <Chip
-            label={`Total units: ${grandTotal.toLocaleString()}`}
-            size="small"
-            sx={{
-              fontWeight: 700,
-              bgcolor: (t) => (t.palette.mode === "dark" ? t.palette.info.dark : t.palette.info.main),
-              color: (t) =>
-                t.palette.getContrastText(t.palette.mode === "dark" ? t.palette.info.dark : t.palette.info.main),
-            }}
-          />
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }}>
+          <Chip label={`Open ${distTotals.opening.toLocaleString()}`} size="small" sx={{ fontWeight: 700 }} />
+          <Chip label={`Sec ${distTotals.secondary.toLocaleString()}`} size="small" sx={{ fontWeight: 700 }} />
+          <Chip label={`Close ${distTotals.closing.toLocaleString()}`} size="small" sx={{ fontWeight: 700 }} />
           {dirty ? <Chip label="Unsaved changes" size="small" color="warning" variant="outlined" /> : null}
         </Box>
       </Paper>

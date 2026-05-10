@@ -1,60 +1,98 @@
-/**
- * Daily Distributors Physical Stocks template (FIFO lots 1–3).
- * Lot 1 = oldest / first-in, Lot 2 = next, Lot 3 = newest.
- */
-
-export const PHYSICAL_STOCK_TEMPLATE_GROUPS = [
-  { category: "300ML", skus: ["KO", "FX", "SP"] },
-  { category: "500ML", skus: ["KO", "FX", "SP"] },
-  { category: "1.25LTR", skus: ["KO", "FX", "SP"] },
-  { category: "T-UP CHARGED", skus: ["T-UP", "CHARGED"] },
-  { category: "KINLEY WATER", skus: ["200 ML", "500 ML", "1L"] },
-  { category: "CANS", skus: ["CZS", "DIET KO", "LIMCA", "SODA", "TONIC WATER"] },
+/** Daily physical stock format: opening, secondary sale, closing by SKU line. */
+export const PHYSICAL_STOCK_PRODUCT_LINES = [
+  "KO 300ML",
+  "FX 300ML",
+  "SP 300ML",
+  "CH 300ML",
+  "KO 500ML",
+  "FX 500ML",
+  "SP 500ML",
+  "KO 1.25ML",
+  "FX 1.25ML",
+  "SP 1.25ML",
+  "KWAT 200ML",
+  "KWAT 500ML",
+  "KWAT 1L",
 ];
 
-export function emptyLot() {
-  return { qty: 0, mfgDate: "", batchNo: "", bbdDate: "" };
-}
-
 export function createEmptyPhysicalStockRows() {
-  return PHYSICAL_STOCK_TEMPLATE_GROUPS.flatMap((g) =>
-    g.skus.map((sku) => ({
-      category: g.category,
-      sku,
-      lots: [emptyLot(), emptyLot(), emptyLot()],
-    }))
-  );
+  return PHYSICAL_STOCK_PRODUCT_LINES.map((productSku) => ({
+    productSku,
+    openingStockQty: "",
+    secondarySale: "",
+    closingStockQty: "",
+  }));
 }
 
 export function rowTotal(row) {
-  if (!row?.lots) return 0;
-  return row.lots.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+  return Number(row?.closingStockQty) || 0;
 }
 
-/**
- * Merge saved rows with current template (new SKUs appear; matched SKUs keep values).
- */
+/** Sum opening / secondary / closing across all SKU rows for one distributor. */
+export function aggregatePhysicalStockTotals(rows) {
+  if (!Array.isArray(rows)) return { opening: 0, secondary: 0, closing: 0 };
+  return rows.reduce(
+    (acc, r) => {
+      acc.opening += Number(r?.openingStockQty) || 0;
+      acc.secondary += Number(r?.secondarySale) || 0;
+      acc.closing += Number(r?.closingStockQty) || 0;
+      return acc;
+    },
+    { opening: 0, secondary: 0, closing: 0 }
+  );
+}
+
+function normalizeRowShape(rawRow) {
+  if (!rawRow || typeof rawRow !== "object") return null;
+  const normalizeQty = (value) => {
+    if (value === "" || value == null) return "";
+    const n = Number(value);
+    return Number.isFinite(n) ? n : "";
+  };
+
+  // New shape
+  if (rawRow.productSku) {
+    return {
+      productSku: String(rawRow.productSku),
+      openingStockQty: normalizeQty(rawRow.openingStockQty),
+      secondarySale: normalizeQty(rawRow.secondarySale),
+      closingStockQty: normalizeQty(rawRow.closingStockQty),
+    };
+  }
+
+  // Legacy FIFO-lot shape fallback: preserve existing total in opening+closing.
+  if (rawRow.category && rawRow.sku && Array.isArray(rawRow.lots)) {
+    const total = rawRow.lots.reduce((s, l) => s + (Number(l?.qty) || 0), 0);
+    return {
+      productSku: `${String(rawRow.sku).trim()} ${String(rawRow.category).trim()}`.trim(),
+      openingStockQty: total,
+      secondarySale: "",
+      closingStockQty: total,
+    };
+  }
+  return null;
+}
+
+/** Merge saved rows with current template (new SKU lines appear; matches keep values). */
 export function mergePhysicalStockRows(savedRows) {
   const template = createEmptyPhysicalStockRows();
   if (!Array.isArray(savedRows) || savedRows.length === 0) return template;
 
-  const key = (r) => `${r.category}|${r.sku}`;
   const map = new Map();
   savedRows.forEach((r) => {
-    if (r && r.category && r.sku) map.set(key(r), r);
+    const n = normalizeRowShape(r);
+    if (!n?.productSku) return;
+    map.set(String(n.productSku).trim().toUpperCase(), n);
   });
 
   return template.map((t) => {
-    const s = map.get(key(t));
-    if (!s || !Array.isArray(s.lots)) return { ...t };
+    const saved = map.get(String(t.productSku).trim().toUpperCase());
+    if (!saved) return { ...t };
     return {
       ...t,
-      lots: [0, 1, 2].map((i) => ({
-        qty: Number(s.lots[i]?.qty) || 0,
-        mfgDate: s.lots[i]?.mfgDate != null ? String(s.lots[i].mfgDate) : "",
-        batchNo: s.lots[i]?.batchNo != null ? String(s.lots[i].batchNo) : "",
-        bbdDate: s.lots[i]?.bbdDate != null ? String(s.lots[i].bbdDate) : "",
-      })),
+      openingStockQty: saved.openingStockQty ?? "",
+      secondarySale: saved.secondarySale ?? "",
+      closingStockQty: saved.closingStockQty ?? "",
     };
   });
 }

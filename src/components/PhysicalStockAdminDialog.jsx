@@ -15,23 +15,17 @@ import {
   Chip,
   Alert,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Divider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
 import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
-import SortByAlphaIcon from "@mui/icons-material/SortByAlpha";
-import UpdateIcon from "@mui/icons-material/Update";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import PhysicalStockMatrix, { PhysicalStockFifoNote } from "./PhysicalStockMatrix";
+import PhysicalStockMatrix from "./PhysicalStockMatrix";
 import {
   normalizePhysicalStockPayload,
   getRawPhysicalStockFromDistributor,
-  rowTotal,
+  aggregatePhysicalStockTotals,
 } from "../utils/physicalStockTemplate";
 import { getAdminPhysicalStockLastSeenAt, getPhysicalStockUpdatesSince } from "../utils/adminPhysicalStockSignals";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -59,7 +53,6 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
   const theme = useTheme();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
-  const [sortBy, setSortBy] = useState("name");
   const [recentUpdates, setRecentUpdates] = useState([]);
   const openSessionRef = useRef(false);
 
@@ -69,44 +62,42 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
     return list;
   }, [distributors]);
 
+  const todayUpdated = useMemo(() => {
+    const isSameLocalDay = (isoLike) => {
+      if (!isoLike) return false;
+      const d = new Date(isoLike);
+      if (Number.isNaN(d.getTime())) return false;
+      const now = new Date();
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    };
+    return sorted.filter((d) => {
+      const raw = getRawPhysicalStockFromDistributor(d);
+      return isSameLocalDay(raw?.updatedAt || raw?.reportDate);
+    });
+  }, [sorted]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter(
+    if (!q) return todayUpdated;
+    return todayUpdated.filter(
       (d) =>
         (d.name && d.name.toLowerCase().includes(q)) ||
         (d.code && String(d.code).toLowerCase().includes(q)) ||
         (d.region && String(d.region).toLowerCase().includes(q))
     );
-  }, [sorted, query]);
+  }, [todayUpdated, query]);
 
   const displayed = useMemo(() => {
-    const arr = [...filtered];
-    const rawOf = (d) => getRawPhysicalStockFromDistributor(d);
-    if (sortBy === "updated") {
-      arr.sort((a, b) => {
-        const ua = rawOf(a)?.updatedAt || "";
-        const ub = rawOf(b)?.updatedAt || "";
-        if (ua !== ub) return ub.localeCompare(ua);
-        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-      });
-    } else if (sortBy === "stock") {
-      arr.sort((a, b) => {
-        const ha = rawOf(a) ? 1 : 0;
-        const hb = rawOf(b) ? 1 : 0;
-        if (ha !== hb) return hb - ha;
-        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-      });
-    } else {
-      arr.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
-    }
-    return arr;
-  }, [filtered, sortBy]);
+    return [...filtered].sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+    );
+  }, [filtered]);
 
-  const withDataCount = useMemo(
-    () => sorted.filter((d) => !!getRawPhysicalStockFromDistributor(d)).length,
-    [sorted]
-  );
+  const withDataCount = todayUpdated.length;
 
   const recentUpdaterKeys = useMemo(() => {
     const s = new Set();
@@ -135,6 +126,60 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
 
   const handleAccordion = (code) => (_, isExp) => {
     setExpanded(isExp ? code : false);
+  };
+
+  const handleDownloadExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const distributorsForExport = displayed.filter((d) => !!getRawPhysicalStockFromDistributor(d));
+      if (distributorsForExport.length === 0) {
+        alert("No physical stock data available for today's updated distributors.");
+        return;
+      }
+
+      const summaryRows = distributorsForExport.map((d) => {
+        const raw = getRawPhysicalStockFromDistributor(d);
+        const norm = normalizePhysicalStockPayload(raw || {});
+        const totals = aggregatePhysicalStockTotals(norm.rows);
+        return {
+          distributor_name: d.name || "",
+          distributor_code: d.code || d.id || "",
+          region: d.region || "",
+          report_date: norm.reportDate || "",
+          last_saved: norm.updatedAt || "",
+          opening_total: totals.opening,
+          secondary_total: totals.secondary,
+          closing_total: totals.closing,
+        };
+      });
+
+      const detailRows = [];
+      distributorsForExport.forEach((d) => {
+        const raw = getRawPhysicalStockFromDistributor(d);
+        const norm = normalizePhysicalStockPayload(raw || {});
+        norm.rows.forEach((r) => {
+          detailRows.push({
+            distributor_name: d.name || "",
+            distributor_code: d.code || d.id || "",
+            region: d.region || "",
+            product_sku: r.productSku || "",
+            opening_stock_qty: Number(r.openingStockQty) || 0,
+            secondary_sale: Number(r.secondarySale) || 0,
+            closing_stock_qty: Number(r.closingStockQty) || 0,
+          });
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), "Distributor Totals");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), "SKU Details");
+
+      const filename = `Physical_Stock_${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error("Failed to export physical stock excel:", error);
+      alert("Failed to export physical stock Excel file.");
+    }
   };
 
   return (
@@ -187,7 +232,7 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
             Physical stock overview
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.92, mt: 0.25, fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-            Read-only · {sorted.length} distributor{sorted.length !== 1 ? "s" : ""} · {withDataCount} with submitted stock
+            {withDataCount} distributor{withDataCount !== 1 ? "s" : ""}
           </Typography>
         </Box>
         <IconButton onClick={onClose} aria-label="Close" sx={{ color: "#fff" }} size="large">
@@ -223,31 +268,6 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
             }}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
           />
-          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mr: 0.5 }}>
-              Sort
-            </Typography>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={sortBy}
-              onChange={(_, v) => v && setSortBy(v)}
-              aria-label="Sort distributors"
-            >
-              <ToggleButton value="name" aria-label="By name">
-                <SortByAlphaIcon sx={{ fontSize: 18, mr: 0.5 }} />
-                Name
-              </ToggleButton>
-              <ToggleButton value="updated" aria-label="By last update">
-                <UpdateIcon sx={{ fontSize: 18, mr: 0.5 }} />
-                Last update
-              </ToggleButton>
-              <ToggleButton value="stock" aria-label="With stock first">
-                <Inventory2OutlinedIcon sx={{ fontSize: 18, mr: 0.5 }} />
-                With stock first
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
         </Stack>
       </Paper>
 
@@ -277,9 +297,6 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
             <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
               New since you last opened this screen ({recentUpdates.length})
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, lineHeight: 1.5 }}>
-              These distributors saved physical stock after your last review. Rows below are highlighted with a green edge.
-            </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.75} useFlexGap>
               {recentUpdates.map(({ distributor: d, updatedAt }) => (
                 <Chip
@@ -295,36 +312,15 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           </Alert>
         ) : null}
 
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 1.5,
-            mb: 2,
-            borderRadius: 2,
-            bgcolor: alpha(theme.palette.info.main, theme.palette.mode === "dark" ? 0.08 : 0.04),
-            borderColor: alpha(theme.palette.info.main, 0.25),
-          }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>
-            How to read
-          </Typography>
-          <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.55 }}>
-            Expand a distributor to see FIFO lots (Lot 1 = dispatch first). Numbers are cases per SKU. Use{" "}
-            <strong>Last update</strong> to review who filed most recently.
-          </Typography>
-        </Paper>
-
-        <PhysicalStockFifoNote />
-
         {displayed.length === 0 ? (
           <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 2, bgcolor: "background.paper" }}>
-            <Typography color="text.secondary">No distributors match your search.</Typography>
+            <Typography color="text.secondary">No distributors updated physical stock today.</Typography>
           </Paper>
         ) : (
           displayed.map((d) => {
             const raw = getRawPhysicalStockFromDistributor(d);
             const norm = normalizePhysicalStockPayload(raw || {});
-            const grandTotal = norm.rows.reduce((s, r) => s + rowTotal(r), 0);
+            const distTotals = aggregatePhysicalStockTotals(norm.rows);
             const code = d.code || d.id || "";
             const rowKey = distributorRowKey(d);
             const expandKey = code || rowKey || d.name;
@@ -336,8 +332,8 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                 onChange={handleAccordion(expandKey)}
                 disableGutters
                 sx={{
-                  mb: 1.5,
-                  borderRadius: "12px !important",
+                  mb: 1,
+                  borderRadius: "10px !important",
                   overflow: "hidden",
                   border: "1px solid",
                   borderColor: "divider",
@@ -350,94 +346,119 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
                 }}
               >
                 <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
+                  expandIcon={<ExpandMoreIcon sx={{ fontSize: 22 }} />}
                   sx={{
-                    px: { xs: 1.5, sm: 2 },
-                    py: 1.25,
+                    px: { xs: 1, sm: 1.25 },
+                    py: 0.65,
+                    minHeight: 0,
+                    "& .MuiAccordionSummary-content": { my: 0.5, alignItems: "flex-start" },
                     "&:hover": { bgcolor: "action.hover" },
                   }}
                 >
-                  <Box sx={{ display: "flex", flexDirection: "column", width: "100%", pr: 1, gap: 1 }}>
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: { xs: "1fr", sm: "minmax(0,1.4fr) auto auto auto" },
-                        gap: { xs: 1, sm: 1.5 },
-                        alignItems: "center",
-                        width: "100%",
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: "1rem", color: "text.primary", lineHeight: 1.3 }}>
-                          {d.name || "—"}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                          Code <strong>{code || "—"}</strong>
-                          {d.region ? (
-                            <>
-                              {" · "}
-                              Region <strong>{d.region}</strong>
-                            </>
-                          ) : null}
-                        </Typography>
-                      </Box>
-                      {d.region ? (
-                        <Chip
-                          label={d.region}
-                          size="small"
-                          sx={{
-                            display: { xs: "none", sm: "inline-flex" },
-                            fontWeight: 700,
-                            justifySelf: "end",
-                            bgcolor: alpha(theme.palette.secondary.main, theme.palette.mode === "dark" ? 0.25 : 0.12),
-                          }}
-                        />
-                      ) : (
-                        <span />
-                      )}
-                      {raw ? (
-                        <Chip
-                          label={`${grandTotal.toLocaleString()} units`}
-                          size="small"
-                          sx={{
-                            fontWeight: 700,
-                            justifySelf: { xs: "start", sm: "end" },
-                            bgcolor: theme.palette.mode === "dark" ? theme.palette.info.dark : theme.palette.info.main,
-                            color: theme.palette.getContrastText(
-                              theme.palette.mode === "dark" ? theme.palette.info.dark : theme.palette.info.main
-                            ),
-                          }}
-                        />
-                      ) : (
-                        <Chip label="No data" size="small" variant="outlined" sx={{ justifySelf: { xs: "start", sm: "end" } }} />
-                      )}
-                      {isRecent ? (
-                        <Chip
-                          label="Updated"
-                          size="small"
-                          color="success"
-                          sx={{ display: { xs: "none", md: "inline-flex" }, fontWeight: 800, justifySelf: "end" }}
-                        />
-                      ) : (
-                        <span />
-                      )}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
+                      alignItems: { xs: "stretch", sm: "flex-start" },
+                      justifyContent: "space-between",
+                      gap: { xs: 0.75, sm: 1 },
+                      width: "100%",
+                      pr: 0.5,
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>
+                      <Typography
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: "0.875rem",
+                          color: "text.primary",
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {d.name || "—"}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mt: 0.15, fontSize: "0.68rem", lineHeight: 1.3 }}
+                      >
+                        Code <strong>{code || "—"}</strong>
+                        {d.region ? (
+                          <>
+                            {" · "}
+                            <strong>{d.region}</strong>
+                          </>
+                        ) : null}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mt: 0.2, fontSize: "0.62rem", lineHeight: 1.35 }}
+                      >
+                        Rpt <strong style={{ color: theme.palette.text.primary }}>{norm.reportDate || "—"}</strong>
+                        {" · "}
+                        Saved <strong style={{ color: theme.palette.text.primary }}>{formatWhen(norm.updatedAt)}</strong>
+                      </Typography>
                     </Box>
-                    <Divider flexItem sx={{ borderColor: "divider" }} />
                     <Box
                       sx={{
                         display: "flex",
                         flexWrap: "wrap",
-                        gap: 2,
-                        typography: "caption",
-                        color: "text.secondary",
+                        gap: 0.35,
+                        alignItems: "center",
+                        flexShrink: 0,
+                        justifyContent: { xs: "flex-start", sm: "flex-end" },
                       }}
                     >
-                      <span>
-                        Report date: <strong style={{ color: theme.palette.text.primary }}>{norm.reportDate || "—"}</strong>
-                      </span>
-                      <span>
-                        Last saved: <strong style={{ color: theme.palette.text.primary }}>{formatWhen(norm.updatedAt)}</strong>
-                      </span>
+                      {raw ? (
+                        <>
+                          <Chip
+                            label={`O ${distTotals.opening.toLocaleString()}`}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontWeight: 700,
+                              fontSize: "0.62rem",
+                              "& .MuiChip-label": { px: 0.75 },
+                            }}
+                          />
+                          <Chip
+                            label={`S ${distTotals.secondary.toLocaleString()}`}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontWeight: 700,
+                              fontSize: "0.62rem",
+                              "& .MuiChip-label": { px: 0.75 },
+                            }}
+                          />
+                          <Chip
+                            label={`C ${distTotals.closing.toLocaleString()}`}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontWeight: 700,
+                              fontSize: "0.62rem",
+                              "& .MuiChip-label": { px: 0.75 },
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <Chip label="No data" size="small" variant="outlined" sx={{ height: 22, fontSize: "0.62rem" }} />
+                      )}
+                      {isRecent ? (
+                        <Chip
+                          label="New"
+                          size="small"
+                          color="success"
+                          sx={{
+                            height: 22,
+                            fontWeight: 800,
+                            fontSize: "0.6rem",
+                            "& .MuiChip-label": { px: 0.65 },
+                          }}
+                        />
+                      ) : null}
                     </Box>
                   </Box>
                 </AccordionSummary>
@@ -476,25 +497,47 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
         square
         sx={{
           flexShrink: 0,
-          px: { xs: 1.5, sm: 2.5 },
-          py: 1.5,
+          px: { xs: 1, sm: 1.5 },
+          py: 0.75,
           borderTop: "1px solid",
           borderColor: "divider",
           display: "flex",
           justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 0.75,
           bgcolor: "background.paper",
         }}
       >
         <Button
+          onClick={handleDownloadExcel}
+          variant="outlined"
+          color="inherit"
+          size="small"
+          sx={{
+            minWidth: 0,
+            px: 1.25,
+            py: 0.4,
+            borderRadius: 1.25,
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            textTransform: "none",
+          }}
+        >
+          Download Excel
+        </Button>
+        <Button
           onClick={onClose}
           variant="contained"
           color="error"
-          size="large"
+          size="small"
           sx={{
-            minWidth: 120,
-            borderRadius: 2,
-            py: 1,
+            minWidth: 0,
+            px: 1.5,
+            py: 0.4,
+            borderRadius: 1.25,
             fontWeight: 700,
+            fontSize: "0.75rem",
+            textTransform: "none",
           }}
         >
           Close
