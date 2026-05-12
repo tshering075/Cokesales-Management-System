@@ -68,6 +68,7 @@ import OrdersSection from "./AdminDashboard/components/OrdersSection";
 import { getTargetPeriod, saveTargetPeriod } from "../utils/targetPeriod";
 import { parseExcelFile } from "../utils/excelUtils";
 import { findDistributorForPartyName, partyNameAggregationKey } from "../utils/distributorNameMatch";
+import { buildDistributorPerformanceSkuDetailRows } from "../utils/performanceSkuAggregation";
 import { 
   getAllDistributors, 
   saveDistributor, 
@@ -1751,21 +1752,46 @@ function AdminDashboard({ onLogout }) {
 
       const ws = XLSX.utils.aoa_to_sheet(excelData);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Performance Report");
-      
-      // Set column widths
-      ws['!cols'] = [
+      XLSX.utils.book_append_sheet(wb, ws, "Performance summary");
+
+      // Set column widths (aggregate sheet)
+      ws["!cols"] = [
         { wch: 25 }, // Distributor
-        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, // Target columns
-        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, // Achieved columns
-        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }  // Balance columns
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 }, // Target columns
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 }, // Achieved columns
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 }, // Balance columns
       ];
 
+      const exportCodes = new Set(
+        filteredDistributors.map((d) => String(d.code ?? "").trim()).filter(Boolean)
+      );
+      const skuDetailRows = buildDistributorPerformanceSkuDetailRows(allSalesData, distributors, exportCodes);
+      const wsSku = XLSX.utils.json_to_sheet(skuDetailRows);
+      wsSku["!cols"] = [
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 10 },
+        { wch: 36 },
+        { wch: 14 },
+        { wch: 14 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsSku, "SKU sale details");
+
       const regionSuffix = selectedRegion !== "All" ? `_${selectedRegion}` : "";
-      const filename = `Distributor_Performance${regionSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filename = `Distributor_Performance${regionSuffix}_${new Date().toISOString().split("T")[0]}.xlsx`;
       XLSX.writeFile(wb, filename);
-      
-      alert(`Excel file downloaded successfully as "${filename}"`);
+
+      alert(`Excel file downloaded successfully as "${filename}" (summary + SKU sale details).`);
     } catch (error) {
       console.error("Error downloading Excel:", error);
       alert("Failed to download Excel file. Please try again.");

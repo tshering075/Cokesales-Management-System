@@ -1041,6 +1041,105 @@ export function subscribeToDistributor(distributorId, callback) {
   }
 }
 
+// ==================== PHYSICAL STOCK SNAPSHOTS (per report date) ====================
+
+function isMissingPhysicalStockSnapshotsTableError(error) {
+  if (!error) return false;
+  const msg = typeof error.message === 'string' ? error.message : '';
+  if (/distributor_physical_stock_snapshots/i.test(msg)) return true;
+  if (error.code === '42P01') return true;
+  return false;
+}
+
+/**
+ * Upsert one snapshot row per distributor + report date (payload matches distributors.physical_stock shape).
+ * @param {string} distributorCode
+ * @param {{ reportDate: string, rows: unknown[], updatedAt?: string }} payload
+ */
+export async function upsertDistributorPhysicalStockSnapshot(distributorCode, payload) {
+  if (!supabase) {
+    throw new Error('Supabase not initialized');
+  }
+  const code = String(distributorCode || '').trim();
+  if (!code || !payload || typeof payload !== 'object') {
+    throw new Error('distributorCode and payload are required');
+  }
+  const reportDate =
+    typeof payload.reportDate === 'string' && payload.reportDate
+      ? payload.reportDate.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+  const row = {
+    distributor_code: code,
+    report_date: reportDate,
+    payload: {
+      reportDate,
+      rows: payload.rows,
+      updatedAt: payload.updatedAt || new Date().toISOString(),
+    },
+    saved_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('distributor_physical_stock_snapshots')
+    .upsert(row, { onConflict: 'distributor_code,report_date' })
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingPhysicalStockSnapshotsTableError(error)) {
+      const e = new Error(
+        'Table distributor_physical_stock_snapshots is missing. Run ADD_DISTRIBUTOR_PHYSICAL_STOCK_SNAPSHOTS.sql in Supabase.'
+      );
+      e.code = 'MISSING_SNAPSHOTS_TABLE';
+      throw e;
+    }
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Load physical stock snapshots for Excel / reporting.
+ * @param {{ dateFrom: string, dateTo: string, distributorCodes?: string[] }} params - YYYY-MM-DD inclusive
+ * @returns {Promise<Array<{ distributor_code: string, report_date: string, payload: object }>>}
+ */
+export async function fetchDistributorPhysicalStockSnapshots({ dateFrom, dateTo, distributorCodes } = {}) {
+  if (!supabase) {
+    throw new Error('Supabase not initialized');
+  }
+  const from = typeof dateFrom === 'string' ? dateFrom.slice(0, 10) : '';
+  const to = typeof dateTo === 'string' ? dateTo.slice(0, 10) : '';
+  if (!from || !to) {
+    throw new Error('dateFrom and dateTo (YYYY-MM-DD) are required');
+  }
+
+  let query = supabase
+    .from('distributor_physical_stock_snapshots')
+    .select('distributor_code, report_date, payload')
+    .gte('report_date', from)
+    .lte('report_date', to)
+    .order('report_date', { ascending: true })
+    .order('distributor_code', { ascending: true });
+
+  const codes = Array.isArray(distributorCodes)
+    ? distributorCodes.map((c) => String(c || '').trim()).filter(Boolean)
+    : [];
+  if (codes.length > 0) {
+    query = query.in('distributor_code', codes);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingPhysicalStockSnapshotsTableError(error)) {
+      console.warn('distributor_physical_stock_snapshots not available:', error.message);
+      return [];
+    }
+    throw error;
+  }
+  return Array.isArray(data) ? data : [];
+}
+
 // ==================== ORDER MANAGEMENT ====================
 
 /**

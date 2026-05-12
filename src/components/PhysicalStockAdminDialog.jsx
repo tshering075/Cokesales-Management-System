@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   Button,
@@ -15,6 +15,7 @@ import {
   Chip,
   Alert,
   Stack,
+  CircularProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -26,9 +27,11 @@ import {
   normalizePhysicalStockPayload,
   getRawPhysicalStockFromDistributor,
   aggregatePhysicalStockTotals,
+  flattenPhysicalStockRowsForExport,
 } from "../utils/physicalStockTemplate";
 import { getAdminPhysicalStockLastSeenAt, getPhysicalStockUpdatesSince } from "../utils/adminPhysicalStockSignals";
 import { alpha, useTheme } from "@mui/material/styles";
+import { supabase, fetchDistributorPhysicalStockSnapshots } from "../services/supabaseService";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -54,6 +57,9 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [recentUpdates, setRecentUpdates] = useState([]);
+  const [exportDateFrom, setExportDateFrom] = useState("");
+  const [exportDateTo, setExportDateTo] = useState("");
+  const [exporting, setExporting] = useState(false);
   const openSessionRef = useRef(false);
 
   const sorted = useMemo(() => {
@@ -61,6 +67,27 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
     list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
     return list;
   }, [distributors]);
+
+  const distributorByCode = useMemo(() => {
+    const m = new Map();
+    for (const d of sorted) {
+      const c = String(d?.code ?? d?.id ?? "").trim();
+      if (!c) continue;
+      m.set(c, d);
+      m.set(c.toUpperCase(), d);
+    }
+    return m;
+  }, [sorted]);
+
+  useEffect(() => {
+    if (!open) return;
+    const to = new Date().toISOString().slice(0, 10);
+    const start = new Date();
+    start.setDate(1);
+    const from = start.toISOString().slice(0, 10);
+    setExportDateFrom(from);
+    setExportDateTo(to);
+  }, [open]);
 
   const todayUpdated = useMemo(() => {
     const isSameLocalDay = (isoLike) => {
@@ -128,57 +155,150 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
     setExpanded(isExp ? code : false);
   };
 
+  const resolveDistributor = useCallback(
+    (code) => {
+      const c = String(code || "").trim();
+      if (!c) return { name: "", code: "", region: "" };
+      const d = distributorByCode.get(c) || distributorByCode.get(c.toUpperCase());
+      return {
+        name: d?.name || "",
+        code: d?.code || d?.id || c,
+        region: d?.region || "",
+      };
+    },
+    [distributorByCode]
+  );
+
   const handleDownloadExcel = async () => {
     try {
+      setExporting(true);
       const XLSX = await import("xlsx");
-      const distributorsForExport = displayed.filter((d) => !!getRawPhysicalStockFromDistributor(d));
-      if (distributorsForExport.length === 0) {
-        alert("No physical stock data available for today's updated distributors.");
-        return;
+      let summaryRows = [];
+      let detailRows = [];
+      let usedHistory = false;
+
+      if (supabase && exportDateFrom && exportDateTo && exportDateFrom <= exportDateTo) {
+        try {
+          const snaps = await fetchDistributorPhysicalStockSnapshots({
+            dateFrom: exportDateFrom,
+            dateTo: exportDateTo,
+          });
+          if (snaps.length > 0) {
+            usedHistory = true;
+            for (const s of snaps) {
+              const code = String(s.distributor_code || "").trim();
+              const dist = resolveDistributor(code);
+              const norm = normalizePhysicalStockPayload(s.payload || {});
+              const reportDate =
+                typeof s.report_date === "string"
+                  ? s.report_date.slice(0, 10)
+                  : norm.reportDate || "";
+              const totals = aggregatePhysicalStockTotals(norm.rows);
+              summaryRows.push({
+                distributor_name: dist.name,
+                distributor_code: dist.code || code,
+                region: dist.region,
+                report_date: reportDate,
+                last_saved: norm.updatedAt || "",
+                opening_total: totals.opening,
+                secondary_total: totals.secondary,
+                closing_total: totals.closing,
+              });
+              for (const line of flattenPhysicalStockRowsForExport(norm.rows)) {
+                detailRows.push({
+                  distributor_name: dist.name,
+                  distributor_code: dist.code || code,
+                  region: dist.region,
+                  report_date: reportDate,
+                  product_sku: line.product_sku,
+                  fifo_lot_seq: line.fifo_lot_seq,
+                  mfg_date: line.mfg_date,
+                  batch_no: line.batch_no,
+                  bbd_date: line.bbd_date,
+                  opening_stock_qty: line.opening_stock_qty,
+                  secondary_sale: line.secondary_sale,
+                  closing_stock_qty: line.closing_stock_qty,
+                });
+              }
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("Physical stock history export:", fetchErr);
+        }
       }
 
-      const summaryRows = distributorsForExport.map((d) => {
-        const raw = getRawPhysicalStockFromDistributor(d);
-        const norm = normalizePhysicalStockPayload(raw || {});
-        const totals = aggregatePhysicalStockTotals(norm.rows);
-        return {
-          distributor_name: d.name || "",
-          distributor_code: d.code || d.id || "",
-          region: d.region || "",
-          report_date: norm.reportDate || "",
-          last_saved: norm.updatedAt || "",
-          opening_total: totals.opening,
-          secondary_total: totals.secondary,
-          closing_total: totals.closing,
-        };
-      });
+      if (summaryRows.length === 0) {
+        const distributorsForExport = displayed.filter((d) => !!getRawPhysicalStockFromDistributor(d));
+        if (distributorsForExport.length === 0) {
+          alert(
+            supabase
+              ? "No rows for this date range in Supabase, and no physical stock for distributors updated today. Widen the range or ensure distributors have saved stock after adding the snapshots table."
+              : "No physical stock data available for today's updated distributors. Connect Supabase and add distributor_physical_stock_snapshots to export by date range."
+          );
+          return;
+        }
 
-      const detailRows = [];
-      distributorsForExport.forEach((d) => {
-        const raw = getRawPhysicalStockFromDistributor(d);
-        const norm = normalizePhysicalStockPayload(raw || {});
-        norm.rows.forEach((r) => {
-          detailRows.push({
+        summaryRows = distributorsForExport.map((d) => {
+          const raw = getRawPhysicalStockFromDistributor(d);
+          const norm = normalizePhysicalStockPayload(raw || {});
+          const totals = aggregatePhysicalStockTotals(norm.rows);
+          return {
             distributor_name: d.name || "",
             distributor_code: d.code || d.id || "",
             region: d.region || "",
-            product_sku: r.productSku || "",
-            opening_stock_qty: Number(r.openingStockQty) || 0,
-            secondary_sale: Number(r.secondarySale) || 0,
-            closing_stock_qty: Number(r.closingStockQty) || 0,
-          });
+            report_date: norm.reportDate || "",
+            last_saved: norm.updatedAt || "",
+            opening_total: totals.opening,
+            secondary_total: totals.secondary,
+            closing_total: totals.closing,
+          };
         });
-      });
+
+        detailRows = [];
+        for (const d of distributorsForExport) {
+          const raw = getRawPhysicalStockFromDistributor(d);
+          const norm = normalizePhysicalStockPayload(raw || {});
+          const reportDate = norm.reportDate || "";
+          for (const line of flattenPhysicalStockRowsForExport(norm.rows)) {
+            detailRows.push({
+              distributor_name: d.name || "",
+              distributor_code: d.code || d.id || "",
+              region: d.region || "",
+              report_date: reportDate,
+              product_sku: line.product_sku,
+              fifo_lot_seq: line.fifo_lot_seq,
+              mfg_date: line.mfg_date,
+              batch_no: line.batch_no,
+              bbd_date: line.bbd_date,
+              opening_stock_qty: line.opening_stock_qty,
+              secondary_sale: line.secondary_sale,
+              closing_stock_qty: line.closing_stock_qty,
+            });
+          }
+        }
+
+        if (supabase && !usedHistory) {
+          console.info(
+            "Excel export used today's in-app list only. Historical rows appear after distributors save stock and distributor_physical_stock_snapshots exists in Supabase."
+          );
+        }
+      }
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), "Distributor Totals");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), "SKU Details");
 
-      const filename = `Physical_Stock_${new Date().toISOString().split("T")[0]}.xlsx`;
+      const tag =
+        usedHistory && exportDateFrom && exportDateTo
+          ? `${exportDateFrom}_to_${exportDateTo}`
+          : new Date().toISOString().split("T")[0];
+      const filename = `Physical_Stock_${tag}.xlsx`;
       XLSX.writeFile(wb, filename);
     } catch (error) {
       console.error("Failed to export physical stock excel:", error);
       alert("Failed to export physical stock Excel file.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -268,6 +388,36 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
             }}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
           />
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            alignItems={{ xs: "stretch", sm: "flex-end" }}
+            flexWrap="wrap"
+            useFlexGap
+          >
+            <TextField
+              label="Excel export from"
+              type="date"
+              size="small"
+              value={exportDateFrom}
+              onChange={(e) => setExportDateFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+            />
+            <TextField
+              label="Excel export to"
+              type="date"
+              size="small"
+              value={exportDateTo}
+              onChange={(e) => setExportDateTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ flex: "1 1 200px", pb: 0.5 }}>
+              Download includes every saved snapshot in this range (one row per distributor per report date). Requires
+              Supabase table <strong>distributor_physical_stock_snapshots</strong>.
+            </Typography>
+          </Stack>
         </Stack>
       </Paper>
 
@@ -513,6 +663,8 @@ export default function PhysicalStockAdminDialog({ open, onClose, distributors, 
           variant="outlined"
           color="inherit"
           size="small"
+          disabled={exporting || !exportDateFrom || !exportDateTo || exportDateFrom > exportDateTo}
+          startIcon={exporting ? <CircularProgress size={14} color="inherit" /> : null}
           sx={{
             minWidth: 0,
             px: 1.25,

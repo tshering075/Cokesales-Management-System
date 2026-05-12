@@ -24,7 +24,7 @@ import {
   getRawPhysicalStockFromDistributor,
   aggregatePhysicalStockTotals,
 } from "../utils/physicalStockTemplate";
-import { updateDistributor } from "../services/supabaseService";
+import { updateDistributor, upsertDistributorPhysicalStockSnapshot } from "../services/supabaseService";
 import { getDistributors, saveDistributors } from "../utils/distributorAuth";
 import { logActivity, ACTIVITY_TYPES } from "../services/activityService";
 
@@ -128,6 +128,26 @@ export default function DistributorPhysicalStockDialog({
     }
   };
 
+  const persistPhysicalStockSnapshot = async (stockPayload) => {
+    if (!isSupabaseConfigured || !distributorCode) return;
+    try {
+      await upsertDistributorPhysicalStockSnapshot(distributorCode, stockPayload);
+    } catch (snapErr) {
+      const missing =
+        snapErr?.code === "MISSING_SNAPSHOTS_TABLE" ||
+        (typeof snapErr?.message === "string" &&
+          /distributor_physical_stock_snapshots/i.test(snapErr.message));
+      if (missing) {
+        console.warn(
+          "Physical stock history table not found; add distributor_physical_stock_snapshots in Supabase (see ADD_DISTRIBUTOR_PHYSICAL_STOCK_SNAPSHOTS.sql).",
+          snapErr
+        );
+      } else {
+        console.warn("Could not save physical stock snapshot row:", snapErr);
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!distributorCode) return;
     const payload = normalizePhysicalStockPayload({
@@ -145,6 +165,7 @@ export default function DistributorPhysicalStockDialog({
           const physical_stock = updated?.physical_stock ?? payload;
           persistLocal(physical_stock);
           setDistributor((prev) => (prev ? { ...prev, ...updated, physical_stock } : prev));
+          await persistPhysicalStockSnapshot(payload);
           applied = true;
         } catch (err) {
           const msg = typeof err?.message === "string" ? err.message : "";
@@ -163,6 +184,7 @@ export default function DistributorPhysicalStockDialog({
             }
             persistLocal(payload);
             setDistributor((prev) => (prev ? { ...prev, physical_stock: payload } : prev));
+            await persistPhysicalStockSnapshot(payload);
             applied = true;
           } else {
             throw err;

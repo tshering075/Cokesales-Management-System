@@ -29,6 +29,25 @@ CREATE INDEX IF NOT EXISTS idx_distributors_uid ON distributors(uid);
 CREATE INDEX IF NOT EXISTS idx_distributors_username ON distributors(username);
 
 -- ============================================================
+-- 1b. PHYSICAL STOCK SNAPSHOTS (history by report date)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS distributor_physical_stock_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  distributor_code TEXT NOT NULL,
+  report_date DATE NOT NULL,
+  payload JSONB NOT NULL,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT distributor_physical_stock_snapshots_dist_date_key
+    UNIQUE (distributor_code, report_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_physical_stock_snapshots_report_date
+  ON distributor_physical_stock_snapshots (report_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_physical_stock_snapshots_dist_code
+  ON distributor_physical_stock_snapshots (distributor_code);
+
+-- ============================================================
 -- 2. ADMINS TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS admins (
