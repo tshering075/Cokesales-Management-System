@@ -2,7 +2,6 @@ import React, { useMemo, useCallback } from "react";
 import {
   Typography,
   Paper,
-  Alert,
   Box,
   Stack,
   Divider,
@@ -16,7 +15,6 @@ import {
   TextField,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import {
@@ -360,34 +358,5 @@ export default function PhysicalStockMatrix({
         <Typography sx={{ textAlign: "right", fontWeight: 900, fontSize: "0.74rem", lineHeight: 1.15 }}>{totals.closing}</Typography>
       </Box>
     </Paper>
-  );
-}
-
-export function PhysicalStockFifoNote() {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
-  return (
-    <Alert
-      icon={<InfoOutlinedIcon fontSize="inherit" />}
-      severity="info"
-      variant="outlined"
-      sx={{
-        mb: 2,
-        borderRadius: 2,
-        alignItems: "flex-start",
-        bgcolor: alpha(theme.palette.info.main, isDark ? 0.16 : 0.06),
-        borderColor: alpha(theme.palette.info.main, isDark ? 0.5 : 0.35),
-        color: "text.primary",
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-        FIFO physical stock
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55 }}>
-        For each SKU, use <strong>one row per batch</strong>: enter manufacturing date (MFG), batch number, and best-before date
-        (BBD), then opening, secondary sale, and closing for that lot. Add extra rows with <strong>Add FIFO lot</strong> when you hold
-        multiple batches. Dispatch oldest BBD first. The <strong>TOTAL PC</strong> footer sums every lot.
-      </Typography>
-    </Alert>
   );
 }

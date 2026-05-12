@@ -18,7 +18,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SaveIcon from "@mui/icons-material/Save";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
 import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
-import PhysicalStockMatrix, { PhysicalStockFifoNote } from "./PhysicalStockMatrix";
+import PhysicalStockMatrix from "./PhysicalStockMatrix";
 import {
   normalizePhysicalStockPayload,
   getRawPhysicalStockFromDistributor,
@@ -341,7 +341,6 @@ export default function DistributorPhysicalStockDialog({
           py: 2,
         }}
       >
-        <PhysicalStockFifoNote />
         {!matrixReady ? (
           <Box sx={{ py: 2 }}>
             <LinearProgress sx={{ borderRadius: 1, height: 6, mb: 2 }} />
